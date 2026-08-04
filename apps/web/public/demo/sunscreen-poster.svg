@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920" role="img" aria-labelledby="title description">
+  <title id="title">Morning UV Routine synthetic sunscreen poster</title>
+  <desc id="description">An original ultraviolet spectrum composition with a sun disc, exposure marks, and an abstract unlabeled sunscreen bottle.</desc>
+  <defs>
+    <linearGradient id="field" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#11141a"/>
+      <stop offset="0.44" stop-color="#271f3f"/>
+      <stop offset="0.72" stop-color="#172b32"/>
+      <stop offset="1" stop-color="#08090b"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="44%" cy="38%" r="64%">
+      <stop offset="0" stop-color="#fff6c7"/>
+      <stop offset="0.38" stop-color="#ffc857"/>
+      <stop offset="0.72" stop-color="#ff765c"/>
+      <stop offset="1" stop-color="#ff3b6a"/>
+    </radialGradient>
+    <linearGradient id="spectrum" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#6b5bff"/>
+      <stop offset="0.48" stop-color="#ff3b6a"/>
+      <stop offset="0.72" stop-color="#ffc857"/>
+      <stop offset="1" stop-color="#35e0d0"/>
+    </linearGradient>
+    <linearGradient id="bottle" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fbfbef"/>
+      <stop offset="0.58" stop-color="#d9f5ed"/>
+      <stop offset="1" stop-color="#93c9c3"/>
+    </linearGradient>
+    <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="26"/>
+    </filter>
+    <filter id="shadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="34" stdDeviation="34" flood-color="#050608" flood-opacity="0.62"/>
+    </filter>
+    <clipPath id="posterClip">
+      <rect width="1080" height="1920"/>
+    </clipPath>
+    <pattern id="grain" width="22" height="22" patternUnits="userSpaceOnUse">
+      <circle cx="3" cy="5" r="1" fill="#f7f7f5" opacity="0.11"/>
+      <circle cx="16" cy="13" r="0.8" fill="#35e0d0" opacity="0.12"/>
+      <path d="M7 20h2" stroke="#ffc857" stroke-width="0.8" opacity="0.12"/>
+    </pattern>
+  </defs>
+
+  <g clip-path="url(#posterClip)">
+    <rect width="1080" height="1920" fill="url(#field)"/>
+    <rect x="-36" y="0" width="1152" height="1920" fill="url(#grain)"/>
+
+    <path d="M-100 560 1180 80" stroke="#6b5bff" stroke-width="128" opacity="0.13"/>
+    <path d="M-120 805 1210 305" stroke="#35e0d0" stroke-width="34" opacity="0.16"/>
+    <path d="M-160 950 1190 445" stroke="url(#spectrum)" stroke-width="12" opacity="0.9"/>
+
+    <circle cx="774" cy="624" r="398" fill="#ffc857" opacity="0.14" filter="url(#softGlow)"/>
+    <circle cx="774" cy="624" r="310" fill="url(#sun)"/>
+    <circle cx="774" cy="624" r="348" fill="none" stroke="#ffc857" stroke-width="2" stroke-dasharray="8 22" opacity="0.68"/>
+    <circle cx="774" cy="624" r="384" fill="none" stroke="#35e0d0" stroke-width="2" stroke-dasharray="2 30" opacity="0.52"/>
+    <path d="M551 624h446M774 401v446" stroke="#18141f" stroke-width="2" opacity="0.32"/>
+
+    <g fill="#f7f7f5" font-family="Arial Narrow, Helvetica Neue, Arial, sans-serif" font-weight="900" letter-spacing="-15">
+      <text x="-84" y="294" font-size="246">MORNING</text>
+      <text x="-28" y="520" font-size="302">UV</text>
+      <text x="-106" y="756" font-size="230">ROUTINE</text>
+    </g>
+
+    <g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="25" letter-spacing="4" fill="#f7f7f5">
+      <rect x="74" y="92" width="254" height="52" rx="26" fill="#0b0d11" stroke="#f7f7f5" stroke-opacity="0.35"/>
+      <text x="102" y="126">Synthetic demo</text>
+      <text x="78" y="866" fill="#35e0d0">EXPOSURE STUDY / 07:40</text>
+    </g>
+
+    <g opacity="0.78" stroke="#f7f7f5" stroke-width="2">
+      <path d="M76 927h346"/>
+      <path d="M76 914v26M126 920v14M176 920v14M226 914v26M276 920v14M326 920v14M376 914v26M422 920v14"/>
+    </g>
+    <g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="20" fill="#b6b8be" letter-spacing="2">
+      <text x="76" y="976">UVB 280—315</text>
+      <text x="278" y="976">UVA 315—400</text>
+    </g>
+
+    <g transform="translate(242 1020) rotate(-7 260 410)" filter="url(#shadow)">
+      <ellipse cx="282" cy="772" rx="252" ry="72" fill="#090a0d" opacity="0.45"/>
+      <path d="M153 111Q153 72 192 72h168q39 0 39 39v88H153Z" fill="#202329"/>
+      <rect x="202" y="20" width="148" height="82" rx="18" fill="#343840"/>
+      <path d="M113 194Q113 154 153 154h246q40 0 40 40l55 486q6 54-48 54H106q-54 0-48-54Z" fill="url(#bottle)"/>
+      <path d="M148 213q-18 314-6 465" fill="none" stroke="#ffffff" stroke-width="16" stroke-linecap="round" opacity="0.42"/>
+      <circle cx="276" cy="438" r="94" fill="none" stroke="#6b5bff" stroke-width="13" opacity="0.86"/>
+      <path d="M276 314v38M276 524v38M152 438h38M362 438h38M188 350l27 27M337 499l27 27M188 526l27-27M337 377l27-27" stroke="#ff3b6a" stroke-width="11" stroke-linecap="round"/>
+      <circle cx="276" cy="438" r="42" fill="#ffc857"/>
+    </g>
+
+    <g transform="translate(778 1110)" font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="18" fill="#f7f7f5" letter-spacing="3">
+      <path d="M0 0v480" stroke="#f7f7f5" stroke-width="2" opacity="0.56"/>
+      <path d="M0 28h84M0 94h48M0 160h84M0 226h48M0 292h84M0 358h48M0 424h84" stroke="#f7f7f5" stroke-width="2" opacity="0.56"/>
+      <text x="104" y="36">08</text>
+      <text x="104" y="168">06</text>
+      <text x="104" y="300">04</text>
+      <text x="104" y="432">02</text>
+    </g>
+
+    <rect x="74" y="1730" width="932" height="2" fill="url(#spectrum)"/>
+    <g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="22" letter-spacing="4">
+      <text x="76" y="1788" fill="#f7f7f5">LIGHTWEIGHT FLUID / HUMID COMMUTE</text>
+      <text x="76" y="1838" fill="#35e0d0">CONTENT CONTEXT 001</text>
+    </g>
+  </g>
+</svg>
