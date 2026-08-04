@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Literal
 
@@ -127,6 +128,37 @@ class CartPreviewRequest(BaseModel):
 
 class AddCartItemRequest(BaseModel):
     confirmation_token: str
+
+
+class CompareResponse(BaseModel):
+    session_id: str
+    state: WorkflowState
+    product_ids: list[str]
+    rows: dict[str, list[str | int | float | bool | None]]
+
+
+class CartPreviewResponse(BaseModel):
+    session_id: str
+    state: WorkflowState
+    sku_id: str
+    quantity: int
+    unit_price_usd: float
+    subtotal_usd: float
+    inventory_units: int
+    confirmation_token: str
+    created_at: datetime
+    simulated: Literal[True]
+
+
+class CartItemResponse(BaseModel):
+    cart_id: str
+    cart_item_id: str
+    session_id: str
+    state: WorkflowState
+    sku_id: str
+    quantity: int
+    unit_price_usd: float
+    simulated: Literal[True]
 
 
 class ClaimVerification(BaseModel):
