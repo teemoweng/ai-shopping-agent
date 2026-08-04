@@ -1,7 +1,8 @@
+from collections.abc import Mapping
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, NoReturn
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.domain.contracts import (
     EntryPoint,
@@ -10,6 +11,52 @@ from app.domain.contracts import (
     SoftPreferences,
     WorkflowState,
 )
+
+_FORBIDDEN_TRACE_PAYLOAD_KEYS = frozenset({"chain_of_thought"})
+
+
+class _FrozenDict(dict[str, Any]):
+    def _immutable(self, *args: object, **kwargs: object) -> NoReturn:
+        raise TypeError("trace payload is immutable")
+
+    __setitem__ = _immutable
+    __delitem__ = _immutable
+    __ior__ = _immutable
+    clear = _immutable
+    pop = _immutable
+    popitem = _immutable
+    setdefault = _immutable
+    update = _immutable
+
+
+class _FrozenList(list[Any]):
+    def _immutable(self, *args: object, **kwargs: object) -> NoReturn:
+        raise TypeError("trace payload is immutable")
+
+    __setitem__ = _immutable
+    __delitem__ = _immutable
+    __iadd__ = _immutable
+    __imul__ = _immutable
+    append = _immutable
+    clear = _immutable
+    extend = _immutable
+    insert = _immutable
+    pop = _immutable
+    remove = _immutable
+    reverse = _immutable
+    sort = _immutable
+
+
+def _freeze_trace_payload(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        if any(
+            isinstance(key, str) and key in _FORBIDDEN_TRACE_PAYLOAD_KEYS for key in value
+        ):
+            raise ValueError("trace payload must not contain chain_of_thought")
+        return _FrozenDict({key: _freeze_trace_payload(item) for key, item in value.items()})
+    if isinstance(value, (list, tuple)):
+        return _FrozenList(_freeze_trace_payload(item) for item in value)
+    return value
 
 
 class GuideSession(BaseModel):
@@ -37,3 +84,8 @@ class TraceEvent(BaseModel):
     state: WorkflowState
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     payload: dict[str, Any]
+
+    @field_validator("payload")
+    @classmethod
+    def validate_and_freeze_payload(cls, payload: dict[str, Any]) -> dict[str, Any]:
+        return _freeze_trace_payload(payload)
