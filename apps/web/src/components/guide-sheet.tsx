@@ -93,6 +93,14 @@ function previewRecoveryMessage(errorCode: string) {
   return "Current price and stock could not be checked. Keep this size selected and try previewing again.";
 }
 
+function recommendationSummary(text: string) {
+  return text.replace(/closest fit/gi, "best overall match");
+}
+
+function noMatchSummary(text: string) {
+  return text.replace(/change one requirement/gi, "adjust one must-have");
+}
+
 function sourceHost(url: string) {
   try {
     return new URL(url).hostname.replace(/^www\./, "");
@@ -690,14 +698,18 @@ export function GuideSheet({
             uiState.status !== "safety_boundary" ? (
               <div className="decisionPrompt">
                 <span>{isSubmitting ? "Checking product facts…" : "One clarification"}</span>
-                <p>{turn.text}</p>
+                <p>
+                  {uiState.status === "recommendation"
+                    ? recommendationSummary(turn.text)
+                    : turn.text}
+                </p>
               </div>
             ) : null}
             {uiState.status === "no_match" ? (
               <section className="errorPanel noMatchPanel">
                 <span>Hard constraints preserved</span>
                 <h2>Change one requirement</h2>
-                <p>{uiState.turn.text}</p>
+                <p>{noMatchSummary(uiState.turn.text)}</p>
               </section>
             ) : null}
             {uiState.status === "safety_boundary" ? (
