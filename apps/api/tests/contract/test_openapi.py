@@ -12,3 +12,14 @@ def test_health_endpoint_is_versioned() -> None:
 def test_openapi_contains_guide_session_path() -> None:
     schema = app.openapi()
     assert "/api/v1/guide/sessions" in schema["paths"]
+
+
+def test_openapi_contains_complete_vertical_slice() -> None:
+    paths = app.openapi()["paths"]
+    assert {
+        "/api/v1/guide/sessions",
+        "/api/v1/guide/sessions/{session_id}/messages",
+        "/api/v1/guide/sessions/{session_id}/compare",
+        "/api/v1/guide/sessions/{session_id}/cart/preview",
+        "/api/v1/guide/sessions/{session_id}/cart/items",
+    } <= set(paths)

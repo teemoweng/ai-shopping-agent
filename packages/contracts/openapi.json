@@ -1,6 +1,285 @@
 {
   "components": {
     "schemas": {
+      "AddCartItemRequest": {
+        "properties": {
+          "confirmation_token": {
+            "title": "Confirmation Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirmation_token"
+        ],
+        "title": "AddCartItemRequest",
+        "type": "object"
+      },
+      "CartItemResponse": {
+        "properties": {
+          "cart_id": {
+            "title": "Cart Id",
+            "type": "string"
+          },
+          "cart_item_id": {
+            "title": "Cart Item Id",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "simulated": {
+            "const": true,
+            "title": "Simulated",
+            "type": "boolean"
+          },
+          "sku_id": {
+            "title": "Sku Id",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/WorkflowState"
+          },
+          "unit_price_usd": {
+            "title": "Unit Price Usd",
+            "type": "number"
+          }
+        },
+        "required": [
+          "cart_id",
+          "cart_item_id",
+          "session_id",
+          "state",
+          "sku_id",
+          "quantity",
+          "unit_price_usd",
+          "simulated"
+        ],
+        "title": "CartItemResponse",
+        "type": "object"
+      },
+      "CartPreviewRequest": {
+        "properties": {
+          "quantity": {
+            "default": 1,
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "sku_id": {
+            "title": "Sku Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sku_id"
+        ],
+        "title": "CartPreviewRequest",
+        "type": "object"
+      },
+      "CartPreviewResponse": {
+        "properties": {
+          "confirmation_token": {
+            "title": "Confirmation Token",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "inventory_units": {
+            "title": "Inventory Units",
+            "type": "integer"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "simulated": {
+            "const": true,
+            "title": "Simulated",
+            "type": "boolean"
+          },
+          "sku_id": {
+            "title": "Sku Id",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/WorkflowState"
+          },
+          "subtotal_usd": {
+            "title": "Subtotal Usd",
+            "type": "number"
+          },
+          "unit_price_usd": {
+            "title": "Unit Price Usd",
+            "type": "number"
+          }
+        },
+        "required": [
+          "session_id",
+          "state",
+          "sku_id",
+          "quantity",
+          "unit_price_usd",
+          "subtotal_usd",
+          "inventory_units",
+          "confirmation_token",
+          "created_at",
+          "simulated"
+        ],
+        "title": "CartPreviewResponse",
+        "type": "object"
+      },
+      "ClaimVerification": {
+        "properties": {
+          "claim_id": {
+            "title": "Claim Id",
+            "type": "string"
+          },
+          "evidence_id": {
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/EvidenceStatus"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "claim_id",
+          "text",
+          "status",
+          "evidence_id"
+        ],
+        "title": "ClaimVerification",
+        "type": "object"
+      },
+      "CompareRequest": {
+        "properties": {
+          "product_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 3,
+            "minItems": 2,
+            "title": "Product Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "product_ids"
+        ],
+        "title": "CompareRequest",
+        "type": "object"
+      },
+      "CompareResponse": {
+        "properties": {
+          "product_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Product Ids",
+            "type": "array"
+          },
+          "rows": {
+            "additionalProperties": {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            "title": "Rows",
+            "type": "object"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "simulated": {
+            "const": true,
+            "title": "Simulated",
+            "type": "boolean"
+          },
+          "state": {
+            "$ref": "#/components/schemas/WorkflowState"
+          }
+        },
+        "required": [
+          "session_id",
+          "state",
+          "product_ids",
+          "rows",
+          "simulated"
+        ],
+        "title": "CompareResponse",
+        "type": "object"
+      },
+      "ContentContextSummary": {
+        "properties": {
+          "anchor_product_id": {
+            "title": "Anchor Product Id",
+            "type": "string"
+          },
+          "caption": {
+            "title": "Caption",
+            "type": "string"
+          },
+          "claims": {
+            "items": {
+              "$ref": "#/components/schemas/ClaimVerification"
+            },
+            "title": "Claims",
+            "type": "array"
+          },
+          "creator_handle": {
+            "title": "Creator Handle",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "anchor_product_id",
+          "creator_handle",
+          "caption",
+          "claims"
+        ],
+        "title": "ContentContextSummary",
+        "type": "object"
+      },
       "CreateGuideSessionRequest": {
         "oneOf": [
           {
@@ -51,6 +330,161 @@
         "title": "EntryPoint",
         "type": "string"
       },
+      "EvidenceReference": {
+        "properties": {
+          "evidence_id": {
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "source_kind": {
+            "enum": [
+              "public_rule",
+              "synthetic_review_aggregate"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/EvidenceStatus"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "synthetic": {
+            "title": "Synthetic",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "format": "uri",
+            "maxLength": 2083,
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evidence_id",
+          "title",
+          "url",
+          "source_kind",
+          "synthetic",
+          "status",
+          "summary"
+        ],
+        "title": "EvidenceReference",
+        "type": "object"
+      },
+      "EvidenceStatus": {
+        "enum": [
+          "SUPPORTED",
+          "CONFLICTING",
+          "INSUFFICIENT_EVIDENCE",
+          "SUBJECTIVE_MIXED"
+        ],
+        "title": "EvidenceStatus",
+        "type": "string"
+      },
+      "GuideMessageRequest": {
+        "properties": {
+          "message_id": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Message Id",
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message_id",
+          "text"
+        ],
+        "title": "GuideMessageRequest",
+        "type": "object"
+      },
+      "GuideTurnResponse": {
+        "properties": {
+          "context": {
+            "$ref": "#/components/schemas/ContentContextSummary"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceReference"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "opening",
+              "clarification",
+              "recommendation",
+              "no_match",
+              "safety_boundary"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "quick_replies": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Quick Replies",
+            "type": "array"
+          },
+          "recommendations": {
+            "items": {
+              "$ref": "#/components/schemas/RecommendationCard"
+            },
+            "title": "Recommendations",
+            "type": "array"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/WorkflowState"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "trace_id": {
+            "title": "Trace Id",
+            "type": "string"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Verdict"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "session_id",
+          "trace_id",
+          "state",
+          "kind",
+          "text",
+          "context"
+        ],
+        "title": "GuideTurnResponse",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -62,6 +496,70 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "RecommendationCard": {
+        "properties": {
+          "brand": {
+            "title": "Brand",
+            "type": "string"
+          },
+          "eligible_sku_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Eligible Sku Ids",
+            "type": "array"
+          },
+          "evidence_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Ids",
+            "type": "array"
+          },
+          "fit_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Fit Reasons",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "product_id": {
+            "title": "Product Id",
+            "type": "string"
+          },
+          "starting_price_usd": {
+            "title": "Starting Price Usd",
+            "type": "number"
+          },
+          "tradeoffs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tradeoffs",
+            "type": "array"
+          },
+          "verdict": {
+            "$ref": "#/components/schemas/Verdict"
+          }
+        },
+        "required": [
+          "product_id",
+          "brand",
+          "name",
+          "verdict",
+          "fit_reasons",
+          "tradeoffs",
+          "eligible_sku_ids",
+          "starting_price_usd",
+          "evidence_ids"
+        ],
+        "title": "RecommendationCard",
         "type": "object"
       },
       "ValidationError": {
@@ -103,6 +601,31 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "Verdict": {
+        "enum": [
+          "SUITABLE",
+          "CONDITIONAL",
+          "NOT_RECOMMENDED",
+          "INSUFFICIENT_EVIDENCE"
+        ],
+        "title": "Verdict",
+        "type": "string"
+      },
+      "WorkflowState": {
+        "enum": [
+          "ENTRY_INGEST",
+          "UNDERSTAND",
+          "CLARIFY",
+          "VERIFY_CURRENT_PRODUCT",
+          "FILTER_AND_RETRIEVE",
+          "PRESENT_RECOMMENDATION",
+          "COMPARE",
+          "SKU_AND_CART_CONFIRM",
+          "FEEDBACK_AND_MEMORY"
+        ],
+        "title": "WorkflowState",
+        "type": "string"
       }
     }
   },
@@ -114,7 +637,7 @@
   "paths": {
     "/api/v1/guide/sessions": {
       "post": {
-        "operationId": "create_guide_session_contract_api_v1_guide_sessions_post",
+        "operationId": "create_session_api_v1_guide_sessions_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -126,6 +649,16 @@
           "required": true
         },
         "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuideTurnResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -135,23 +668,220 @@
               }
             },
             "description": "Validation Error"
+          }
+        },
+        "summary": "Create Session",
+        "tags": [
+          "guide"
+        ]
+      }
+    },
+    "/api/v1/guide/sessions/{session_id}/cart/items": {
+      "post": {
+        "operationId": "add_api_v1_guide_sessions__session_id__cart_items_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCartItemRequest"
+              }
+            }
           },
-          "501": {
+          "required": true
+        },
+        "responses": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "title": "Response Create Guide Session Contract Api V1 Guide Sessions Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/CartItemResponse"
                 }
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
-        "summary": "Create Guide Session Contract"
+        "summary": "Add",
+        "tags": [
+          "decision"
+        ]
+      }
+    },
+    "/api/v1/guide/sessions/{session_id}/cart/preview": {
+      "post": {
+        "operationId": "preview_api_v1_guide_sessions__session_id__cart_preview_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CartPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CartPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview",
+        "tags": [
+          "decision"
+        ]
+      }
+    },
+    "/api/v1/guide/sessions/{session_id}/compare": {
+      "post": {
+        "operationId": "compare_api_v1_guide_sessions__session_id__compare_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompareResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Compare",
+        "tags": [
+          "decision"
+        ]
+      }
+    },
+    "/api/v1/guide/sessions/{session_id}/messages": {
+      "post": {
+        "operationId": "post_message_api_v1_guide_sessions__session_id__messages_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GuideMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuideTurnResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Message",
+        "tags": [
+          "guide"
+        ]
       }
     },
     "/api/v1/health": {

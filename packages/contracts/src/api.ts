@@ -13,8 +13,76 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create Guide Session Contract */
-        post: operations["create_guide_session_contract_api_v1_guide_sessions_post"];
+        /** Create Session */
+        post: operations["create_session_api_v1_guide_sessions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/guide/sessions/{session_id}/cart/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add */
+        post: operations["add_api_v1_guide_sessions__session_id__cart_items_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/guide/sessions/{session_id}/cart/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview */
+        post: operations["preview_api_v1_guide_sessions__session_id__cart_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/guide/sessions/{session_id}/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Compare */
+        post: operations["compare_api_v1_guide_sessions__session_id__compare_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/guide/sessions/{session_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Message */
+        post: operations["post_message_api_v1_guide_sessions__session_id__messages_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -42,6 +110,115 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AddCartItemRequest */
+        AddCartItemRequest: {
+            /** Confirmation Token */
+            confirmation_token: string;
+        };
+        /** CartItemResponse */
+        CartItemResponse: {
+            /** Cart Id */
+            cart_id: string;
+            /** Cart Item Id */
+            cart_item_id: string;
+            /** Quantity */
+            quantity: number;
+            /** Session Id */
+            session_id: string;
+            /**
+             * Simulated
+             * @constant
+             */
+            simulated: true;
+            /** Sku Id */
+            sku_id: string;
+            state: components["schemas"]["WorkflowState"];
+            /** Unit Price Usd */
+            unit_price_usd: number;
+        };
+        /** CartPreviewRequest */
+        CartPreviewRequest: {
+            /**
+             * Quantity
+             * @default 1
+             */
+            quantity: number;
+            /** Sku Id */
+            sku_id: string;
+        };
+        /** CartPreviewResponse */
+        CartPreviewResponse: {
+            /** Confirmation Token */
+            confirmation_token: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Inventory Units */
+            inventory_units: number;
+            /** Quantity */
+            quantity: number;
+            /** Session Id */
+            session_id: string;
+            /**
+             * Simulated
+             * @constant
+             */
+            simulated: true;
+            /** Sku Id */
+            sku_id: string;
+            state: components["schemas"]["WorkflowState"];
+            /** Subtotal Usd */
+            subtotal_usd: number;
+            /** Unit Price Usd */
+            unit_price_usd: number;
+        };
+        /** ClaimVerification */
+        ClaimVerification: {
+            /** Claim Id */
+            claim_id: string;
+            /** Evidence Id */
+            evidence_id: string;
+            status: components["schemas"]["EvidenceStatus"];
+            /** Text */
+            text: string;
+        };
+        /** CompareRequest */
+        CompareRequest: {
+            /** Product Ids */
+            product_ids: string[];
+        };
+        /** CompareResponse */
+        CompareResponse: {
+            /** Product Ids */
+            product_ids: string[];
+            /** Rows */
+            rows: {
+                [key: string]: (string | number | boolean | null)[];
+            };
+            /** Session Id */
+            session_id: string;
+            /**
+             * Simulated
+             * @constant
+             */
+            simulated: true;
+            state: components["schemas"]["WorkflowState"];
+        };
+        /** ContentContextSummary */
+        ContentContextSummary: {
+            /** Anchor Product Id */
+            anchor_product_id: string;
+            /** Caption */
+            caption: string;
+            /** Claims */
+            claims: components["schemas"]["ClaimVerification"][];
+            /** Creator Handle */
+            creator_handle: string;
+            /** Id */
+            id: string;
+        };
         /** CreateGuideSessionRequest */
         CreateGuideSessionRequest: {
             content_context_id: string;
@@ -57,10 +234,87 @@ export interface components {
          * @enum {string}
          */
         EntryPoint: "content" | "search";
+        /** EvidenceReference */
+        EvidenceReference: {
+            /** Evidence Id */
+            evidence_id: string;
+            /**
+             * Source Kind
+             * @enum {string}
+             */
+            source_kind: "public_rule" | "synthetic_review_aggregate";
+            status: components["schemas"]["EvidenceStatus"];
+            /** Summary */
+            summary: string;
+            /** Synthetic */
+            synthetic: boolean;
+            /** Title */
+            title: string;
+            /**
+             * Url
+             * Format: uri
+             */
+            url: string;
+        };
+        /**
+         * EvidenceStatus
+         * @enum {string}
+         */
+        EvidenceStatus: "SUPPORTED" | "CONFLICTING" | "INSUFFICIENT_EVIDENCE" | "SUBJECTIVE_MIXED";
+        /** GuideMessageRequest */
+        GuideMessageRequest: {
+            /** Message Id */
+            message_id: string;
+            /** Text */
+            text: string;
+        };
+        /** GuideTurnResponse */
+        GuideTurnResponse: {
+            context: components["schemas"]["ContentContextSummary"];
+            /** Evidence */
+            evidence?: components["schemas"]["EvidenceReference"][];
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "opening" | "clarification" | "recommendation" | "no_match" | "safety_boundary";
+            /** Quick Replies */
+            quick_replies?: string[];
+            /** Recommendations */
+            recommendations?: components["schemas"]["RecommendationCard"][];
+            /** Session Id */
+            session_id: string;
+            state: components["schemas"]["WorkflowState"];
+            /** Text */
+            text: string;
+            /** Trace Id */
+            trace_id: string;
+            verdict?: components["schemas"]["Verdict"] | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** RecommendationCard */
+        RecommendationCard: {
+            /** Brand */
+            brand: string;
+            /** Eligible Sku Ids */
+            eligible_sku_ids: string[];
+            /** Evidence Ids */
+            evidence_ids: string[];
+            /** Fit Reasons */
+            fit_reasons: string[];
+            /** Name */
+            name: string;
+            /** Product Id */
+            product_id: string;
+            /** Starting Price Usd */
+            starting_price_usd: number;
+            /** Tradeoffs */
+            tradeoffs: string[];
+            verdict: components["schemas"]["Verdict"];
         };
         /** ValidationError */
         ValidationError: {
@@ -75,6 +329,16 @@ export interface components {
             /** Error Type */
             type: string;
         };
+        /**
+         * Verdict
+         * @enum {string}
+         */
+        Verdict: "SUITABLE" | "CONDITIONAL" | "NOT_RECOMMENDED" | "INSUFFICIENT_EVIDENCE";
+        /**
+         * WorkflowState
+         * @enum {string}
+         */
+        WorkflowState: "ENTRY_INGEST" | "UNDERSTAND" | "CLARIFY" | "VERIFY_CURRENT_PRODUCT" | "FILTER_AND_RETRIEVE" | "PRESENT_RECOMMENDATION" | "COMPARE" | "SKU_AND_CART_CONFIRM" | "FEEDBACK_AND_MEMORY";
     };
     responses: never;
     parameters: never;
@@ -84,7 +348,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    create_guide_session_contract_api_v1_guide_sessions_post: {
+    create_session_api_v1_guide_sessions_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -97,6 +361,15 @@ export interface operations {
             };
         };
         responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GuideTurnResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -106,15 +379,144 @@ export interface operations {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
+        };
+    };
+    add_api_v1_guide_sessions__session_id__cart_items_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddCartItemRequest"];
+            };
+        };
+        responses: {
             /** @description Successful Response */
-            501: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: string;
-                    };
+                    "application/json": components["schemas"]["CartItemResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_api_v1_guide_sessions__session_id__cart_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CartPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CartPreviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    compare_api_v1_guide_sessions__session_id__compare_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompareRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompareResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_message_api_v1_guide_sessions__session_id__messages_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GuideMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GuideTurnResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
