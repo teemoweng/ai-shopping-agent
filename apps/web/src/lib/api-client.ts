@@ -22,7 +22,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 async function parseResponseBody(response: Response): Promise<unknown> {
-  const body = await response.text();
+  let body: string;
+  try {
+    body = await response.text();
+  } catch {
+    return undefined;
+  }
   if (!body) {
     return undefined;
   }

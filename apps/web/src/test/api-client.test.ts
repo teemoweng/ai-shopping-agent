@@ -72,6 +72,22 @@ function mockJson(payload: unknown, status = 200) {
   );
 }
 
+function mockAbortedBody(status: number) {
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode('{"detail":'));
+      controller.error(new Error("body stream aborted"));
+    },
+  });
+
+  return vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    new Response(body, {
+      status,
+      headers: { "Content-Type": "application/json" },
+    }),
+  );
+}
+
 afterEach(() => vi.restoreAllMocks());
 
 describe("shopping guide client", () => {
@@ -225,6 +241,36 @@ describe("shopping guide client", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 200 }));
 
     await expect(createGuideSession("morning-routine-uv-001")).rejects.toMatchObject({
+      status: 200,
+      code: "INVALID_API_RESPONSE",
+      message: "INVALID_API_RESPONSE",
+    });
+  });
+
+  it("normalizes an aborted error-response body", async () => {
+    mockAbortedBody(502);
+
+    const error = await createGuideSession("morning-routine-uv-001").catch(
+      (reason: unknown) => reason,
+    );
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({
+      status: 502,
+      code: "UNKNOWN_API_ERROR",
+      message: "UNKNOWN_API_ERROR",
+    });
+  });
+
+  it("normalizes an aborted successful-response body", async () => {
+    mockAbortedBody(200);
+
+    const error = await createGuideSession("morning-routine-uv-001").catch(
+      (reason: unknown) => reason,
+    );
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({
       status: 200,
       code: "INVALID_API_RESPONSE",
       message: "INVALID_API_RESPONSE",
