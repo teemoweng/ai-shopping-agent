@@ -1154,16 +1154,100 @@ a:focus-visible {
   background: #35e0d00b;
 }
 
-.cartSuccess h2 {
-  margin-top: 4px;
+.decisionReceiptHeader {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.cartSuccess dl {
+.decisionReceiptHeader > div {
+  display: grid;
+  gap: 3px;
+}
+
+.decisionReceiptHeader > div > span,
+.decisionReceiptRecommendation > span,
+.decisionReceiptFacts dt {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 8px;
+  font-weight: 720;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.decisionReceiptHeader > strong {
+  padding: 4px 7px;
+  color: #06110f;
+  border-radius: 999px;
+  background: var(--aqua);
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.cartSuccess h2 {
+  margin: 0;
+}
+
+.decisionReceiptContext {
+  margin: 10px 0 0 !important;
+  color: var(--ink) !important;
+  font-size: 10px !important;
+  font-weight: 720;
+}
+
+.decisionReceiptRecommendation {
+  display: grid;
+  gap: 3px;
   margin-top: 9px;
+  padding: 8px 9px;
+  border: 1px solid #35e0d02f;
+  border-radius: 9px;
+  background: #35e0d008;
+}
+
+.decisionReceiptRecommendation strong {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.decisionReceiptRecommendation small {
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.decisionReceiptFacts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 12px;
+  margin-top: 7px !important;
+}
+
+.decisionReceiptFacts > div {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 3px !important;
+  padding: 6px 0 !important;
+}
+
+.decisionReceiptFacts dd {
+  text-align: left !important;
+}
+
+.decisionReceiptSku,
+.decisionReceiptReference {
+  grid-column: 1 / -1;
+}
+
+.decisionReceiptReference {
+  border-bottom: 0 !important;
 }
 
 .cartSuccess p {
-  margin: 10px 0 0;
+  margin: 8px 0 0;
   color: var(--muted);
   font-size: 9px;
   line-height: 1.45;

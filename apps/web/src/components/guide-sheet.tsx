@@ -853,6 +853,7 @@ export function GuideSheet({
                 <CartConfirmation
                   preview={preview}
                   cartItem={cartItem}
+                  turn={uiState.turn}
                   pending={cartPending}
                   previewPending={previewPending}
                   errorCode={cartErrorCode}

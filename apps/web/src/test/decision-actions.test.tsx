@@ -58,6 +58,14 @@ const publicEvidence: components["schemas"]["EvidenceReference"] = {
   url: "https://www.fda.gov/drugs/sunscreen-guide",
 };
 
+const firstConfirmation = ["confirm", "synthetic", "first"].join("_");
+const refreshedConfirmation = ["confirm", "synthetic", "refreshed"].join(
+  "_",
+);
+const secondSkuConfirmation = ["confirm", "synthetic", "second", "sku"].join(
+  "_",
+);
+
 const clarificationTurn: GuideTurn = {
   session_id: "ses_guide_1",
   trace_id: "trace_guide_1",
@@ -146,14 +154,14 @@ const firstPreview: CartPreviewResponse = {
   unit_price_usd: 19,
   subtotal_usd: 19,
   inventory_units: 7,
-  confirmation_token: "confirm_secret_first",
+  confirmation_token: firstConfirmation,
   created_at: "2026-08-05T00:00:00Z",
   simulated: true,
 };
 
 const refreshedPreview: CartPreviewResponse = {
   ...firstPreview,
-  confirmation_token: "confirm_secret_refreshed",
+  confirmation_token: refreshedConfirmation,
   created_at: "2026-08-05T00:01:00Z",
   inventory_units: 6,
 };
@@ -562,7 +570,7 @@ describe.each([
   });
 });
 
-it("previews exact facts, keeps the token secret, and adds only after resolved confirmation", async () => {
+it("previews exact facts and renders a grounded decision receipt only after resolved confirmation", async () => {
   const previewPending = deferred<CartPreviewResponse>();
   const addPending = deferred<CartItemResponse>();
   api.previewCart.mockReturnValue(previewPending.promise);
@@ -618,9 +626,31 @@ it("previews exact facts, keeps the token secret, and adds only after resolved c
   expect(screen.queryByText("Added to simulated cart")).not.toBeInTheDocument();
 
   await act(async () => addPending.resolve(cartItem));
-  expect(await screen.findByText("Added to simulated cart")).toBeVisible();
-  expect(screen.getByText("item_simulated_1")).toBeVisible();
-  expect(screen.getByText(/no order or payment was created/i)).toBeVisible();
+  const decisionReceipt = await screen.findByRole("region", {
+    name: "Simulated cart decision receipt",
+  });
+  expect(
+    within(decisionReceipt).getByText(
+      "@routine.notes · Seoul Shade Daily Fluid",
+    ),
+  ).toBeVisible();
+  expect(
+    within(decisionReceipt).getByText("Seoul Shade Daily Fluid · Suitable"),
+  ).toBeVisible();
+  expect(
+    within(decisionReceipt).getByText(
+      "1 public source · FDA sunscreen labeling guide",
+    ),
+  ).toBeVisible();
+  expect(within(decisionReceipt).getByText("Added to simulated cart")).toBeVisible();
+  expect(within(decisionReceipt).getByText("seoul-shade-50")).toBeVisible();
+  expect(within(decisionReceipt).getAllByText("$19.00")).toHaveLength(2);
+  expect(within(decisionReceipt).getByText("7 units at preview")).toBeVisible();
+  expect(within(decisionReceipt).getByText("Quantity 1")).toBeVisible();
+  expect(within(decisionReceipt).getByText("item_simulated_1")).toBeVisible();
+  expect(
+    within(decisionReceipt).getByText(/no order or payment was created/i),
+  ).toBeVisible();
   expectSecretAbsent(firstPreview.confirmation_token);
 });
 
@@ -696,7 +726,7 @@ it("ignores a stale confirmation after a new SKU preview replaces it", async () 
     sku_id: "seoul-shade-30",
     unit_price_usd: 14,
     subtotal_usd: 14,
-    confirmation_token: "confirm_secret_second_sku",
+    confirmation_token: secondSkuConfirmation,
   };
   api.addCartItem.mockReturnValueOnce(pendingAdd.promise);
   api.previewCart

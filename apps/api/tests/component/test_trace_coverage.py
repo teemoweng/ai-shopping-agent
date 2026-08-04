@@ -17,6 +17,13 @@ from app.workflow.engine import WorkflowEngine
 from app.workflow.tools import ShoppingTools
 
 FIXTURE_ROOT = Path(__file__).parents[4] / "data" / "fixtures"
+COMMITTED_TRACE_SAMPLE = (
+    Path(__file__).parents[4]
+    / "artifacts"
+    / "traces"
+    / "samples"
+    / "foundation-golden.jsonl"
+)
 GOLDEN_INPUT = "Under $20, fragrance-free, natural finish, daily commute"
 TOOL_PAYLOAD_KEYS = {
     "tool_name",
@@ -173,6 +180,57 @@ def test_golden_path_records_redacted_tool_and_cart_boundaries(tmp_path) -> None
         json.loads(line) for line in trace_path.read_text(encoding="utf-8").splitlines()
     ]
     assert persisted_events == serialized_events
+
+
+def test_committed_trace_sample_is_redacted() -> None:
+    records = [
+        json.loads(line)
+        for line in COMMITTED_TRACE_SAMPLE.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+
+    assert records
+    assert len(records) == 11
+    assert all(isinstance(record, dict) for record in records)
+    assert {record["event_type"] for record in records} == {
+        "state_transition",
+        "tool_call",
+        "tool_result",
+        "cart_preview",
+        "cart_add",
+    }
+    assert len({record["trace_id"] for record in records}) == 1
+    assert len({record["session_id"] for record in records}) == 1
+    assert not any(_contains_forbidden_key(record) for record in records)
+
+    observable = [
+        (
+            record["event_type"],
+            (
+                record["payload"].get("tool_name")
+                if record["event_type"] in {"tool_call", "tool_result"}
+                else None
+            ),
+        )
+        for record in records
+    ]
+    _assert_ordered_subsequence(
+        observable,
+        [
+            ("state_transition", None),
+            ("tool_call", "search_eligible_products"),
+            ("tool_result", "search_eligible_products"),
+            ("cart_preview", None),
+            ("cart_add", None),
+        ],
+    )
+    tool_events = [
+        record
+        for record in records
+        if record["event_type"] in {"tool_call", "tool_result"}
+    ]
+    assert tool_events
+    assert all(set(record["payload"]) == TOOL_PAYLOAD_KEYS for record in tool_events)
 
 
 def test_safety_boundary_trace_omits_user_controlled_identifiers_and_text(

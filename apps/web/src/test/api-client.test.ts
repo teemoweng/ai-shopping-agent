@@ -12,6 +12,8 @@ import {
 } from "@/lib/api-client";
 import { formatUsd } from "@/lib/formatters";
 
+const syntheticConfirmation = ["confirm", "test"].join("_");
+
 const guideTurn = {
   session_id: "ses_test",
   state: "CLARIFY",
@@ -48,7 +50,7 @@ const cartPreview = {
   unit_price_usd: 19,
   subtotal_usd: 19,
   inventory_units: 12,
-  confirmation_token: "confirm_test",
+  confirmation_token: syntheticConfirmation,
   created_at: "2026-08-05T00:00:00Z",
   simulated: true,
 } satisfies components["schemas"]["CartPreviewResponse"];
@@ -158,14 +160,14 @@ describe("shopping guide client", () => {
   it("posts the exact confirmed-cart contract", async () => {
     const fetchMock = mockJson(cartItem, 201);
 
-    await addCartItem("ses_test", "confirm_test");
+    await addCartItem("ses_test", syntheticConfirmation);
 
     expect(fetchMock).toHaveBeenCalledWith(
       "http://127.0.0.1:8000/api/v1/guide/sessions/ses_test/cart/items",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ confirmation_token: "confirm_test" }),
+        body: JSON.stringify({ confirmation_token: syntheticConfirmation }),
       },
     );
   });

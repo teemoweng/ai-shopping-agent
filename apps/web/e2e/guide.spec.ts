@@ -1,6 +1,9 @@
+import { mkdir } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+
 import { expect, test } from "@playwright/test";
 
-test("content context reaches a confirmed simulated cart item", async ({ page }) => {
+test("content context reaches a confirmed simulated cart item", async ({ page }, testInfo) => {
   await page.goto("/");
   await expect(page.getByText("Concept prototype · Synthetic products")).toBeVisible();
   await page.getByRole("button", { name: "Ask AI about this product" }).click();
@@ -31,8 +34,50 @@ test("content context reaches a confirmed simulated cart item", async ({ page })
     guide.getByText("This is a prototype—no order or payment will be created"),
   ).toBeVisible();
   await guide.getByRole("button", { name: "Confirm simulated add" }).click();
-  await expect(guide.getByText("Added to simulated cart")).toBeVisible();
-  await expect(guide.getByText(/^item_/)).toBeVisible();
+  const receipt = guide.getByRole("region", {
+    name: "Simulated cart decision receipt",
+  });
+  await expect(receipt).toBeVisible();
+  await receipt.scrollIntoViewIfNeeded();
+
+  const requiredReceiptFacts = [
+    receipt.getByText("@routine.notes · Seoul Shade Daily Fluid"),
+    receipt.getByText("Seoul Shade Daily Fluid · Suitable"),
+    receipt.getByText(
+      "3 cited sources · Sunscreen: How to Help Protect Your Skin from the Sun",
+    ),
+    receipt.getByText("seoul-shade-50"),
+    receipt.getByText("$19.00").first(),
+    receipt.getByText("7 units at preview"),
+    receipt.getByText("Quantity 1"),
+    receipt.getByText("Added to simulated cart"),
+    receipt.getByText("This was simulated—no order or payment was created."),
+    receipt.getByText(/^item_/),
+  ];
+  for (const fact of requiredReceiptFacts) {
+    await expect(fact).toBeVisible();
+    await expect(fact).toBeInViewport();
+  }
+
+  const disclosure = guide.locator("footer").getByText(
+    "Concept prototype · Synthetic products",
+  );
+  await expect(disclosure).toBeVisible();
+  await expect(disclosure).toBeInViewport();
+  const guideMarkup = await guide.evaluate((element) => element.outerHTML);
+  expect(guideMarkup).not.toContain("confirm_");
+
+  if (
+    process.env.CAPTURE_FOUNDATION_EVIDENCE === "1" &&
+    testInfo.project.name === "mobile-chromium"
+  ) {
+    const screenshotPath = resolve(
+      process.cwd(),
+      "../../artifacts/screenshots/foundation-mobile.png",
+    );
+    await mkdir(dirname(screenshotPath), { recursive: true });
+    await page.screenshot({ path: screenshotPath, fullPage: false });
+  }
 });
 
 test("zero match is explicit and recoverable", async ({ page }) => {
