@@ -1,0 +1,76 @@
+# JavaScript / Next.js
+node_modules/
+.next/
+out/
+dist/
+coverage/
+.turbo/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# Environment variables and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials*.json
+secrets*.json
+
+# Local databases and vector indexes
+*.db
+*.sqlite
+*.sqlite3
+*.wal
+*.shm
+.pgdata/
+pgdata/
+local-data/
+vector-index/
+
+# Generated runtime and evaluation artifacts
+logs/
+traces/raw/
+artifacts/raw/
+artifacts/screenshots/generated/
+evals/runs/
+evals/cache/
+reports/raw/
+tmp/
+.cache/
+
+# Keep small, reviewable synthetic fixtures and summaries versioned.
+# Do not add blanket ignores for data/synthetic/, evals/datasets/, or evals/reports/.
+# Versioned evidence should live outside ignored raw folders, for example:
+# evals/manifests/, evals/results/summaries/, artifacts/traces/samples/.
+# Each summary must point to the run configuration, source commit, checksums, and
+# external/local raw-artifact location when the raw payload is not committed.
+# If an ignored generated directory is introduced later, add an explicit !path/.gitkeep
+# rule only when that empty directory is required by the application.
+
+# IDE and operating system
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local deployment metadata
+.vercel/
+.railway/
