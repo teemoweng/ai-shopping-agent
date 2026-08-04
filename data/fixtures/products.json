@@ -1,0 +1,59 @@
+[
+  {
+    "id": "seoul-shade-daily-fluid",
+    "brand": "Mirae Lab",
+    "name": "Seoul Shade Daily Fluid",
+    "synthetic": true,
+    "spf": 50,
+    "broad_spectrum": true,
+    "fragrance_free": true,
+    "water_resistance_minutes": null,
+    "finish": "natural",
+    "skin_types": ["combination", "oily", "sensitive"],
+    "white_cast_risk": "low",
+    "active_filter_type": "organic",
+    "ingredient_highlights": ["centella asiatica", "panthenol"],
+    "skus": [
+      {"id": "seoul-shade-30", "size_ml": 30, "price_usd": 14.0, "in_stock": true, "inventory_units": 18},
+      {"id": "seoul-shade-50", "size_ml": 50, "price_usd": 19.0, "in_stock": true, "inventory_units": 7}
+    ]
+  },
+  {
+    "id": "cloud-veil-mineral",
+    "brand": "Han River Skin",
+    "name": "Cloud Veil Mineral SPF",
+    "synthetic": true,
+    "spf": 50,
+    "broad_spectrum": true,
+    "fragrance_free": true,
+    "water_resistance_minutes": 40,
+    "finish": "matte",
+    "skin_types": ["combination", "oily", "sensitive"],
+    "white_cast_risk": "medium",
+    "active_filter_type": "mineral",
+    "ingredient_highlights": ["zinc oxide", "madecassoside"],
+    "skus": [
+      {"id": "cloud-veil-30", "size_ml": 30, "price_usd": 17.0, "in_stock": true, "inventory_units": 13},
+      {"id": "cloud-veil-50", "size_ml": 50, "price_usd": 24.0, "in_stock": true, "inventory_units": 4}
+    ]
+  },
+  {
+    "id": "jeju-sport-sun-gel",
+    "brand": "Namu Works",
+    "name": "Jeju Sport Sun Gel",
+    "synthetic": true,
+    "spf": 50,
+    "broad_spectrum": true,
+    "fragrance_free": false,
+    "water_resistance_minutes": 80,
+    "finish": "dewy",
+    "skin_types": ["dry", "combination"],
+    "white_cast_risk": "low",
+    "active_filter_type": "hybrid",
+    "ingredient_highlights": ["green tea", "squalane", "fragrance"],
+    "skus": [
+      {"id": "jeju-sport-30", "size_ml": 30, "price_usd": 16.0, "in_stock": false, "inventory_units": 0},
+      {"id": "jeju-sport-50", "size_ml": 50, "price_usd": 22.0, "in_stock": true, "inventory_units": 9}
+    ]
+  }
+]
