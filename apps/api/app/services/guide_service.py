@@ -16,6 +16,7 @@ class GuideService:
     def create(self, request: CreateGuideSessionRequest) -> GuideTurnResponse:
         if request.entry_point is EntryPoint.SEARCH:
             raise NotImplementedError("SEARCH_EXECUTION_NOT_AVAILABLE")
+        self.engine.tools.get_content_context(request.content_context_id or "")
         session = self.sessions.create(
             request.entry_point,
             request.content_context_id,

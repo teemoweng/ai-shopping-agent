@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from app.api.routes.guide import service
 from app.main import app
 
 client = TestClient(app)
@@ -41,6 +42,21 @@ def test_unknown_session_is_404() -> None:
     )
     assert response.status_code == 404
     assert response.json()["detail"]["code"] == "SESSION_NOT_FOUND"
+
+
+def test_unknown_content_context_returns_404_without_session_or_trace() -> None:
+    session_count = len(service.sessions._sessions)
+    event_count = len(service.sessions._events)
+
+    response = TestClient(app, raise_server_exceptions=False).post(
+        "/api/v1/guide/sessions",
+        json={"entry_point": "content", "content_context_id": "missing-context"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"]["code"] == "CONTENT_CONTEXT_NOT_FOUND"
+    assert len(service.sessions._sessions) == session_count
+    assert len(service.sessions._events) == event_count
 
 
 def test_search_contract_is_accepted_but_execution_is_explicitly_unavailable() -> None:

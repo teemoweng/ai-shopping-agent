@@ -28,6 +28,14 @@ def create_session(request: CreateGuideSessionRequest) -> GuideTurnResponse:
                 "message": "Search entry is contract-only in this foundation slice.",
             },
         ) from error
+    except KeyError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "code": "CONTENT_CONTEXT_NOT_FOUND",
+                "message": "Content context does not exist.",
+            },
+        ) from error
 
 
 @router.post("/sessions/{session_id}/messages", response_model=GuideTurnResponse)
