@@ -1,6 +1,7 @@
 import type { components } from "@shopping-guide/contracts/src/api";
 
 import { formatUsd } from "@/lib/formatters";
+import { isCartItemResponse } from "@/lib/decision-contracts";
 
 type CartPreviewResponse = components["schemas"]["CartPreviewResponse"];
 type CartItemResponse = components["schemas"]["CartItemResponse"];
@@ -11,6 +12,8 @@ const confirmationErrorMessages: Record<string, string> = {
   INSUFFICIENT_STOCK: "Stock changed. Choose another size or preview again.",
   INVALID_CONFIRMATION_TOKEN:
     "This confirmation is no longer valid. Preview again.",
+  INVALID_CART_ITEM_RESPONSE:
+    "The simulated cart response was incomplete. Preview again before retrying.",
 };
 
 export function CartConfirmation({
@@ -30,7 +33,7 @@ export function CartConfirmation({
   previewPending?: boolean;
   errorCode: string | null;
 }) {
-  if (cartItem) {
+  if (cartItem && isCartItemResponse(cartItem)) {
     return (
       <section className="cartSuccess" aria-live="polite">
         <span>Simulated transaction complete</span>

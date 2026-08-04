@@ -20,6 +20,10 @@ import {
   previewCart,
   sendGuideMessage,
 } from "@/lib/api-client";
+import {
+  validateCartItemResponse,
+  validateComparisonResponse,
+} from "@/lib/decision-contracts";
 
 type GuideTurn = components["schemas"]["GuideTurnResponse"];
 type EvidenceStatus = components["schemas"]["EvidenceStatus"];
@@ -459,7 +463,17 @@ export function GuideSheet({
           decisionGenerationRef.current === generation &&
           comparisonVersionRef.current === operationVersion
         ) {
-          setComparison(response);
+          const validatedResponse = validateComparisonResponse(
+            response,
+            turn.session_id,
+            ids,
+          );
+          if (validatedResponse) {
+            setComparison(validatedResponse);
+          } else {
+            setComparison(null);
+            setComparisonError("INVALID_COMPARISON_RESPONSE");
+          }
         }
       })
       .catch((error: unknown) => {
@@ -558,7 +572,18 @@ export function GuideSheet({
           previewVersionRef.current === previewVersion &&
           cartVersionRef.current === operationVersion
         ) {
-          setCartItem(response);
+          const validatedResponse = validateCartItemResponse(response, {
+            sessionId: turn.session_id,
+            skuId: preview.sku_id,
+            quantity: preview.quantity,
+            unitPriceUsd: preview.unit_price_usd,
+          });
+          if (validatedResponse) {
+            setCartItem(validatedResponse);
+          } else {
+            setCartItem(null);
+            setCartErrorCode("INVALID_CART_ITEM_RESPONSE");
+          }
         }
       })
       .catch((error: unknown) => {
@@ -635,7 +660,7 @@ export function GuideSheet({
               </div>
               <div>
                 <span>Inherited product</span>
-                <strong>{turn.context.anchor_product_name}</strong>
+                <strong>Anchor · {turn.context.anchor_product_name}</strong>
                 <small>{turn.context.anchor_product_id}</small>
               </div>
               <p>{turn.context.caption}</p>
@@ -789,8 +814,9 @@ export function GuideSheet({
               {comparisonError ? (
                 <div className="decisionRecovery" role="alert">
                   <p>
-                    Comparison could not be loaded. Keep your selections and try
-                    comparing again.
+                    {comparisonError === "INVALID_COMPARISON_RESPONSE"
+                      ? "Comparison data was incomplete. Keep your selections and try comparing again."
+                      : "Comparison could not be loaded. Keep your selections and try comparing again."}
                   </p>
                 </div>
               ) : null}

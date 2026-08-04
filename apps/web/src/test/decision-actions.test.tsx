@@ -10,31 +10,22 @@ import {
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { CartConfirmation } from "@/components/cart-confirmation";
 import { ComparisonTable } from "@/components/comparison-table";
 import { GuideSheet } from "@/components/guide-sheet";
+import { ApiError } from "@/lib/api-client";
 
-const api = vi.hoisted(() => {
-  class ApiError extends Error {
-    constructor(
-      public status: number,
-      public code: string,
-    ) {
-      super(code);
-    }
-  }
+const api = vi.hoisted(() => ({
+  addCartItem: vi.fn(),
+  compareProducts: vi.fn(),
+  createGuideSession: vi.fn(),
+  previewCart: vi.fn(),
+  sendGuideMessage: vi.fn(),
+}));
 
-  return {
-    ApiError,
-    addCartItem: vi.fn(),
-    compareProducts: vi.fn(),
-    createGuideSession: vi.fn(),
-    previewCart: vi.fn(),
-    sendGuideMessage: vi.fn(),
-  };
-});
-
-vi.mock("@/lib/api-client", () => api);
+vi.mock("@/lib/api-client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api-client")>()),
+  ...api,
+}));
 
 type GuideTurn = components["schemas"]["GuideTurnResponse"];
 type CompareResponse = components["schemas"]["CompareResponse"];
@@ -143,7 +134,6 @@ const comparison: CompareResponse = {
     water_resistance_minutes: [null, 40],
     finish: ["natural", "matte"],
     white_cast_risk: ["low", "medium"],
-    ignored_future_fact: ["must", "not render"],
   },
   simulated: true,
 };
@@ -239,6 +229,19 @@ async function previewSeoulShade(user: ReturnType<typeof userEvent.setup>) {
   return screen.findByRole("region", { name: "Simulated cart preview" });
 }
 
+function expectSecretAbsent(secret: string) {
+  expect(document.body.textContent).not.toContain(secret);
+  expect(document.body.innerHTML).not.toContain(secret);
+  const accessibilityValues = Array.from(
+    document.querySelectorAll("[aria-label], [aria-labelledby], [title], [alt]"),
+  ).flatMap((element) =>
+    ["aria-label", "aria-labelledby", "title", "alt"]
+      .map((attribute) => element.getAttribute(attribute))
+      .filter((value): value is string => value !== null),
+  );
+  expect(accessibilityValues.join(" ")).not.toContain(secret);
+}
+
 beforeEach(() => {
   for (const client of [
     api.addCartItem,
@@ -316,8 +319,13 @@ it("renders only the five fixed comparison facts with deterministic formatting",
     "low",
     "medium",
   ]);
-  expect(within(table).queryByText("ignored_future_fact")).not.toBeInTheDocument();
-  expect(within(table).queryByText("must")).not.toBeInTheDocument();
+});
+
+it("keeps the Task 14 product-name locator unambiguous after recommendations load", async () => {
+  await reachRecommendations();
+
+  const guide = screen.getByRole("dialog", { name: "AI shopping guide" });
+  expect(within(guide).getByText("Seoul Shade Daily Fluid")).toBeVisible();
 });
 
 it("enforces two to three selected products and synchronously blocks duplicate comparisons", async () => {
@@ -363,6 +371,114 @@ it("enforces two to three selected products and synchronously blocks duplicate c
   ).toBeDisabled();
 });
 
+it("renders a valid three-product comparison in the requested order", async () => {
+  const threeProductComparison: CompareResponse = {
+    ...comparison,
+    product_ids: [
+      "seoul-shade-daily-fluid",
+      "cloud-veil-mineral",
+      "jeju-sport-sun-gel",
+    ],
+    rows: {
+      starting_price_usd: [14, 17, 22],
+      fragrance_free: [true, false, false],
+      water_resistance_minutes: [null, 40, 80],
+      finish: ["natural", "matte", "dewy"],
+      white_cast_risk: ["low", "medium", "low"],
+    },
+  };
+  api.compareProducts.mockResolvedValueOnce(threeProductComparison);
+  const user = await reachRecommendations();
+  await chooseComparison(user);
+  await user.click(
+    screen.getByRole("checkbox", { name: "Compare Jeju Sport Sun Gel" }),
+  );
+  await user.click(screen.getByRole("button", { name: "Compare 3" }));
+
+  const table = await screen.findByRole("table", { name: "Product comparison" });
+  expect(
+    within(table)
+      .getAllByRole("columnheader")
+      .map((cell) => cell.textContent),
+  ).toEqual([
+    "Product fact",
+    "seoul-shade-daily-fluid",
+    "cloud-veil-mineral",
+    "jeju-sport-sun-gel",
+  ]);
+  expect(api.compareProducts).toHaveBeenCalledWith("ses_guide_1", [
+    "seoul-shade-daily-fluid",
+    "cloud-veil-mineral",
+    "jeju-sport-sun-gel",
+  ]);
+});
+
+describe.each([
+  [
+    "a short row",
+    {
+      ...comparison,
+      rows: { ...comparison.rows, finish: ["natural"] },
+    },
+  ],
+  [
+    "a wrong value type",
+    {
+      ...comparison,
+      rows: { ...comparison.rows, fragrance_free: [true, "no"] },
+    },
+  ],
+  [
+    "a missing fixed row",
+    {
+      ...comparison,
+      rows: {
+        starting_price_usd: [14, 17],
+        fragrance_free: [true, false],
+        water_resistance_minutes: [null, 40],
+        finish: ["natural", "matte"],
+      },
+    },
+  ],
+  [
+    "an extra row",
+    {
+      ...comparison,
+      rows: { ...comparison.rows, future_fact: ["x", "y"] },
+    },
+  ],
+  [
+    "reordered product IDs",
+    {
+      ...comparison,
+      product_ids: ["cloud-veil-mineral", "seoul-shade-daily-fluid"],
+    },
+  ],
+])("rejects a malformed comparison response with %s", (_case, malformedResponse) => {
+  it("preserves selections and exposes a stable retry", async () => {
+    api.compareProducts.mockResolvedValueOnce(malformedResponse);
+    const user = await reachRecommendations();
+    await chooseComparison(user);
+    await user.click(screen.getByRole("button", { name: "Compare 2" }));
+
+    expect(
+      await screen.findByText(
+        "Comparison data was incomplete. Keep your selections and try comparing again.",
+      ),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("table", { name: "Product comparison" }),
+    ).not.toBeInTheDocument();
+    const retry = screen.getByRole("button", { name: "Compare 2" });
+    expect(retry).toBeEnabled();
+    await user.click(retry);
+    expect(api.compareProducts).toHaveBeenCalledTimes(2);
+    expect(
+      await screen.findByRole("table", { name: "Product comparison" }),
+    ).toBeVisible();
+  });
+});
+
 it("previews exact facts, keeps the token secret, and adds only after resolved confirmation", async () => {
   const previewPending = deferred<CartPreviewResponse>();
   const addPending = deferred<CartItemResponse>();
@@ -402,7 +518,7 @@ it("previews exact facts, keeps the token secret, and adds only after resolved c
       "This is a prototype—no order or payment will be created",
     ),
   ).toBeVisible();
-  expect(document.body).not.toHaveTextContent(firstPreview.confirmation_token);
+  expectSecretAbsent(firstPreview.confirmation_token);
   expect(api.addCartItem).not.toHaveBeenCalled();
 
   const confirmButton = within(receipt).getByRole("button", {
@@ -422,7 +538,43 @@ it("previews exact facts, keeps the token secret, and adds only after resolved c
   expect(await screen.findByText("Added to simulated cart")).toBeVisible();
   expect(screen.getByText("item_simulated_1")).toBeVisible();
   expect(screen.getByText(/no order or payment was created/i)).toBeVisible();
-  expect(document.body).not.toHaveTextContent(firstPreview.confirmation_token);
+  expectSecretAbsent(firstPreview.confirmation_token);
+});
+
+describe.each([
+  ["an empty object", {}],
+  ["a missing item ID", { ...cartItem, cart_item_id: undefined }],
+  ["a blank item ID", { ...cartItem, cart_item_id: "   " }],
+])("rejects a malformed successful cart response with %s", (_case, malformedResponse) => {
+  it("never renders success and allows a fresh preview", async () => {
+    api.addCartItem.mockResolvedValueOnce(malformedResponse);
+    const user = await reachRecommendations();
+    await previewSeoulShade(user);
+    await user.click(
+      screen.getByRole("button", { name: "Confirm simulated add" }),
+    );
+
+    expect(
+      await screen.findByText(
+        "The simulated cart response was incomplete. Preview again before retrying.",
+      ),
+    ).toBeVisible();
+    expect(screen.queryByText("Added to simulated cart")).not.toBeInTheDocument();
+    const retry = screen.getByRole("button", { name: "Preview again" });
+    expect(retry).toBeEnabled();
+    expect(screen.getByText("Closest fit")).toBeVisible();
+    expectSecretAbsent(firstPreview.confirmation_token);
+    await user.click(retry);
+    expect(api.previewCart).toHaveBeenCalledTimes(2);
+    expect(
+      await screen.findByRole("region", { name: "Simulated cart preview" }),
+    ).toBeVisible();
+    expect(
+      screen.queryByText(
+        "The simulated cart response was incomplete. Preview again before retrying.",
+      ),
+    ).not.toBeInTheDocument();
+  });
 });
 
 it("replaces only superseded cart state when the SKU changes", async () => {
@@ -450,6 +602,118 @@ it("replaces only superseded cart state when the SKU changes", async () => {
   expect(screen.getByRole("link", { name: /FDA sunscreen labeling guide/ })).toBeVisible();
 });
 
+it("ignores a stale confirmation after a new SKU preview replaces it", async () => {
+  const pendingAdd = deferred<CartItemResponse>();
+  const nextPreview: CartPreviewResponse = {
+    ...firstPreview,
+    sku_id: "seoul-shade-30",
+    unit_price_usd: 14,
+    subtotal_usd: 14,
+    confirmation_token: "confirm_secret_second_sku",
+  };
+  api.addCartItem.mockReturnValueOnce(pendingAdd.promise);
+  api.previewCart
+    .mockResolvedValueOnce(firstPreview)
+    .mockResolvedValueOnce(nextPreview);
+  const user = await reachRecommendations();
+  await previewSeoulShade(user);
+  await user.click(screen.getByRole("button", { name: "Confirm simulated add" }));
+
+  await user.selectOptions(
+    screen.getByRole("combobox", {
+      name: "Size for Seoul Shade Daily Fluid",
+    }),
+    "seoul-shade-30",
+  );
+  await user.click(
+    screen.getByRole("button", { name: "Preview simulated add" }),
+  );
+  const nextReceipt = await screen.findByRole("region", {
+    name: "Simulated cart preview",
+  });
+  expect(within(nextReceipt).getByText("seoul-shade-30")).toBeVisible();
+
+  await act(async () => pendingAdd.resolve(cartItem));
+
+  expect(screen.queryByText("Added to simulated cart")).not.toBeInTheDocument();
+  expect(within(nextReceipt).getByText("seoul-shade-30")).toBeVisible();
+  expect(within(nextReceipt).getAllByText("$14.00")).toHaveLength(2);
+  expectSecretAbsent(firstPreview.confirmation_token);
+  expectSecretAbsent(nextPreview.confirmation_token);
+});
+
+it("ignores a stale confirmation across a close and reopen cycle", async () => {
+  const pendingAdd = deferred<CartItemResponse>();
+  api.addCartItem.mockReturnValueOnce(pendingAdd.promise);
+  const user = userEvent.setup();
+  const { rerender } = render(<GuideSheet open onClose={vi.fn()} />);
+  await screen.findByText(clarificationTurn.text);
+  await user.click(screen.getByRole("button", { name: "Daily commute" }));
+  await screen.findByText("Closest fit");
+  await previewSeoulShade(user);
+  await user.click(screen.getByRole("button", { name: "Confirm simulated add" }));
+
+  rerender(<GuideSheet open={false} onClose={vi.fn()} />);
+  expect(
+    screen.queryByRole("dialog", { name: "AI shopping guide" }),
+  ).not.toBeInTheDocument();
+  rerender(<GuideSheet open onClose={vi.fn()} />);
+  await screen.findByText(clarificationTurn.text);
+  await user.click(screen.getByRole("button", { name: "Daily commute" }));
+  await screen.findByText("Closest fit");
+  const reopenedReceipt = await previewSeoulShade(user);
+
+  await act(async () => pendingAdd.resolve(cartItem));
+
+  expect(screen.queryByText("Added to simulated cart")).not.toBeInTheDocument();
+  expect(reopenedReceipt).toBeVisible();
+  expect(
+    within(reopenedReceipt).getByRole("button", { name: "Confirm simulated add" }),
+  ).toBeEnabled();
+});
+
+it("settles a pending confirmation harmlessly after unmount", async () => {
+  const pendingAdd = deferred<CartItemResponse>();
+  api.addCartItem.mockReturnValueOnce(pendingAdd.promise);
+  const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+  const user = userEvent.setup();
+  const view = render(<GuideSheet open onClose={vi.fn()} />);
+  await screen.findByText(clarificationTurn.text);
+  await user.click(screen.getByRole("button", { name: "Daily commute" }));
+  await screen.findByText("Closest fit");
+  await previewSeoulShade(user);
+  await user.click(screen.getByRole("button", { name: "Confirm simulated add" }));
+
+  view.unmount();
+  await act(async () => pendingAdd.resolve(cartItem));
+
+  expect(consoleError).not.toHaveBeenCalled();
+  expect(screen.queryByText("Added to simulated cart")).not.toBeInTheDocument();
+  consoleError.mockRestore();
+});
+
+it("disables cart controls when no recommendation has an eligible SKU", async () => {
+  api.sendGuideMessage.mockResolvedValueOnce({
+    ...recommendationTurn,
+    recommendations: recommendationTurn.recommendations?.map(
+      (recommendation) => ({ ...recommendation, eligible_sku_ids: [] }),
+    ),
+  });
+  await reachRecommendations();
+
+  const size = screen.getByRole("combobox", {
+    name: "Size for Seoul Shade Daily Fluid",
+  });
+  expect(size).toBeDisabled();
+  expect(size).toHaveValue("");
+  expect(within(size).getByRole("option", { name: "No eligible SKU" })).toBeVisible();
+  expect(
+    screen.getByRole("button", { name: "Preview simulated add" }),
+  ).toBeDisabled();
+  expect(api.previewCart).not.toHaveBeenCalled();
+  expect(screen.queryByText("Added to simulated cart")).not.toBeInTheDocument();
+});
+
 describe.each([
   ["PRICE_CHANGED", "The price changed. Preview again to review the latest price."],
   [
@@ -462,7 +726,7 @@ describe.each([
   ],
 ] as const)("confirmation recovery for %s", (code, guidance) => {
   it("preserves the decision frame and never invents success", async () => {
-    api.addCartItem.mockRejectedValue(new api.ApiError(409, code));
+    api.addCartItem.mockRejectedValue(new ApiError(409, code));
     const user = await reachRecommendations();
     await previewSeoulShade(user);
     await user.click(
@@ -476,13 +740,13 @@ describe.each([
     expect(
       screen.getByRole("link", { name: /FDA sunscreen labeling guide/ }),
     ).toBeVisible();
-    expect(document.body).not.toHaveTextContent(firstPreview.confirmation_token);
+    expectSecretAbsent(firstPreview.confirmation_token);
   });
 });
 
 it("maps a used confirmation exactly and Preview again obtains a fresh token", async () => {
   api.addCartItem.mockRejectedValueOnce(
-    new api.ApiError(409, "TOKEN_ALREADY_USED"),
+    new ApiError(409, "TOKEN_ALREADY_USED"),
   );
   api.previewCart
     .mockResolvedValueOnce(firstPreview)
@@ -506,8 +770,8 @@ it("maps a used confirmation exactly and Preview again obtains a fresh token", a
     "seoul-shade-50",
   );
   expect(await screen.findByText("6 units available")).toBeVisible();
-  expect(document.body).not.toHaveTextContent(firstPreview.confirmation_token);
-  expect(document.body).not.toHaveTextContent(refreshedPreview.confirmation_token);
+  expectSecretAbsent(firstPreview.confirmation_token);
+  expectSecretAbsent(refreshedPreview.confirmation_token);
 
   await user.click(screen.getByRole("button", { name: "Confirm simulated add" }));
   expect(api.addCartItem).toHaveBeenLastCalledWith(
@@ -518,7 +782,7 @@ it("maps a used confirmation exactly and Preview again obtains a fresh token", a
 
 it("keeps selections and recommendations when comparison fails and permits a retry", async () => {
   api.compareProducts
-    .mockRejectedValueOnce(new api.ApiError(503, "UNKNOWN_API_ERROR"))
+    .mockRejectedValueOnce(new ApiError(503, "UNKNOWN_API_ERROR"))
     .mockResolvedValueOnce(comparison);
   const user = await reachRecommendations();
   await chooseComparison(user);
@@ -543,7 +807,7 @@ it("keeps selections and recommendations when comparison fails and permits a ret
 
 it("keeps the selected SKU when preview fails and permits a retry", async () => {
   api.previewCart
-    .mockRejectedValueOnce(new api.ApiError(503, "UNKNOWN_API_ERROR"))
+    .mockRejectedValueOnce(new ApiError(503, "UNKNOWN_API_ERROR"))
     .mockResolvedValueOnce(firstPreview);
   const user = await reachRecommendations();
   await user.selectOptions(
@@ -577,7 +841,7 @@ it("keeps the selected SKU when preview fails and permits a retry", async () => 
 
 it("directs an out-of-stock preview toward another eligible size", async () => {
   api.previewCart.mockRejectedValue(
-    new api.ApiError(409, "INSUFFICIENT_STOCK"),
+    new ApiError(409, "INSUFFICIENT_STOCK"),
   );
   const user = await reachRecommendations();
   await user.selectOptions(
@@ -646,21 +910,4 @@ it("does not let a stale preview update a closed sheet", async () => {
   expect(
     screen.queryByRole("region", { name: "Simulated cart preview" }),
   ).not.toBeInTheDocument();
-});
-
-it("CartConfirmation never renders success without a CartItemResponse", () => {
-  render(
-    <CartConfirmation
-      preview={firstPreview}
-      pending={false}
-      errorCode={null}
-      onConfirm={vi.fn()}
-    />,
-  );
-
-  expect(screen.queryByText("Added to simulated cart")).not.toBeInTheDocument();
-  expect(
-    screen.getByRole("button", { name: "Confirm simulated add" }),
-  ).toBeVisible();
-  expect(document.body).not.toHaveTextContent(firstPreview.confirmation_token);
 });
