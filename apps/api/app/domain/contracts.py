@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
 from pydantic.json_schema import GetJsonSchemaHandler, JsonSchemaValue
 from pydantic_core import CoreSchema
 
@@ -127,3 +127,59 @@ class CartPreviewRequest(BaseModel):
 
 class AddCartItemRequest(BaseModel):
     confirmation_token: str
+
+
+class ClaimVerification(BaseModel):
+    claim_id: str
+    text: str
+    status: EvidenceStatus
+    evidence_id: str
+
+
+class ContentContextSummary(BaseModel):
+    id: str
+    anchor_product_id: str
+    creator_handle: str
+    caption: str
+    claims: list[ClaimVerification]
+
+
+class EvidenceReference(BaseModel):
+    evidence_id: str
+    title: str
+    url: HttpUrl
+    source_kind: Literal["public_rule", "synthetic_review_aggregate"]
+    synthetic: bool
+    status: EvidenceStatus
+    summary: str
+
+
+class RecommendationCard(BaseModel):
+    product_id: str
+    brand: str
+    name: str
+    verdict: Verdict
+    fit_reasons: list[str]
+    tradeoffs: list[str]
+    eligible_sku_ids: list[str]
+    starting_price_usd: float
+    evidence_ids: list[str]
+
+
+class GuideTurnResponse(BaseModel):
+    session_id: str
+    trace_id: str
+    state: WorkflowState
+    kind: Literal[
+        "opening",
+        "clarification",
+        "recommendation",
+        "no_match",
+        "safety_boundary",
+    ]
+    text: str
+    context: ContentContextSummary
+    verdict: Verdict | None = None
+    recommendations: list[RecommendationCard] = Field(default_factory=list)
+    evidence: list[EvidenceReference] = Field(default_factory=list)
+    quick_replies: list[str] = Field(default_factory=list)
