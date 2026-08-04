@@ -248,3 +248,54 @@ def test_failed_tool_result_is_observable_without_exception_content(
     assert failed_event.payload["duration_ms"] >= 0
     assert isfinite(failed_event.payload["duration_ms"])
     assert exception_content not in trace_path.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    "tool_method",
+    ["retrieve_evidence", "search_eligible_products"],
+)
+def test_original_tool_error_survives_failed_result_trace_write(
+    tmp_path,
+    monkeypatch,
+    tool_method: str,
+) -> None:
+    fixtures = FixtureRepository.load(FIXTURE_ROOT)
+    trace_path = tmp_path / f"{tool_method}-dual-failure.jsonl"
+    sessions = SessionRepository(trace_path)
+    engine = WorkflowEngine(ShoppingTools(fixtures), sessions)
+    session = sessions.create(
+        EntryPoint.CONTENT,
+        "morning-routine-uv-001",
+        None,
+    )
+    original_tool_error = RuntimeError(f"original {tool_method} failure")
+    trace_error_text = "secondary trace persistence failure"
+
+    def fail_tool(*_args, **_kwargs):
+        raise original_tool_error
+
+    monkeypatch.setattr(ShoppingTools, tool_method, fail_tool)
+    engine.open_session(session)
+    original_append_event = sessions.append_event
+
+    def fail_failed_result_event(session_, event_type, state, payload):
+        if event_type == "tool_result" and payload.get("status") == "failed":
+            raise OSError(trace_error_text)
+        return original_append_event(session_, event_type, state, payload)
+
+    monkeypatch.setattr(sessions, "append_event", fail_failed_result_event)
+
+    with pytest.raises(RuntimeError) as caught:
+        engine.handle_message(
+            session,
+            GuideMessageRequest(
+                message_id=f"dual_failure_{tool_method}",
+                text=GOLDEN_INPUT,
+            ),
+        )
+
+    assert caught.value is original_tool_error
+    assert str(caught.value) == f"original {tool_method} failure"
+    persisted = trace_path.read_text(encoding="utf-8")
+    assert str(original_tool_error) not in persisted
+    assert trace_error_text not in persisted

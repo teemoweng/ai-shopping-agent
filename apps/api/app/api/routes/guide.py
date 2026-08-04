@@ -1,4 +1,6 @@
-from fastapi import APIRouter, HTTPException, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.dependencies import engine, sessions
 from app.domain.contracts import (
@@ -12,14 +14,24 @@ router = APIRouter(prefix="/guide", tags=["guide"])
 service = GuideService(engine, sessions)
 
 
+def get_guide_service() -> GuideService:
+    return service
+
+
+GuideServiceDependency = Annotated[GuideService, Depends(get_guide_service)]
+
+
 @router.post(
     "/sessions",
     response_model=GuideTurnResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def create_session(request: CreateGuideSessionRequest) -> GuideTurnResponse:
+def create_session(
+    request: CreateGuideSessionRequest,
+    guide_service: GuideServiceDependency,
+) -> GuideTurnResponse:
     try:
-        return service.create(request)
+        return guide_service.create(request)
     except NotImplementedError as error:
         raise HTTPException(
             status_code=status.HTTP_501_NOT_IMPLEMENTED,
@@ -42,9 +54,10 @@ def create_session(request: CreateGuideSessionRequest) -> GuideTurnResponse:
 def post_message(
     session_id: str,
     request: GuideMessageRequest,
+    guide_service: GuideServiceDependency,
 ) -> GuideTurnResponse:
     try:
-        return service.message(session_id, request)
+        return guide_service.message(session_id, request)
     except KeyError as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

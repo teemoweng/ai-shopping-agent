@@ -83,6 +83,28 @@ class WorkflowEngine:
             },
         )
 
+    def _append_failed_tool_event(
+        self,
+        session: GuideSession,
+        *,
+        tool_name: str,
+        argument_summary: dict[str, object],
+        started_at: float,
+    ) -> None:
+        try:
+            self._append_tool_event(
+                session,
+                "tool_result",
+                tool_name=tool_name,
+                argument_summary=argument_summary,
+                result_ids=[],
+                duration_ms=self._elapsed_ms(started_at),
+                status="failed",
+            )
+        except Exception:  # noqa: BLE001 - preserve the original tool failure
+            # Observability must not replace the original business/tool failure.
+            return
+
     @staticmethod
     def _elapsed_ms(started_at: float) -> float:
         elapsed_ms = round((perf_counter() - started_at) * 1000, 3)
@@ -182,14 +204,11 @@ class WorkflowEngine:
                 request.text + " broad spectrum water resistant"
             )
         except Exception:
-            self._append_tool_event(
+            self._append_failed_tool_event(
                 session,
-                "tool_result",
                 tool_name="retrieve_evidence",
                 argument_summary=evidence_argument_summary,
-                result_ids=[],
-                duration_ms=self._elapsed_ms(evidence_started_at),
-                status="failed",
+                started_at=evidence_started_at,
             )
             raise
         self._append_tool_event(
@@ -228,14 +247,11 @@ class WorkflowEngine:
         try:
             result = self.tools.search_eligible_products(parsed.hard, parsed.soft)
         except Exception:
-            self._append_tool_event(
+            self._append_failed_tool_event(
                 session,
-                "tool_result",
                 tool_name="search_eligible_products",
                 argument_summary=search_argument_summary,
-                result_ids=[],
-                duration_ms=self._elapsed_ms(search_started_at),
-                status="failed",
+                started_at=search_started_at,
             )
             raise
         self._append_tool_event(
