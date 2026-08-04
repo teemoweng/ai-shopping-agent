@@ -16,6 +16,13 @@ class FixtureRepository:
         products = load_model_list(root / "products.json", Product)
         contexts = load_model_list(root / "content-contexts.json", ContentContext)
         evidence = load_model_list(root / "evidence.json", EvidenceDocument)
+        for records, label in (
+            (products, "product"),
+            (contexts, "content context"),
+            (evidence, "evidence"),
+        ):
+            if len(records) != len({record.id for record in records}):
+                raise ValueError(f"duplicate {label} id")
         repository = cls(
             products={item.id: item for item in products},
             content_contexts={item.id: item for item in contexts},

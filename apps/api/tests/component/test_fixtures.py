@@ -1,4 +1,8 @@
+import json
 from pathlib import Path
+from shutil import copytree
+
+import pytest
 
 from app.repositories.fixture_repository import FixtureRepository
 
@@ -43,3 +47,24 @@ def test_sku_ids_are_unique_and_price_is_positive() -> None:
     skus = [sku for product in repository.products.values() for sku in product.skus]
     assert len({sku.id for sku in skus}) == len(skus)
     assert all(sku.price_usd > 0 for sku in skus)
+
+
+@pytest.mark.parametrize(
+    ("filename", "error_message"),
+    [
+        ("products.json", "duplicate product id"),
+        ("content-contexts.json", "duplicate content context id"),
+        ("evidence.json", "duplicate evidence id"),
+    ],
+)
+def test_fixture_repository_rejects_duplicate_top_level_ids(
+    tmp_path: Path, filename: str, error_message: str
+) -> None:
+    fixture_root = copytree(FIXTURE_ROOT, tmp_path / "fixtures")
+    fixture_path = fixture_root / filename
+    records = json.loads(fixture_path.read_text())
+    records.append(records[0])
+    fixture_path.write_text(json.dumps(records))
+
+    with pytest.raises(ValueError, match=error_message):
+        FixtureRepository.load(fixture_root)
