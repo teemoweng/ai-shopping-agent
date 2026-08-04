@@ -321,16 +321,60 @@ it("renders only the five fixed comparison facts with deterministic formatting",
   ]);
 });
 
-it("keeps the Task 14 substring product-name locator unambiguous after recommendations load", async () => {
-  await reachRecommendations();
-
+it("hands the Task 14 substring product-name locator from context to recommendation", async () => {
+  const user = userEvent.setup();
+  render(<GuideSheet open onClose={vi.fn()} />);
+  await screen.findByText(clarificationTurn.text);
   const guide = screen.getByRole("dialog", { name: "AI shopping guide" });
-  const substringMatches = within(guide).getAllByText(
+  const beforeSubmit = within(guide).queryAllByText(
     "Seoul Shade Daily Fluid",
     { exact: false },
   );
-  expect(substringMatches).toHaveLength(1);
-  expect(substringMatches[0]).toBeVisible();
+  expect(beforeSubmit).toHaveLength(1);
+  expect(beforeSubmit[0]).toBeVisible();
+
+  await user.click(screen.getByRole("button", { name: "Daily commute" }));
+  await screen.findByText("Closest fit");
+
+  const afterRecommendation = within(guide).queryAllByText(
+    "Seoul Shade Daily Fluid",
+    { exact: false },
+  );
+  expect(afterRecommendation).toHaveLength(1);
+  expect(afterRecommendation[0]).toBe(
+    within(guide).getByRole("heading", { name: "Seoul Shade Daily Fluid" }),
+  );
+  expect(within(guide).getByText("Video anchor")).toBeVisible();
+});
+
+describe.each([
+  ["an empty result", []],
+  [
+    "only non-anchor results",
+    recommendationTurn.recommendations?.filter(
+      (recommendation) => recommendation.product_id === "cloud-veil-mineral",
+    ) ?? [],
+  ],
+])("keeps inherited anchor text for %s", (_case, recommendations) => {
+  it("does not remove the only visible product-name match", async () => {
+    api.sendGuideMessage.mockResolvedValueOnce({
+      ...recommendationTurn,
+      recommendations,
+    });
+    const user = userEvent.setup();
+    render(<GuideSheet open onClose={vi.fn()} />);
+    await screen.findByText(clarificationTurn.text);
+    await user.click(screen.getByRole("button", { name: "Daily commute" }));
+    await screen.findByText(recommendationTurn.text);
+
+    const guide = screen.getByRole("dialog", { name: "AI shopping guide" });
+    expect(
+      within(guide).queryAllByText("Seoul Shade Daily Fluid", {
+        exact: false,
+      }),
+    ).toHaveLength(1);
+    expect(within(guide).queryByText("Video anchor")).not.toBeInTheDocument();
+  });
 });
 
 it("enforces two to three selected products and synchronously blocks duplicate comparisons", async () => {

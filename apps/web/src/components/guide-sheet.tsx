@@ -616,6 +616,13 @@ export function GuideSheet({
 
   const turn = turnFromState(uiState);
   const isSubmitting = uiState.status === "submitting";
+  const anchorNameIsVisibleInRecommendations =
+    uiState.status === "recommendation" &&
+    (uiState.turn.recommendations ?? []).some(
+      (recommendation) =>
+        recommendation.product_id === uiState.turn.context.anchor_product_id &&
+        recommendation.name.includes(uiState.turn.context.anchor_product_name),
+    );
 
   return (
     <div
@@ -660,7 +667,11 @@ export function GuideSheet({
               </div>
               <div>
                 <span>Inherited product</span>
-                <strong>Video anchor</strong>
+                <strong>
+                  {anchorNameIsVisibleInRecommendations
+                    ? "Video anchor"
+                    : turn.context.anchor_product_name}
+                </strong>
                 <small>{turn.context.anchor_product_id}</small>
               </div>
               <p>{turn.context.caption}</p>

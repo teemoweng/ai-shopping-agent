@@ -191,7 +191,7 @@ it("opens one content session and makes inherited context, one question, and eve
   expect(api.createGuideSession).toHaveBeenCalledOnce();
   expect(api.createGuideSession).toHaveBeenCalledWith("morning-routine-uv-001");
   expect(screen.getByText("@routine.notes")).toBeVisible();
-  expect(screen.getByText("Video anchor")).toBeVisible();
+  expect(screen.getByText("Seoul Shade Daily Fluid")).toBeVisible();
   expect(screen.getByText("seoul-shade-daily-fluid")).toBeVisible();
   expect(screen.getByText(context.caption)).toBeVisible();
   expect(screen.getByRole("heading", { name: "Creator claims checked" })).toBeVisible();
