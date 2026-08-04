@@ -30,7 +30,7 @@
 
 | 状态 | 工作包 | 必须产生的可验证证据 |
 |---|---|---|
-| ⏭️ NEXT | 工程骨架与本地一键启动 | 前后端健康检查、环境示例、经过验证的 README 命令、CI 基线 |
+| 🚧 IN PROGRESS | 工程骨架与本地一键启动（`codex/mvp-foundation`） | Foundation Task 1 的布局检查、Web lint、FastAPI import 验证与独立提交 |
 | ⏭️ NEXT | 领域 schema 与 12 SPU / 36 SKU 种子数据 | schema、种子脚本、完整性 / 约束测试、数据卡和版本号 |
 | ⏭️ NEXT | 搜索扩展契约（只预留） | `entry_point = content \| search`、`search_query` 与派生 `query_intent` 的 contract test；不含搜索 UI / 排序 |
 | ⏭️ NEXT | 12 个离线 `ContentContext` | 时间戳字幕、OCR、商品识别、主张标签、置信度与低置信度样例 |
