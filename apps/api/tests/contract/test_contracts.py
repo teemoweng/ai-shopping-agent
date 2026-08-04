@@ -42,6 +42,15 @@ def test_search_entry_rejects_content_payload() -> None:
         )
 
 
+def test_guide_session_rejects_unknown_fields() -> None:
+    with pytest.raises(ValidationError):
+        CreateGuideSessionRequest(
+            entry_point=EntryPoint.CONTENT,
+            content_context_id="morning-routine-uv-001",
+            unexpected="must not be ignored",
+        )
+
+
 def test_guide_session_schema_declares_discriminated_entry_branches() -> None:
     schema = CreateGuideSessionRequest.model_json_schema()
     assert schema["oneOf"] == [

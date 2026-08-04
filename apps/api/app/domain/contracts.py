@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.json_schema import GetJsonSchemaHandler, JsonSchemaValue
 from pydantic_core import CoreSchema
 
@@ -58,6 +58,8 @@ class SoftPreferences(BaseModel):
 
 
 class CreateGuideSessionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     entry_point: EntryPoint
     content_context_id: str | None = None
     search_query: Annotated[str | None, Field(min_length=2, max_length=200)] = None
