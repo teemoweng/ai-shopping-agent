@@ -2,40 +2,46 @@
   "components": {
     "schemas": {
       "CreateGuideSessionRequest": {
-        "properties": {
-          "content_context_id": {
-            "anyOf": [
-              {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "content_context_id": {
+                "minLength": 1,
                 "type": "string"
               },
-              {
-                "type": "null"
+              "entry_point": {
+                "const": "content",
+                "type": "string"
               }
+            },
+            "required": [
+              "entry_point",
+              "content_context_id"
             ],
-            "title": "Content Context Id"
+            "type": "object"
           },
-          "entry_point": {
-            "$ref": "#/components/schemas/EntryPoint"
-          },
-          "search_query": {
-            "anyOf": [
-              {
+          {
+            "additionalProperties": false,
+            "properties": {
+              "entry_point": {
+                "const": "search",
+                "type": "string"
+              },
+              "search_query": {
                 "maxLength": 200,
                 "minLength": 2,
                 "type": "string"
-              },
-              {
-                "type": "null"
               }
+            },
+            "required": [
+              "entry_point",
+              "search_query"
             ],
-            "title": "Search Query"
+            "type": "object"
           }
-        },
-        "required": [
-          "entry_point"
         ],
-        "title": "CreateGuideSessionRequest",
-        "type": "object"
+        "title": "CreateGuideSessionRequest"
       },
       "EntryPoint": {
         "enum": [

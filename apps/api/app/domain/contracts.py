@@ -4,6 +4,8 @@ from enum import StrEnum
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, model_validator
+from pydantic.json_schema import GetJsonSchemaHandler, JsonSchemaValue
+from pydantic_core import CoreSchema
 
 
 class EntryPoint(StrEnum):
@@ -60,8 +62,42 @@ class CreateGuideSessionRequest(BaseModel):
     content_context_id: str | None = None
     search_query: Annotated[str | None, Field(min_length=2, max_length=200)] = None
 
+    @classmethod
+    def __get_pydantic_json_schema__(
+        cls,
+        core_schema: CoreSchema,
+        handler: GetJsonSchemaHandler,
+    ) -> JsonSchemaValue:
+        return {
+            "title": cls.__name__,
+            "oneOf": [
+                {
+                    "additionalProperties": False,
+                    "properties": {
+                        "content_context_id": {"minLength": 1, "type": "string"},
+                        "entry_point": {"const": "content", "type": "string"},
+                    },
+                    "required": ["entry_point", "content_context_id"],
+                    "type": "object",
+                },
+                {
+                    "additionalProperties": False,
+                    "properties": {
+                        "entry_point": {"const": "search", "type": "string"},
+                        "search_query": {
+                            "maxLength": 200,
+                            "minLength": 2,
+                            "type": "string",
+                        },
+                    },
+                    "required": ["entry_point", "search_query"],
+                    "type": "object",
+                },
+            ],
+        }
+
     @model_validator(mode="after")
-    def validate_entry_payload(self) -> "CreateGuideSessionRequest":
+    def validate_entry_payload(self) -> CreateGuideSessionRequest:
         if self.entry_point is EntryPoint.CONTENT and not self.content_context_id:
             raise ValueError("content_context_id is required for content entry")
         if self.entry_point is EntryPoint.CONTENT and self.search_query is not None:

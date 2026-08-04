@@ -42,6 +42,30 @@ def test_search_entry_rejects_content_payload() -> None:
         )
 
 
+def test_guide_session_schema_declares_discriminated_entry_branches() -> None:
+    schema = CreateGuideSessionRequest.model_json_schema()
+    assert schema["oneOf"] == [
+        {
+            "additionalProperties": False,
+            "properties": {
+                "content_context_id": {"minLength": 1, "type": "string"},
+                "entry_point": {"const": "content", "type": "string"},
+            },
+            "required": ["entry_point", "content_context_id"],
+            "type": "object",
+        },
+        {
+            "additionalProperties": False,
+            "properties": {
+                "entry_point": {"const": "search", "type": "string"},
+                "search_query": {"maxLength": 200, "minLength": 2, "type": "string"},
+            },
+            "required": ["entry_point", "search_query"],
+            "type": "object",
+        },
+    ]
+
+
 def test_workflow_state_values_are_stable() -> None:
     assert [state.value for state in WorkflowState] == [
         "ENTRY_INGEST",

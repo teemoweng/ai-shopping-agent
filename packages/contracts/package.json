@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "generate": "openapi-typescript openapi.json -o src/api.ts",
-    "check": "pnpm generate && git diff --exit-code -- openapi.json src/api.ts"
+    "check": "uv --directory ../../apps/api run python -m scripts.export_openapi && pnpm generate && git diff --exit-code -- openapi.json src/api.ts"
   },
   "devDependencies": {
     "openapi-typescript": "7.13.0"

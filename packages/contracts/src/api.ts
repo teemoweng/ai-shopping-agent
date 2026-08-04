@@ -44,11 +44,13 @@ export interface components {
     schemas: {
         /** CreateGuideSessionRequest */
         CreateGuideSessionRequest: {
-            /** Content Context Id */
-            content_context_id?: string | null;
-            entry_point: components["schemas"]["EntryPoint"];
-            /** Search Query */
-            search_query?: string | null;
+            content_context_id: string;
+            /** @constant */
+            entry_point: "content";
+        } | {
+            /** @constant */
+            entry_point: "search";
+            search_query: string;
         };
         /**
          * EntryPoint
