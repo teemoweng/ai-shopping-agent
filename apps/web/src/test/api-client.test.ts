@@ -22,6 +22,7 @@ const guideTurn = {
     creator_handle: "@synthetic_creator",
     caption: "Synthetic sunscreen demo",
     anchor_product_id: "seoul-shade-daily-fluid",
+    anchor_product_name: "Seoul Shade Daily Fluid",
     claims: [],
   },
   evidence: [],

@@ -20,6 +20,7 @@ def test_create_content_session_returns_inherited_context() -> None:
     assert body["session_id"].startswith("ses_")
     assert body["state"] == "CLARIFY"
     assert body["context"]["anchor_product_id"] == "seoul-shade-daily-fluid"
+    assert body["context"]["anchor_product_name"] == "Seoul Shade Daily Fluid"
 
 
 def test_message_advances_session_to_recommendation() -> None:

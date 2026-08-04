@@ -1,7 +1,6 @@
 "use client";
 
 import type { components } from "@shopping-guide/contracts/src/api";
-import { useState } from "react";
 
 import { formatUsd } from "@/lib/formatters";
 
@@ -18,17 +17,24 @@ const verdictLabels = {
 export function RecommendationCard({
   recommendation,
   index,
+  selectedSkuId,
+  onSelectedSkuChange,
   selectedForCompare,
   onCompareChange,
 }: {
   recommendation: Recommendation;
   index: number;
+  selectedSkuId: string | null;
+  onSelectedSkuChange: (skuId: string | null) => void;
   selectedForCompare: boolean;
   onCompareChange: (productId: string, selected: boolean) => void;
 }) {
-  const [selectedSku, setSelectedSku] = useState(
-    recommendation.eligible_sku_ids[0] ?? "",
-  );
+  const selectedSkuForCard = recommendation.eligible_sku_ids.includes(
+    selectedSkuId ?? "",
+  )
+    ? selectedSkuId
+    : null;
+  const hasEligibleSku = recommendation.eligible_sku_ids.length > 0;
   const evidenceLabel = `${recommendation.evidence_ids.length} evidence ${
     recommendation.evidence_ids.length === 1 ? "source" : "sources"
   }`;
@@ -72,15 +78,19 @@ export function RecommendationCard({
 
       <div className="recommendationControls">
         <label>
-          <span>Eligible SKU</span>
+          <span>Eligible size</span>
           <select
-            aria-label={`SKU for ${recommendation.name}`}
-            value={selectedSku}
-            disabled={recommendation.eligible_sku_ids.length === 0}
-            onChange={(event) => setSelectedSku(event.target.value)}
+            aria-label={`Size for ${recommendation.name}`}
+            value={selectedSkuForCard ?? ""}
+            disabled={!hasEligibleSku}
+            onChange={(event) =>
+              onSelectedSkuChange(event.target.value || null)
+            }
           >
-            {recommendation.eligible_sku_ids.length === 0 ? (
+            {!hasEligibleSku ? (
               <option value="">No eligible SKU</option>
+            ) : selectedSkuForCard === null ? (
+              <option value="">Select a size</option>
             ) : null}
             {recommendation.eligible_sku_ids.map((skuId) => (
               <option value={skuId} key={skuId}>

@@ -210,6 +210,8 @@ export interface components {
         ContentContextSummary: {
             /** Anchor Product Id */
             anchor_product_id: string;
+            /** Anchor Product Name */
+            anchor_product_name: string;
             /** Caption */
             caption: string;
             /** Claims */

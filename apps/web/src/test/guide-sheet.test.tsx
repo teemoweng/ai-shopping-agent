@@ -8,7 +8,7 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState } from "react";
+import { StrictMode, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GuideSheet, claimStatusLabel } from "@/components/guide-sheet";
@@ -25,6 +25,7 @@ type GuideTurn = components["schemas"]["GuideTurnResponse"];
 const context: components["schemas"]["ContentContextSummary"] = {
   id: "morning-routine-uv-001",
   anchor_product_id: "seoul-shade-daily-fluid",
+  anchor_product_name: "Seoul Shade Daily Fluid",
   creator_handle: "@routine.notes",
   caption: "A lightweight SPF step for a humid commute",
   claims: [
@@ -190,6 +191,7 @@ it("opens one content session and makes inherited context, one question, and eve
   expect(api.createGuideSession).toHaveBeenCalledOnce();
   expect(api.createGuideSession).toHaveBeenCalledWith("morning-routine-uv-001");
   expect(screen.getByText("@routine.notes")).toBeVisible();
+  expect(screen.getByText("Seoul Shade Daily Fluid")).toBeVisible();
   expect(screen.getByText("seoul-shade-daily-fluid")).toBeVisible();
   expect(screen.getByText(context.caption)).toBeVisible();
   expect(screen.getByRole("heading", { name: "Creator claims checked" })).toBeVisible();
@@ -256,10 +258,43 @@ it("submits a quick reply and renders API-grounded recommendation facts without 
   expect(within(card!).getByText("No labeled water resistance")).toBeVisible();
   expect(within(card!).getByText("Reapply for extended exposure")).toBeVisible();
   expect(within(card!).getByText("2 evidence sources")).toBeVisible();
-  expect(within(card!).getByRole("combobox", { name: "SKU for Seoul Shade Daily Fluid" })).toHaveValue("seoul-shade-30");
+  expect(within(card!).getByRole("combobox", { name: "Size for Seoul Shade Daily Fluid" })).toHaveValue("seoul-shade-30");
   expect(within(card!).getByRole("checkbox", { name: "Compare Seoul Shade Daily Fluid" })).toBeVisible();
   expect(screen.getAllByText("Closest fit")).toHaveLength(1);
   expect(screen.queryByRole("button", { name: /add/i })).not.toBeInTheDocument();
+});
+
+it("resets a lifted SKU selection when the same product returns with different eligible SKUs", async () => {
+  const user = userEvent.setup();
+  const changedSkuTurn: GuideTurn = {
+    ...recommendationTurn,
+    recommendations: [
+      {
+        ...recommendationTurn.recommendations![0],
+        eligible_sku_ids: ["seoul-shade-75"],
+      },
+    ],
+  };
+  api.sendGuideMessage
+    .mockResolvedValueOnce(recommendationTurn)
+    .mockResolvedValueOnce(changedSkuTurn);
+  render(<GuideSheet open onClose={vi.fn()} />);
+  await screen.findByText(clarificationTurn.text);
+  await user.click(screen.getByRole("button", { name: "Daily commute" }));
+
+  const selector = await screen.findByRole("combobox", {
+    name: "Size for Seoul Shade Daily Fluid",
+  });
+  await user.selectOptions(selector, "seoul-shade-50");
+  expect(selector).toHaveValue("seoul-shade-50");
+  await user.type(screen.getByLabelText("Your must-haves"), "Now under $18");
+  fireEvent.submit(screen.getByLabelText("Your must-haves").closest("form")!);
+
+  expect(
+    await screen.findByRole("combobox", {
+      name: "Size for Seoul Shade Daily Fluid",
+    }),
+  ).toHaveValue("seoul-shade-75");
 });
 
 it("keeps public rules authoritative and labels synthetic evidence as a benchmark", async () => {
@@ -294,7 +329,7 @@ it("renders a no-match recovery without silently offering an add action", async 
     screen.getByLabelText("Your must-haves"),
     "Under $15, fragrance-free, 80 minute water resistance",
   );
-  await user.click(screen.getByRole("button", { name: "Check my fit" }));
+  await user.click(screen.getByRole("button", { name: "Find my match" }));
 
   expect(await screen.findByRole("heading", { name: "Change one requirement" })).toBeVisible();
   expect(screen.getAllByText(/won't silently relax/i)).toHaveLength(1);
@@ -308,7 +343,7 @@ it("renders safety and opening-error states without recommendations", async () =
   const { unmount } = render(<GuideSheet open onClose={vi.fn()} />);
   await screen.findByText(clarificationTurn.text);
   await user.type(screen.getByLabelText("Your must-haves"), "Diagnose this rash");
-  await user.click(screen.getByRole("button", { name: "Check my fit" }));
+  await user.click(screen.getByRole("button", { name: "Find my match" }));
 
   expect(await screen.findByRole("heading", { name: "Safety boundary" })).toBeVisible();
   expect(screen.getAllByText(/qualified medical professional/i)).toHaveLength(1);
@@ -387,5 +422,21 @@ describe("dialog lifecycle", () => {
     await act(async () => stale.resolve(staleTurn));
     expect(screen.queryByText(staleTurn.text)).not.toBeInTheDocument();
     expect(screen.getByText(clarificationTurn.text)).toBeVisible();
+  });
+
+  it("creates one session per open cycle under StrictMode", async () => {
+    const user = userEvent.setup();
+    render(
+      <StrictMode>
+        <Harness />
+      </StrictMode>,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Ask AI about this product" }),
+    );
+    await screen.findByText(clarificationTurn.text);
+
+    expect(api.createGuideSession).toHaveBeenCalledTimes(1);
   });
 });

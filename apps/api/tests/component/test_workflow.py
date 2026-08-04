@@ -56,12 +56,33 @@ def test_content_entry_opens_with_one_high_information_question(tmp_path) -> Non
     assert turn.kind == "clarification"
     assert turn.text.count("?") == 1
     assert turn.context.anchor_product_id == "seoul-shade-daily-fluid"
+    assert turn.context.anchor_product_name == "Seoul Shade Daily Fluid"
     assert {claim.status for claim in turn.context.claims} == {
         EvidenceStatus.SUPPORTED,
         EvidenceStatus.CONFLICTING,
         EvidenceStatus.INSUFFICIENT_EVIDENCE,
         EvidenceStatus.SUBJECTIVE_MIXED,
     }
+
+
+def test_context_product_name_is_resolved_from_product_facts(tmp_path) -> None:
+    fixtures = FixtureRepository.load(FIXTURE_ROOT)
+    products = dict(fixtures.products)
+    products["seoul-shade-daily-fluid"] = products[
+        "seoul-shade-daily-fluid"
+    ].model_copy(update={"name": "Fixture-resolved display name"})
+    fixtures = FixtureRepository(
+        products=products,
+        content_contexts=fixtures.content_contexts,
+        evidence_documents=fixtures.evidence_documents,
+    )
+    sessions = SessionRepository(tmp_path / "trace.jsonl")
+    engine = WorkflowEngine(ShoppingTools(fixtures), sessions)
+    session = sessions.create(EntryPoint.CONTENT, "morning-routine-uv-001", None)
+
+    turn = engine.open_session(session)
+
+    assert turn.context.anchor_product_name == "Fixture-resolved display name"
 
 
 def test_constraints_produce_grounded_recommendations(tmp_path) -> None:

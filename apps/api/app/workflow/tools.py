@@ -13,6 +13,9 @@ class ShoppingTools:
     def get_content_context(self, context_id: str):
         return self.fixtures.get_content_context(context_id)
 
+    def get_product(self, product_id: str):
+        return self.fixtures.get_product(product_id)
+
     def search_eligible_products(
         self,
         hard: HardConstraints,

@@ -250,6 +250,10 @@
             "title": "Anchor Product Id",
             "type": "string"
           },
+          "anchor_product_name": {
+            "title": "Anchor Product Name",
+            "type": "string"
+          },
           "caption": {
             "title": "Caption",
             "type": "string"
@@ -273,6 +277,7 @@
         "required": [
           "id",
           "anchor_product_id",
+          "anchor_product_name",
           "creator_handle",
           "caption",
           "claims"

@@ -53,6 +53,19 @@ function turnFromState(state: GuideUiState) {
   return "turn" in state ? state.turn : undefined;
 }
 
+function validatedSkuForTurn(turn: GuideTurn, currentSkuId: string | null) {
+  if (turn.kind !== "recommendation") {
+    return null;
+  }
+  const eligibleSkuIds = (turn.recommendations ?? []).flatMap(
+    (recommendation) => recommendation.eligible_sku_ids,
+  );
+  if (currentSkuId && eligibleSkuIds.includes(currentSkuId)) {
+    return currentSkuId;
+  }
+  return eligibleSkuIds[0] ?? null;
+}
+
 function sourceHost(url: string) {
   try {
     return new URL(url).hostname.replace(/^www\./, "");
@@ -111,6 +124,7 @@ export function GuideSheet({
   const [uiState, setUiState] = useState<GuideUiState>({ status: "opening" });
   const [input, setInput] = useState("");
   const [compareIds, setCompareIds] = useState<Set<string>>(() => new Set());
+  const [selectedSkuId, setSelectedSkuId] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const openCycleRef = useRef(false);
@@ -127,8 +141,16 @@ export function GuideSheet({
     setUiState({ status: "opening" });
     setInput("");
     setCompareIds(new Set());
+    setSelectedSkuId(null);
     onClose();
   }, [onClose]);
+
+  const applyTurn = useCallback((turn: GuideTurn) => {
+    setSelectedSkuId((currentSkuId) =>
+      validatedSkuForTurn(turn, currentSkuId),
+    );
+    setUiState(uiStateFromTurn(turn));
+  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -151,7 +173,7 @@ export function GuideSheet({
           isOpenRef.current &&
           requestVersionRef.current === requestVersion
         ) {
-          setUiState(uiStateFromTurn(turn));
+          applyTurn(turn);
         }
       })
       .catch(() => {
@@ -166,7 +188,7 @@ export function GuideSheet({
           });
         }
       });
-  }, [open]);
+  }, [applyTurn, open]);
 
   useEffect(() => {
     if (!open) {
@@ -203,7 +225,7 @@ export function GuideSheet({
           ) {
             setInput("");
             setCompareIds(new Set());
-            setUiState(uiStateFromTurn(nextTurn));
+            applyTurn(nextTurn);
           }
         })
         .catch(() => {
@@ -225,7 +247,7 @@ export function GuideSheet({
           }
         });
     },
-    [uiState],
+    [applyTurn, uiState],
   );
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -325,7 +347,8 @@ export function GuideSheet({
               </div>
               <div>
                 <span>Inherited product</span>
-                <strong>{turn.context.anchor_product_id}</strong>
+                <strong>{turn.context.anchor_product_name}</strong>
+                <small>{turn.context.anchor_product_id}</small>
               </div>
               <p>{turn.context.caption}</p>
             </section>
@@ -418,7 +441,7 @@ export function GuideSheet({
                 />
               </label>
               <button type="submit" disabled={isSubmitting || !input.trim()}>
-                {isSubmitting ? "Checking…" : "Check my fit"}
+                {isSubmitting ? "Checking…" : "Find my match"}
               </button>
             </form>
           ) : (
@@ -441,6 +464,8 @@ export function GuideSheet({
                       key={recommendation.product_id}
                       recommendation={recommendation}
                       index={index}
+                      selectedSkuId={selectedSkuId}
+                      onSelectedSkuChange={setSelectedSkuId}
                       selectedForCompare={compareIds.has(recommendation.product_id)}
                       onCompareChange={handleCompareChange}
                     />

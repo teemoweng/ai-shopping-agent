@@ -178,6 +178,7 @@ class ClaimVerification(BaseModel):
 class ContentContextSummary(BaseModel):
     id: str
     anchor_product_id: str
+    anchor_product_name: str
     creator_handle: str
     caption: str
     claims: list[ClaimVerification]

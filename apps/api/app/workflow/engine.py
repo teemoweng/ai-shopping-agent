@@ -27,9 +27,11 @@ class WorkflowEngine:
 
     def _context(self, session: GuideSession) -> ContentContextSummary:
         context = self.tools.get_content_context(session.content_context_id or "")
+        anchor_product = self.tools.get_product(context.anchor_product_id)
         return ContentContextSummary(
             id=context.id,
             anchor_product_id=context.anchor_product_id,
+            anchor_product_name=anchor_product.name,
             creator_handle=context.creator_handle,
             caption=context.caption,
             claims=[
