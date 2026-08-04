@@ -29,19 +29,37 @@ export function ShortVideoFeed({ onAskAi }: { onAskAi: () => void }) {
           <span>Following</span>
         </nav>
 
-        <aside className="actionRail" aria-label="Content actions">
-          <button type="button" aria-label="Like">
+        <aside className="actionRail" aria-label="Synthetic engagement">
+          <div
+            className="engagementMetric"
+            role="group"
+            aria-label="2.4K likes · synthetic metric"
+          >
             <span className="railHeart" aria-hidden="true">♡</span>
-            <small>2.4K</small>
-          </button>
-          <button type="button" aria-label="Comments">
+            <small>
+              <span className="metricValue">2.4K</span>
+              <span className="metricName">Likes</span>
+            </small>
+          </div>
+          <div
+            className="engagementMetric"
+            role="group"
+            aria-label="28 comments · synthetic metric"
+          >
             <span className="railComment" aria-hidden="true" />
-            <small>28</small>
-          </button>
-          <button type="button" aria-label="Save">
+            <small>
+              <span className="metricValue">28</span>
+              <span className="metricName">Comments</span>
+            </small>
+          </div>
+          <div
+            className="engagementMetric"
+            role="group"
+            aria-label="Saves · synthetic metric"
+          >
             <span className="railSave" aria-hidden="true" />
-            <small>Save</small>
-          </button>
+            <small className="metricName">Saves</small>
+          </div>
         </aside>
 
         <div className="creatorCopy">
