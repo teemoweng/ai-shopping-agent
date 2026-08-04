@@ -20,6 +20,7 @@ export function RecommendationCard({
   selectedSkuId,
   onSelectedSkuChange,
   selectedForCompare,
+  compareDisabled = false,
   onCompareChange,
 }: {
   recommendation: Recommendation;
@@ -27,6 +28,7 @@ export function RecommendationCard({
   selectedSkuId: string | null;
   onSelectedSkuChange: (skuId: string | null) => void;
   selectedForCompare: boolean;
+  compareDisabled?: boolean;
   onCompareChange: (productId: string, selected: boolean) => void;
 }) {
   const selectedSkuForCard = recommendation.eligible_sku_ids.includes(
@@ -103,6 +105,7 @@ export function RecommendationCard({
           <input
             type="checkbox"
             checked={selectedForCompare}
+            disabled={compareDisabled}
             onChange={(event) =>
               onCompareChange(recommendation.product_id, event.target.checked)
             }

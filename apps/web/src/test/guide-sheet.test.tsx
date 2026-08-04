@@ -261,7 +261,10 @@ it("submits a quick reply and renders API-grounded recommendation facts without 
   expect(within(card!).getByRole("combobox", { name: "Size for Seoul Shade Daily Fluid" })).toHaveValue("seoul-shade-30");
   expect(within(card!).getByRole("checkbox", { name: "Compare Seoul Shade Daily Fluid" })).toBeVisible();
   expect(screen.getAllByText("Closest fit")).toHaveLength(1);
-  expect(screen.queryByRole("button", { name: /add/i })).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Confirm simulated add" }),
+  ).not.toBeInTheDocument();
+  expect(screen.queryByText("Added to simulated cart")).not.toBeInTheDocument();
 });
 
 it("resets a lifted SKU selection when the same product returns with different eligible SKUs", async () => {

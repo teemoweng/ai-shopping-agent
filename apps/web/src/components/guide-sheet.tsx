@@ -9,11 +9,23 @@ import {
 } from "react";
 import type { FormEvent, KeyboardEvent } from "react";
 
+import { CartConfirmation } from "@/components/cart-confirmation";
+import { ComparisonTable } from "@/components/comparison-table";
 import { RecommendationCard } from "@/components/recommendation-card";
-import { createGuideSession, sendGuideMessage } from "@/lib/api-client";
+import {
+  ApiError,
+  addCartItem,
+  compareProducts,
+  createGuideSession,
+  previewCart,
+  sendGuideMessage,
+} from "@/lib/api-client";
 
 type GuideTurn = components["schemas"]["GuideTurnResponse"];
 type EvidenceStatus = components["schemas"]["EvidenceStatus"];
+type CompareResponse = components["schemas"]["CompareResponse"];
+type CartPreviewResponse = components["schemas"]["CartPreviewResponse"];
+type CartItemResponse = components["schemas"]["CartItemResponse"];
 
 type GuideUiState =
   | { status: "opening" }
@@ -53,17 +65,28 @@ function turnFromState(state: GuideUiState) {
   return "turn" in state ? state.turn : undefined;
 }
 
-function validatedSkuForTurn(turn: GuideTurn, currentSkuId: string | null) {
+function defaultSkuForTurn(turn: GuideTurn) {
   if (turn.kind !== "recommendation") {
     return null;
   }
   const eligibleSkuIds = (turn.recommendations ?? []).flatMap(
     (recommendation) => recommendation.eligible_sku_ids,
   );
-  if (currentSkuId && eligibleSkuIds.includes(currentSkuId)) {
-    return currentSkuId;
-  }
   return eligibleSkuIds[0] ?? null;
+}
+
+function decisionErrorCode(error: unknown) {
+  return error instanceof ApiError ? error.code : "UNKNOWN_API_ERROR";
+}
+
+function previewRecoveryMessage(errorCode: string) {
+  if (errorCode === "INSUFFICIENT_STOCK") {
+    return "This size no longer has enough stock. Choose another size and preview again.";
+  }
+  if (errorCode === "SKU_NOT_RECOMMENDED") {
+    return "This size is no longer eligible. Choose another recommended size and preview again.";
+  }
+  return "Current price and stock could not be checked. Keep this size selected and try previewing again.";
 }
 
 function sourceHost(url: string) {
@@ -123,33 +146,94 @@ export function GuideSheet({
 }) {
   const [uiState, setUiState] = useState<GuideUiState>({ status: "opening" });
   const [input, setInput] = useState("");
-  const [compareIds, setCompareIds] = useState<Set<string>>(() => new Set());
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [selectedSkuId, setSelectedSkuId] = useState<string | null>(null);
+  const [comparison, setComparison] = useState<CompareResponse | null>(null);
+  const [preview, setPreview] = useState<CartPreviewResponse | null>(null);
+  const [cartItem, setCartItem] = useState<CartItemResponse | null>(null);
+  const [comparisonPending, setComparisonPending] = useState(false);
+  const [previewPending, setPreviewPending] = useState(false);
+  const [cartPending, setCartPending] = useState(false);
+  const [comparisonError, setComparisonError] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [cartErrorCode, setCartErrorCode] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const openCycleRef = useRef(false);
   const isOpenRef = useRef(false);
+  const mountedRef = useRef(false);
   const requestVersionRef = useRef(0);
   const messageSequenceRef = useRef(0);
   const submittingRef = useRef(false);
+  const decisionGenerationRef = useRef(0);
+  const selectedProductIdsRef = useRef<string[]>([]);
+  const selectedSkuIdRef = useRef<string | null>(null);
+  const comparisonVersionRef = useRef(0);
+  const previewVersionRef = useRef(0);
+  const cartVersionRef = useRef(0);
+  const comparisonPendingRef = useRef(false);
+  const previewPendingRef = useRef(false);
+  const cartPendingRef = useRef(false);
+
+  const resetDecisionArtifacts = useCallback((turn?: GuideTurn) => {
+    decisionGenerationRef.current += 1;
+    comparisonVersionRef.current += 1;
+    previewVersionRef.current += 1;
+    cartVersionRef.current += 1;
+    comparisonPendingRef.current = false;
+    previewPendingRef.current = false;
+    cartPendingRef.current = false;
+    selectedProductIdsRef.current = [];
+    const nextSkuId = turn ? defaultSkuForTurn(turn) : null;
+    selectedSkuIdRef.current = nextSkuId;
+
+    setSelectedProductIds([]);
+    setSelectedSkuId(nextSkuId);
+    setComparison(null);
+    setPreview(null);
+    setCartItem(null);
+    setComparisonPending(false);
+    setPreviewPending(false);
+    setCartPending(false);
+    setComparisonError(null);
+    setPreviewError(null);
+    setCartErrorCode(null);
+  }, []);
+
+  const invalidateDecisionRequests = useCallback(() => {
+    decisionGenerationRef.current += 1;
+    comparisonVersionRef.current += 1;
+    previewVersionRef.current += 1;
+    cartVersionRef.current += 1;
+    comparisonPendingRef.current = false;
+    previewPendingRef.current = false;
+    cartPendingRef.current = false;
+    setComparisonPending(false);
+    setPreviewPending(false);
+    setCartPending(false);
+  }, []);
 
   const handleClose = useCallback(() => {
     isOpenRef.current = false;
     openCycleRef.current = false;
     submittingRef.current = false;
     requestVersionRef.current += 1;
+    resetDecisionArtifacts();
     setUiState({ status: "opening" });
     setInput("");
-    setCompareIds(new Set());
-    setSelectedSkuId(null);
     onClose();
-  }, [onClose]);
+  }, [onClose, resetDecisionArtifacts]);
 
   const applyTurn = useCallback((turn: GuideTurn) => {
-    setSelectedSkuId((currentSkuId) =>
-      validatedSkuForTurn(turn, currentSkuId),
-    );
+    resetDecisionArtifacts(turn);
     setUiState(uiStateFromTurn(turn));
+  }, [resetDecisionArtifacts]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -158,6 +242,13 @@ export function GuideSheet({
       openCycleRef.current = false;
       requestVersionRef.current += 1;
       submittingRef.current = false;
+      decisionGenerationRef.current += 1;
+      comparisonVersionRef.current += 1;
+      previewVersionRef.current += 1;
+      cartVersionRef.current += 1;
+      comparisonPendingRef.current = false;
+      previewPendingRef.current = false;
+      cartPendingRef.current = false;
       return;
     }
     if (openCycleRef.current) {
@@ -166,10 +257,14 @@ export function GuideSheet({
 
     openCycleRef.current = true;
     isOpenRef.current = true;
+    resetDecisionArtifacts();
+    setUiState({ status: "opening" });
+    setInput("");
     const requestVersion = ++requestVersionRef.current;
     void createGuideSession("morning-routine-uv-001")
       .then((turn) => {
         if (
+          mountedRef.current &&
           isOpenRef.current &&
           requestVersionRef.current === requestVersion
         ) {
@@ -178,6 +273,7 @@ export function GuideSheet({
       })
       .catch(() => {
         if (
+          mountedRef.current &&
           isOpenRef.current &&
           requestVersionRef.current === requestVersion
         ) {
@@ -188,7 +284,7 @@ export function GuideSheet({
           });
         }
       });
-  }, [applyTurn, open]);
+  }, [applyTurn, open, resetDecisionArtifacts]);
 
   useEffect(() => {
     if (!open) {
@@ -214,22 +310,24 @@ export function GuideSheet({
       }
 
       submittingRef.current = true;
+      invalidateDecisionRequests();
       setUiState({ status: "submitting", turn });
       const requestVersion = ++requestVersionRef.current;
       const messageId = `msg_${turn.session_id}_${++messageSequenceRef.current}`;
       void sendGuideMessage(turn.session_id, messageId, text)
         .then((nextTurn) => {
           if (
+            mountedRef.current &&
             isOpenRef.current &&
             requestVersionRef.current === requestVersion
           ) {
             setInput("");
-            setCompareIds(new Set());
             applyTurn(nextTurn);
           }
         })
         .catch(() => {
           if (
+            mountedRef.current &&
             isOpenRef.current &&
             requestVersionRef.current === requestVersion
           ) {
@@ -242,12 +340,15 @@ export function GuideSheet({
           }
         })
         .finally(() => {
-          if (requestVersionRef.current === requestVersion) {
+          if (
+            mountedRef.current &&
+            requestVersionRef.current === requestVersion
+          ) {
             submittingRef.current = false;
           }
         });
     },
-    [applyTurn, uiState],
+    [applyTurn, invalidateDecisionRequests, uiState],
   );
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -286,15 +387,202 @@ export function GuideSheet({
   }
 
   function handleCompareChange(productId: string, selected: boolean) {
-    setCompareIds((current) => {
-      const next = new Set(current);
-      if (selected) {
-        next.add(productId);
-      } else {
-        next.delete(productId);
-      }
-      return next;
-    });
+    const current = selectedProductIdsRef.current;
+    if (selected && (current.includes(productId) || current.length >= 3)) {
+      return;
+    }
+    const next = selected
+      ? [...current, productId]
+      : current.filter((id) => id !== productId);
+    if (next.length === current.length && next.every((id, index) => id === current[index])) {
+      return;
+    }
+
+    selectedProductIdsRef.current = next;
+    comparisonVersionRef.current += 1;
+    comparisonPendingRef.current = false;
+    setSelectedProductIds(next);
+    setComparison(null);
+    setComparisonPending(false);
+    setComparisonError(null);
+  }
+
+  function handleSelectedSkuChange(skuId: string | null) {
+    const turn = turnFromState(uiState);
+    const eligibleSkuIds =
+      turn?.kind === "recommendation"
+        ? (turn.recommendations ?? []).flatMap(
+            (recommendation) => recommendation.eligible_sku_ids,
+          )
+        : [];
+    const validatedSkuId =
+      skuId && eligibleSkuIds.includes(skuId) ? skuId : null;
+    if (selectedSkuIdRef.current === validatedSkuId) {
+      return;
+    }
+    selectedSkuIdRef.current = validatedSkuId;
+    previewVersionRef.current += 1;
+    cartVersionRef.current += 1;
+    previewPendingRef.current = false;
+    cartPendingRef.current = false;
+    setSelectedSkuId(validatedSkuId);
+    setPreview(null);
+    setCartItem(null);
+    setPreviewPending(false);
+    setCartPending(false);
+    setPreviewError(null);
+    setCartErrorCode(null);
+  }
+
+  function handleCompareProducts() {
+    const ids = selectedProductIdsRef.current;
+    const turn = turnFromState(uiState);
+    if (
+      !turn ||
+      ids.length < 2 ||
+      ids.length > 3 ||
+      comparisonPendingRef.current
+    ) {
+      return;
+    }
+
+    comparisonPendingRef.current = true;
+    setComparisonPending(true);
+    setComparisonError(null);
+    const generation = decisionGenerationRef.current;
+    const operationVersion = ++comparisonVersionRef.current;
+    void compareProducts(turn.session_id, [...ids])
+      .then((response) => {
+        if (
+          mountedRef.current &&
+          isOpenRef.current &&
+          decisionGenerationRef.current === generation &&
+          comparisonVersionRef.current === operationVersion
+        ) {
+          setComparison(response);
+        }
+      })
+      .catch((error: unknown) => {
+        if (
+          mountedRef.current &&
+          isOpenRef.current &&
+          decisionGenerationRef.current === generation &&
+          comparisonVersionRef.current === operationVersion
+        ) {
+          setComparisonError(decisionErrorCode(error));
+        }
+      })
+      .finally(() => {
+        if (
+          mountedRef.current &&
+          decisionGenerationRef.current === generation &&
+          comparisonVersionRef.current === operationVersion
+        ) {
+          comparisonPendingRef.current = false;
+          setComparisonPending(false);
+        }
+      });
+  }
+
+  function handlePreviewCart() {
+    const skuId = selectedSkuIdRef.current;
+    const turn = turnFromState(uiState);
+    if (!turn || !skuId || previewPendingRef.current) {
+      return;
+    }
+
+    previewPendingRef.current = true;
+    cartVersionRef.current += 1;
+    cartPendingRef.current = false;
+    setPreview(null);
+    setCartItem(null);
+    setPreviewPending(true);
+    setCartPending(false);
+    setPreviewError(null);
+    setCartErrorCode(null);
+    const generation = decisionGenerationRef.current;
+    const operationVersion = ++previewVersionRef.current;
+    void previewCart(turn.session_id, skuId)
+      .then((response) => {
+        if (
+          mountedRef.current &&
+          isOpenRef.current &&
+          decisionGenerationRef.current === generation &&
+          previewVersionRef.current === operationVersion &&
+          selectedSkuIdRef.current === skuId
+        ) {
+          setPreview(response);
+        }
+      })
+      .catch((error: unknown) => {
+        if (
+          mountedRef.current &&
+          isOpenRef.current &&
+          decisionGenerationRef.current === generation &&
+          previewVersionRef.current === operationVersion &&
+          selectedSkuIdRef.current === skuId
+        ) {
+          setPreviewError(decisionErrorCode(error));
+        }
+      })
+      .finally(() => {
+        if (
+          mountedRef.current &&
+          decisionGenerationRef.current === generation &&
+          previewVersionRef.current === operationVersion
+        ) {
+          previewPendingRef.current = false;
+          setPreviewPending(false);
+        }
+      });
+  }
+
+  function handleConfirmCart(confirmationToken: string) {
+    const turn = turnFromState(uiState);
+    if (!turn || !preview || cartPendingRef.current) {
+      return;
+    }
+
+    cartPendingRef.current = true;
+    setCartPending(true);
+    setCartErrorCode(null);
+    const generation = decisionGenerationRef.current;
+    const previewVersion = previewVersionRef.current;
+    const operationVersion = ++cartVersionRef.current;
+    void addCartItem(turn.session_id, confirmationToken)
+      .then((response) => {
+        if (
+          mountedRef.current &&
+          isOpenRef.current &&
+          decisionGenerationRef.current === generation &&
+          previewVersionRef.current === previewVersion &&
+          cartVersionRef.current === operationVersion
+        ) {
+          setCartItem(response);
+        }
+      })
+      .catch((error: unknown) => {
+        if (
+          mountedRef.current &&
+          isOpenRef.current &&
+          decisionGenerationRef.current === generation &&
+          previewVersionRef.current === previewVersion &&
+          cartVersionRef.current === operationVersion
+        ) {
+          setCartErrorCode(decisionErrorCode(error));
+        }
+      })
+      .finally(() => {
+        if (
+          mountedRef.current &&
+          decisionGenerationRef.current === generation &&
+          previewVersionRef.current === previewVersion &&
+          cartVersionRef.current === operationVersion
+        ) {
+          cartPendingRef.current = false;
+          setCartPending(false);
+        }
+      });
   }
 
   if (!open) {
@@ -465,13 +753,64 @@ export function GuideSheet({
                       recommendation={recommendation}
                       index={index}
                       selectedSkuId={selectedSkuId}
-                      onSelectedSkuChange={setSelectedSkuId}
-                      selectedForCompare={compareIds.has(recommendation.product_id)}
+                      onSelectedSkuChange={handleSelectedSkuChange}
+                      selectedForCompare={selectedProductIds.includes(
+                        recommendation.product_id,
+                      )}
+                      compareDisabled={
+                        selectedProductIds.length >= 3 &&
+                        !selectedProductIds.includes(recommendation.product_id)
+                      }
                       onCompareChange={handleCompareChange}
                     />
                   ),
                 )}
               </div>
+              <div className="decisionActions" aria-label="Decision actions">
+                <button
+                  type="button"
+                  disabled={
+                    selectedProductIds.length < 2 ||
+                    selectedProductIds.length > 3 ||
+                    comparisonPending
+                  }
+                  onClick={handleCompareProducts}
+                >
+                  Compare {selectedProductIds.length}
+                </button>
+                <button
+                  type="button"
+                  disabled={!selectedSkuId || previewPending}
+                  onClick={handlePreviewCart}
+                >
+                  Preview simulated add
+                </button>
+              </div>
+              {comparisonError ? (
+                <div className="decisionRecovery" role="alert">
+                  <p>
+                    Comparison could not be loaded. Keep your selections and try
+                    comparing again.
+                  </p>
+                </div>
+              ) : null}
+              {comparison ? <ComparisonTable comparison={comparison} /> : null}
+              {previewError ? (
+                <div className="decisionRecovery" role="alert">
+                  <p>{previewRecoveryMessage(previewError)}</p>
+                </div>
+              ) : null}
+              {preview ? (
+                <CartConfirmation
+                  preview={preview}
+                  cartItem={cartItem}
+                  pending={cartPending}
+                  previewPending={previewPending}
+                  errorCode={cartErrorCode}
+                  onConfirm={handleConfirmCart}
+                  onPreviewAgain={handlePreviewCart}
+                />
+              ) : null}
             </section>
           ) : null}
 

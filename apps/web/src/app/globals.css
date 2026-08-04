@@ -537,7 +537,10 @@ a:focus-visible {
 .claimsLedger,
 .guideComposer,
 .recommendationSection,
-.evidencePanel {
+.evidencePanel,
+.comparisonPanel,
+.cartConfirmation,
+.cartSuccess {
   margin-top: 18px;
 }
 
@@ -909,11 +912,261 @@ a:focus-visible {
   accent-color: var(--aqua);
 }
 
+.compareControl:has(input:disabled) {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .evidenceCount {
   grid-column: 1 / -1;
   color: var(--muted);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 9px;
+}
+
+.decisionActions {
+  display: grid;
+  grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
+  gap: 8px;
+  margin-top: 11px;
+}
+
+.decisionActions button,
+.confirmSimulatedButton,
+.transactionError button {
+  min-height: 42px;
+  padding: 0 12px;
+  color: var(--ink);
+  border: 1px solid #ffffff20;
+  border-radius: 10px;
+  background: #101216;
+  font-size: 10px;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.decisionActions button:last-child {
+  border-color: #35e0d04a;
+  background: #35e0d00c;
+}
+
+.decisionActions button:disabled,
+.confirmSimulatedButton:disabled,
+.transactionError button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.decisionRecovery {
+  margin-top: 9px;
+  padding: 10px 11px;
+  border: 1px solid #d7a75b42;
+  border-left: 3px solid #d7a75b;
+  border-radius: 10px;
+  background: #d7a75b0a;
+}
+
+.decisionRecovery p,
+.transactionError p {
+  margin: 0;
+  color: #dedfdd;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.comparisonScroller {
+  overflow-x: auto;
+  border: 1px solid #ffffff14;
+  border-radius: 12px;
+  background: #0f1115;
+  scrollbar-color: #ffffff2b transparent;
+  scrollbar-width: thin;
+}
+
+.comparisonScroller table {
+  width: 100%;
+  min-width: 500px;
+  border-collapse: collapse;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.comparisonScroller th,
+.comparisonScroller td {
+  padding: 10px 9px;
+  border-bottom: 1px solid #ffffff0d;
+  text-align: left;
+  vertical-align: top;
+}
+
+.comparisonScroller tr:last-child th,
+.comparisonScroller tr:last-child td {
+  border-bottom: 0;
+}
+
+.comparisonScroller thead th {
+  color: var(--muted);
+  background: #181a1f;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 8px;
+  letter-spacing: 0.03em;
+}
+
+.comparisonScroller thead th:first-child,
+.comparisonScroller tbody th {
+  position: sticky;
+  left: 0;
+  min-width: 112px;
+  z-index: 1;
+  background: #15171b;
+}
+
+.comparisonScroller tbody th {
+  color: var(--muted);
+  font-weight: 650;
+}
+
+.comparisonScroller td {
+  min-width: 145px;
+  color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.cartConfirmation {
+  padding: 13px;
+  border: 1px solid #35e0d038;
+  border-radius: 14px;
+  background: #101a1a;
+}
+
+.receiptHeader {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed #ffffff20;
+}
+
+.receiptHeader div {
+  display: grid;
+  gap: 3px;
+}
+
+.receiptHeader span,
+.cartSuccess > span,
+.receiptFacts dt {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 8px;
+  font-weight: 720;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.receiptHeader h2,
+.cartSuccess h2 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.receiptHeader > strong {
+  padding: 4px 7px;
+  color: #06110f;
+  border-radius: 999px;
+  background: var(--aqua);
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.receiptFacts,
+.cartSuccess dl {
+  margin: 0;
+}
+
+.receiptFacts > div,
+.cartSuccess dl > div {
+  display: grid;
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid #ffffff0d;
+}
+
+.receiptFacts dd,
+.cartSuccess dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10px;
+  text-align: right;
+}
+
+.receiptFacts .receiptTotal {
+  border-bottom: 0;
+}
+
+.receiptTotal dt,
+.receiptTotal dd {
+  color: var(--aqua);
+  font-weight: 780;
+}
+
+.prototypeCaution {
+  margin: 3px 0 10px;
+  padding: 8px;
+  color: var(--muted);
+  border: 1px dashed #ffffff1b;
+  border-radius: 8px;
+  font-size: 9px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.confirmSimulatedButton {
+  width: 100%;
+  color: white;
+  border: 0;
+  background: var(--coral);
+}
+
+.transactionError {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #ff3b6a42;
+  border-radius: 9px;
+  background: #ff3b6a0a;
+}
+
+.transactionError button {
+  min-height: 38px;
+  border-color: #ff3b6a54;
+}
+
+.cartSuccess {
+  padding: 14px;
+  border: 1px solid #35e0d04a;
+  border-left: 3px solid var(--aqua);
+  border-radius: 14px;
+  background: #35e0d00b;
+}
+
+.cartSuccess h2 {
+  margin-top: 4px;
+}
+
+.cartSuccess dl {
+  margin-top: 9px;
+}
+
+.cartSuccess p {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.45;
 }
 
 .evidenceList {
