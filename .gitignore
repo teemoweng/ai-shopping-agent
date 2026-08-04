@@ -75,3 +75,18 @@ Thumbs.db
 # Local deployment metadata
 .vercel/
 .railway/
+
+node_modules/
+.next/
+coverage/
+playwright-report/
+test-results/
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.pyc
+.env
+.env.*
+!.env.example
+apps/api/runtime/
