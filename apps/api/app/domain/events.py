@@ -1,8 +1,9 @@
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
-from typing import Any, NoReturn
+from types import MappingProxyType
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
 from app.domain.contracts import (
     EntryPoint,
@@ -13,49 +14,35 @@ from app.domain.contracts import (
 )
 
 _FORBIDDEN_TRACE_PAYLOAD_KEYS = frozenset({"chain_of_thought"})
+type JsonPrimitive = str | int | float | bool | None
+type FrozenJsonValue = (
+    JsonPrimitive | Mapping[str, "FrozenJsonValue"] | tuple["FrozenJsonValue", ...]
+)
 
 
-class _FrozenDict(dict[str, Any]):
-    def _immutable(self, *args: object, **kwargs: object) -> NoReturn:
-        raise TypeError("trace payload is immutable")
-
-    __setitem__ = _immutable
-    __delitem__ = _immutable
-    __ior__ = _immutable
-    clear = _immutable
-    pop = _immutable
-    popitem = _immutable
-    setdefault = _immutable
-    update = _immutable
-
-
-class _FrozenList(list[Any]):
-    def _immutable(self, *args: object, **kwargs: object) -> NoReturn:
-        raise TypeError("trace payload is immutable")
-
-    __setitem__ = _immutable
-    __delitem__ = _immutable
-    __iadd__ = _immutable
-    __imul__ = _immutable
-    append = _immutable
-    clear = _immutable
-    extend = _immutable
-    insert = _immutable
-    pop = _immutable
-    remove = _immutable
-    reverse = _immutable
-    sort = _immutable
-
-
-def _freeze_trace_payload(value: Any) -> Any:
+def _freeze_trace_payload(value: object) -> FrozenJsonValue:
     if isinstance(value, Mapping):
+        if not all(isinstance(key, str) for key in value):
+            raise ValueError("trace payload keys must be strings")
         if any(
             isinstance(key, str) and key in _FORBIDDEN_TRACE_PAYLOAD_KEYS for key in value
         ):
             raise ValueError("trace payload must not contain chain_of_thought")
-        return _FrozenDict({key: _freeze_trace_payload(item) for key, item in value.items()})
-    if isinstance(value, (list, tuple)):
-        return _FrozenList(_freeze_trace_payload(item) for item in value)
+        return MappingProxyType(
+            {key: _freeze_trace_payload(item) for key, item in value.items()}
+        )
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return tuple(_freeze_trace_payload(item) for item in value)
+    if value is None or isinstance(value, str | int | float | bool):
+        return value
+    raise ValueError("trace payload values must be JSON primitives, mappings, or sequences")
+
+
+def _thaw_trace_payload(value: FrozenJsonValue) -> object:
+    if isinstance(value, Mapping):
+        return {key: _thaw_trace_payload(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return [_thaw_trace_payload(item) for item in value]
     return value
 
 
@@ -83,9 +70,16 @@ class TraceEvent(BaseModel):
     event_type: str
     state: WorkflowState
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    payload: dict[str, Any]
+    payload: Mapping[str, Any]
 
     @field_validator("payload")
     @classmethod
-    def validate_and_freeze_payload(cls, payload: dict[str, Any]) -> dict[str, Any]:
-        return _freeze_trace_payload(payload)
+    def validate_and_freeze_payload(cls, payload: Mapping[str, Any]) -> Mapping[str, Any]:
+        frozen_payload = _freeze_trace_payload(payload)
+        if not isinstance(frozen_payload, Mapping):
+            raise TypeError("trace payload must be a JSON object")
+        return frozen_payload
+
+    @field_serializer("payload")
+    def serialize_payload(self, payload: Mapping[str, Any]) -> object:
+        return _thaw_trace_payload(payload)

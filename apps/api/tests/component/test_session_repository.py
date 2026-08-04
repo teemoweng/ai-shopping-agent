@@ -7,6 +7,10 @@ from app.domain.contracts import EntryPoint, WorkflowState
 from app.repositories.session_repository import SessionRepository
 
 
+class _MutablePayloadValue:
+    pass
+
+
 def test_session_ids_and_initial_state_are_stable(tmp_path) -> None:
     repository = SessionRepository(trace_path=tmp_path / "trace.jsonl")
     session = repository.create(EntryPoint.CONTENT, "morning-routine-uv-001", None)
@@ -89,9 +93,55 @@ def test_trace_payload_is_deeply_immutable_and_matches_persisted_event(tmp_path)
         event.payload["new_key"] = "new_value"
     with pytest.raises(TypeError):
         event.payload["transition"]["from"] = "CLARIFY"
-    with pytest.raises(TypeError):
+    assert isinstance(event.payload["candidate_ids"], tuple)
+    with pytest.raises(AttributeError):
         event.payload["candidate_ids"].append("sku-3")
 
     persisted_payload = json.loads(trace_path.read_text().splitlines()[0])["payload"]
-    assert repository.events_for_trace(session.trace_id)[0].payload == persisted_payload
+    assert json.loads(event.model_dump_json())["payload"] == expected_payload
+    stored_event = repository.events_for_trace(session.trace_id)[0]
+    assert json.loads(stored_event.model_dump_json())["payload"] == persisted_payload
     assert persisted_payload == expected_payload
+
+
+def test_trace_payload_rejects_base_class_mutator_dispatch(tmp_path) -> None:
+    repository = SessionRepository(trace_path=tmp_path / "trace.jsonl")
+    session = repository.create(EntryPoint.CONTENT, "morning-routine-uv-001", None)
+    event = repository.append_event(
+        session,
+        event_type="state_transition",
+        state=WorkflowState.UNDERSTAND,
+        payload={"nested": {"state": "UNDERSTAND"}, "candidate_ids": ["sku-1"]},
+    )
+
+    with pytest.raises(TypeError):
+        dict.__setitem__(event.payload, "new_key", "new_value")
+    with pytest.raises(TypeError):
+        dict.__setitem__(event.payload["nested"], "state", "CLARIFY")
+    with pytest.raises(TypeError):
+        list.append(event.payload["candidate_ids"], "sku-2")
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"tags": {"sensitive"}},
+        {"tool": _MutablePayloadValue()},
+    ],
+)
+def test_trace_payload_rejects_non_json_mutable_values(
+    tmp_path, payload: dict[str, object]
+) -> None:
+    trace_path = tmp_path / "trace.jsonl"
+    repository = SessionRepository(trace_path=trace_path)
+    session = repository.create(EntryPoint.CONTENT, "morning-routine-uv-001", None)
+
+    with pytest.raises(ValidationError):
+        repository.append_event(
+            session,
+            event_type="state_transition",
+            state=WorkflowState.UNDERSTAND,
+            payload=payload,
+        )
+
+    assert not trace_path.exists()
