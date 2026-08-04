@@ -425,16 +425,12 @@ describe("dialog lifecycle", () => {
   });
 
   it("creates one session per open cycle under StrictMode", async () => {
-    const user = userEvent.setup();
     render(
       <StrictMode>
-        <Harness />
+        <GuideSheet open={true} onClose={vi.fn()} />
       </StrictMode>,
     );
 
-    await user.click(
-      screen.getByRole("button", { name: "Ask AI about this product" }),
-    );
     await screen.findByText(clarificationTurn.text);
 
     expect(api.createGuideSession).toHaveBeenCalledTimes(1);
