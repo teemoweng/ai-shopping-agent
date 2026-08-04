@@ -78,7 +78,18 @@ def filter_and_rank(
         reasons: list[str] = []
         eligible_skus = _eligible_skus(product, hard)
         if not eligible_skus:
-            reasons.append("no in-stock SKU within price limit")
+            price_eligible_skus = tuple(
+                sku
+                for sku in product.skus
+                if hard.max_price_usd is None or sku.price_usd <= hard.max_price_usd
+            )
+            in_stock_skus = tuple(sku for sku in product.skus if sku.in_stock)
+            if hard.max_price_usd is not None and not price_eligible_skus:
+                reasons.append("no SKU within price limit")
+            elif hard.in_stock and not in_stock_skus:
+                reasons.append("no in-stock SKU")
+            else:
+                reasons.append("no in-stock SKU within price limit")
         if hard.fragrance_free is True and not product.fragrance_free:
             reasons.append("contains fragrance")
         if (

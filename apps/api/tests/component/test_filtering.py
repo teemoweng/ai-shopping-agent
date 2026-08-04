@@ -41,3 +41,47 @@ def test_impossible_constraints_return_explicit_zero_match() -> None:
     )
     assert result.eligible == ()
     assert len(result.exclusions) == 3
+
+
+def test_price_limit_alone_excludes_an_otherwise_eligible_product() -> None:
+    product = FixtureRepository.load(FIXTURE_ROOT).get_product("cloud-veil-mineral")
+    price_limited_product = product.model_copy(
+        update={
+            "id": "price-limited-product",
+            "skus": tuple(
+                sku.model_copy(update={"in_stock": True, "price_usd": 21})
+                for sku in product.skus
+            ),
+        }
+    )
+
+    result = filter_and_rank(
+        [price_limited_product],
+        HardConstraints(max_price_usd=20),
+        SoftPreferences(),
+    )
+
+    assert result.eligible == ()
+    assert result.exclusions == {"price-limited-product": ("no SKU within price limit",)}
+
+
+def test_stock_requirement_alone_excludes_an_otherwise_eligible_product() -> None:
+    product = FixtureRepository.load(FIXTURE_ROOT).get_product("cloud-veil-mineral")
+    out_of_stock_product = product.model_copy(
+        update={
+            "id": "out-of-stock-product",
+            "skus": tuple(
+                sku.model_copy(update={"in_stock": False, "price_usd": 20})
+                for sku in product.skus
+            ),
+        }
+    )
+
+    result = filter_and_rank(
+        [out_of_stock_product],
+        HardConstraints(max_price_usd=20, in_stock=True),
+        SoftPreferences(),
+    )
+
+    assert result.eligible == ()
+    assert result.exclusions == {"out-of-stock-product": ("no in-stock SKU",)}
