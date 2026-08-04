@@ -117,7 +117,7 @@ class CartService:
             try:
                 self.sessions.append_event(
                     session,
-                    "cart_preview_created",
+                    "cart_preview",
                     session.state,
                     {
                         "sku_id": response.sku_id,
@@ -168,7 +168,7 @@ class CartService:
             try:
                 self.sessions.append_event(
                     session,
-                    "simulated_cart_item_added",
+                    "cart_add",
                     session.state,
                     {
                         "sku_id": response.sku_id,

@@ -186,7 +186,7 @@ def test_add_rechecks_stock_after_preview(monkeypatch) -> None:
     session = service.sessions.get(session_id)
     assert token not in session.consumed_confirmation_tokens
     assert all(
-        event.event_type != "simulated_cart_item_added"
+        event.event_type != "cart_add"
         for event in service.sessions.events_for_trace(session.trace_id)
     )
 
@@ -214,7 +214,7 @@ def test_add_rejects_price_changed_after_preview(monkeypatch) -> None:
     session = service.sessions.get(session_id)
     assert token not in session.consumed_confirmation_tokens
     assert all(
-        event.event_type != "simulated_cart_item_added"
+        event.event_type != "cart_add"
         for event in service.sessions.events_for_trace(session.trace_id)
     )
 
@@ -256,8 +256,8 @@ def test_decision_events_reconstruct_simulated_cart_states() -> None:
     session = service.sessions.get(session_id)
     event_types = {
         "comparison_presented",
-        "cart_preview_created",
-        "simulated_cart_item_added",
+        "cart_preview",
+        "cart_add",
     }
     events = [
         event
@@ -266,8 +266,8 @@ def test_decision_events_reconstruct_simulated_cart_states() -> None:
     ]
     assert [(event.event_type, event.state) for event in events] == [
         ("comparison_presented", WorkflowState.COMPARE),
-        ("cart_preview_created", WorkflowState.SKU_AND_CART_CONFIRM),
-        ("simulated_cart_item_added", WorkflowState.FEEDBACK_AND_MEMORY),
+        ("cart_preview", WorkflowState.SKU_AND_CART_CONFIRM),
+        ("cart_add", WorkflowState.FEEDBACK_AND_MEMORY),
     ]
     assert [event.model_dump(mode="json")["payload"] for event in events] == [
         {
@@ -295,7 +295,7 @@ def test_failed_preview_does_not_fabricate_success_event() -> None:
     assert response.status_code == 409
     assert response.json()["detail"]["code"] == "SKU_NOT_RECOMMENDED"
     assert not any(
-        event.event_type == "cart_preview_created" for event in after[len(before) :]
+        event.event_type == "cart_preview" for event in after[len(before) :]
     )
     assert session.state is WorkflowState.PRESENT_RECOMMENDATION
 

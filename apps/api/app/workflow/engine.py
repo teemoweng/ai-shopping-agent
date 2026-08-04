@@ -1,3 +1,6 @@
+from math import isfinite
+from time import perf_counter
+
 from app.domain.contracts import (
     ClaimVerification,
     ContentContextSummary,
@@ -56,6 +59,35 @@ class WorkflowEngine:
             {"from": previous.value, "to": state.value},
         )
 
+    def _append_tool_event(
+        self,
+        session: GuideSession,
+        event_type: str,
+        *,
+        tool_name: str,
+        argument_summary: dict[str, object],
+        result_ids: list[str],
+        duration_ms: float,
+        status: str,
+    ) -> None:
+        self.sessions.append_event(
+            session,
+            event_type,
+            session.state,
+            {
+                "tool_name": tool_name,
+                "argument_summary": argument_summary,
+                "result_ids": result_ids,
+                "duration_ms": duration_ms,
+                "status": status,
+            },
+        )
+
+    @staticmethod
+    def _elapsed_ms(started_at: float) -> float:
+        elapsed_ms = round((perf_counter() - started_at) * 1000, 3)
+        return elapsed_ms if isfinite(elapsed_ms) and elapsed_ms >= 0 else 0.0
+
     @staticmethod
     def _applicable_evidence_ids(
         product_id: str,
@@ -103,7 +135,6 @@ class WorkflowEngine:
                 "safety_boundary",
                 session.state,
                 {
-                    "message_id": request.message_id,
                     "code": (
                         "URGENT_MEDICAL_SYMPTOM" if urgent else "MEDICAL_DIAGNOSIS"
                     ),
@@ -132,11 +163,90 @@ class WorkflowEngine:
         session.hard_constraints = parsed.hard
         session.soft_preferences = parsed.soft
         self._transition(session, WorkflowState.VERIFY_CURRENT_PRODUCT)
-        evidence_hits = self.tools.retrieve_evidence(
-            request.text + " broad spectrum water resistant"
+        evidence_argument_summary: dict[str, object] = {
+            "content_context_available": session.content_context_id is not None,
+            "includes_public_rule_terms": True,
+        }
+        self._append_tool_event(
+            session,
+            "tool_call",
+            tool_name="retrieve_evidence",
+            argument_summary=evidence_argument_summary,
+            result_ids=[],
+            duration_ms=0.0,
+            status="started",
+        )
+        evidence_started_at = perf_counter()
+        try:
+            evidence_hits = self.tools.retrieve_evidence(
+                request.text + " broad spectrum water resistant"
+            )
+        except Exception:
+            self._append_tool_event(
+                session,
+                "tool_result",
+                tool_name="retrieve_evidence",
+                argument_summary=evidence_argument_summary,
+                result_ids=[],
+                duration_ms=self._elapsed_ms(evidence_started_at),
+                status="failed",
+            )
+            raise
+        self._append_tool_event(
+            session,
+            "tool_result",
+            tool_name="retrieve_evidence",
+            argument_summary=evidence_argument_summary,
+            result_ids=[hit.document.id for hit in evidence_hits],
+            duration_ms=self._elapsed_ms(evidence_started_at),
+            status="succeeded",
         )
         self._transition(session, WorkflowState.FILTER_AND_RETRIEVE)
-        result = self.tools.search_eligible_products(parsed.hard, parsed.soft)
+        search_argument_summary: dict[str, object] = {
+            "hard_constraint_fields": sorted(
+                field
+                for field, value in parsed.hard.model_dump().items()
+                if value is not None
+            ),
+            "soft_preference_fields": sorted(
+                field
+                for field, value in parsed.soft.model_dump().items()
+                if value is not None
+            ),
+            "in_stock_required": parsed.hard.in_stock,
+        }
+        self._append_tool_event(
+            session,
+            "tool_call",
+            tool_name="search_eligible_products",
+            argument_summary=search_argument_summary,
+            result_ids=[],
+            duration_ms=0.0,
+            status="started",
+        )
+        search_started_at = perf_counter()
+        try:
+            result = self.tools.search_eligible_products(parsed.hard, parsed.soft)
+        except Exception:
+            self._append_tool_event(
+                session,
+                "tool_result",
+                tool_name="search_eligible_products",
+                argument_summary=search_argument_summary,
+                result_ids=[],
+                duration_ms=self._elapsed_ms(search_started_at),
+                status="failed",
+            )
+            raise
+        self._append_tool_event(
+            session,
+            "tool_result",
+            tool_name="search_eligible_products",
+            argument_summary=search_argument_summary,
+            result_ids=[candidate.product.id for candidate in result.eligible],
+            duration_ms=self._elapsed_ms(search_started_at),
+            status="succeeded",
+        )
         self._transition(session, WorkflowState.PRESENT_RECOMMENDATION)
         evidence = [
             EvidenceReference(
