@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
@@ -47,6 +48,34 @@ def test_trace_event_is_immutable_after_append(tmp_path) -> None:
 
     with pytest.raises(ValidationError):
         event.state = WorkflowState.CLARIFY
+
+
+def test_trace_write_failure_does_not_publish_in_memory_event(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    trace_path = tmp_path / "trace.jsonl"
+    repository = SessionRepository(trace_path=trace_path)
+    session = repository.create(EntryPoint.CONTENT, "morning-routine-uv-001", None)
+    original_open = Path.open
+
+    def fail_trace_open(path: Path, *args, **kwargs):
+        if path == trace_path:
+            raise OSError("injected trace persistence failure")
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", fail_trace_open)
+
+    with pytest.raises(OSError, match="injected trace persistence failure"):
+        repository.append_event(
+            session,
+            event_type="state_transition",
+            state=WorkflowState.UNDERSTAND,
+            payload={"from": "ENTRY_INGEST", "to": "UNDERSTAND"},
+        )
+
+    assert repository.events_for_trace(session.trace_id) == ()
+    assert not trace_path.exists()
 
 
 @pytest.mark.parametrize(

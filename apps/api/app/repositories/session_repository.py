@@ -51,10 +51,10 @@ class SessionRepository:
             state=state,
             payload=payload,
         )
-        self._events.append(event)
         self._trace_path.parent.mkdir(parents=True, exist_ok=True)
         with self._trace_path.open("a", encoding="utf-8") as stream:
             stream.write(event.model_dump_json() + "\n")
+        self._events.append(event)
         return event
 
     def events_for_trace(self, trace_id: str) -> tuple[TraceEvent, ...]:

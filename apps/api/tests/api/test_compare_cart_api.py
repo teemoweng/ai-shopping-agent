@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from threading import Event, Lock
 
 from fastapi.testclient import TestClient
@@ -9,6 +10,19 @@ from app.domain.contracts import WorkflowState
 from app.main import app
 
 client = TestClient(app)
+
+
+def inject_trace_persistence_failure(monkeypatch):
+    trace_path = service.sessions._trace_path
+    original_open = Path.open
+
+    def fail_trace_open(path: Path, *args, **kwargs):
+        if path == trace_path:
+            raise OSError("injected trace persistence failure")
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", fail_trace_open)
+    return original_open
 
 
 def recommended_session(
@@ -284,3 +298,107 @@ def test_failed_preview_does_not_fabricate_success_event() -> None:
         event.event_type == "cart_preview_created" for event in after[len(before) :]
     )
     assert session.state is WorkflowState.PRESENT_RECOMMENDATION
+
+
+def test_compare_trace_failure_rolls_back_state_and_allows_retry(monkeypatch) -> None:
+    session_id = recommended_session()
+    session = service.sessions.get(session_id)
+    prior_state = session.state
+    prior_event_count = len(service.sessions.events_for_trace(session.trace_id))
+    prior_previews = dict(service.previews)
+    original_open = inject_trace_persistence_failure(monkeypatch)
+    endpoint = f"/api/v1/guide/sessions/{session_id}/compare"
+    payload = {
+        "product_ids": [
+            "seoul-shade-daily-fluid",
+            "cloud-veil-mineral",
+        ]
+    }
+
+    failed = TestClient(app, raise_server_exceptions=False).post(
+        endpoint,
+        json=payload,
+    )
+
+    assert failed.status_code == 500
+    assert session.state is prior_state
+    assert len(service.sessions.events_for_trace(session.trace_id)) == prior_event_count
+    assert service.previews == prior_previews
+
+    monkeypatch.setattr(Path, "open", original_open)
+    retried = client.post(endpoint, json=payload)
+    assert retried.status_code == 200
+    assert session.state is WorkflowState.COMPARE
+    assert len(service.sessions.events_for_trace(session.trace_id)) == (
+        prior_event_count + 1
+    )
+
+
+def test_preview_trace_failure_rolls_back_state_and_preview(monkeypatch) -> None:
+    session_id = recommended_session()
+    session = service.sessions.get(session_id)
+    prior_state = session.state
+    prior_event_count = len(service.sessions.events_for_trace(session.trace_id))
+    prior_preview_tokens = set(service.previews)
+    original_open = inject_trace_persistence_failure(monkeypatch)
+    endpoint = f"/api/v1/guide/sessions/{session_id}/cart/preview"
+    payload = {"sku_id": "seoul-shade-50", "quantity": 1}
+
+    failed = TestClient(app, raise_server_exceptions=False).post(
+        endpoint,
+        json=payload,
+    )
+
+    assert failed.status_code == 500
+    assert session.state is prior_state
+    assert len(service.sessions.events_for_trace(session.trace_id)) == prior_event_count
+    assert set(service.previews) == prior_preview_tokens
+
+    monkeypatch.setattr(Path, "open", original_open)
+    retried = client.post(endpoint, json=payload)
+    assert retried.status_code == 200
+    assert session.state is WorkflowState.SKU_AND_CART_CONFIRM
+    assert retried.json()["confirmation_token"] in service.previews
+    assert len(service.sessions.events_for_trace(session.trace_id)) == (
+        prior_event_count + 1
+    )
+
+
+def test_add_trace_failure_rolls_back_and_same_token_succeeds_once(
+    monkeypatch,
+) -> None:
+    session_id = recommended_session()
+    preview = client.post(
+        f"/api/v1/guide/sessions/{session_id}/cart/preview",
+        json={"sku_id": "seoul-shade-50", "quantity": 1},
+    )
+    token = preview.json()["confirmation_token"]
+    session = service.sessions.get(session_id)
+    prior_state = session.state
+    prior_event_count = len(service.sessions.events_for_trace(session.trace_id))
+    prior_preview = service.previews[token]
+    original_open = inject_trace_persistence_failure(monkeypatch)
+    endpoint = f"/api/v1/guide/sessions/{session_id}/cart/items"
+    payload = {"confirmation_token": token}
+
+    failed = TestClient(app, raise_server_exceptions=False).post(
+        endpoint,
+        json=payload,
+    )
+
+    assert failed.status_code == 500
+    assert session.state is prior_state
+    assert token not in session.consumed_confirmation_tokens
+    assert service.previews[token] == prior_preview
+    assert len(service.sessions.events_for_trace(session.trace_id)) == prior_event_count
+
+    monkeypatch.setattr(Path, "open", original_open)
+    retried = client.post(endpoint, json=payload)
+    replay = client.post(endpoint, json=payload)
+    assert retried.status_code == 201
+    assert replay.status_code == 409
+    assert replay.json()["detail"]["code"] == "TOKEN_ALREADY_USED"
+    assert token in session.consumed_confirmation_tokens
+    assert len(service.sessions.events_for_trace(session.trace_id)) == (
+        prior_event_count + 1
+    )
