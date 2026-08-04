@@ -120,6 +120,12 @@ class GuideMessageRequest(BaseModel):
 class CompareRequest(BaseModel):
     product_ids: Annotated[list[str], Field(min_length=2, max_length=3)]
 
+    @model_validator(mode="after")
+    def require_distinct_products(self) -> CompareRequest:
+        if len(set(self.product_ids)) != len(self.product_ids):
+            raise ValueError("product_ids must be distinct")
+        return self
+
 
 class CartPreviewRequest(BaseModel):
     sku_id: str
@@ -135,6 +141,7 @@ class CompareResponse(BaseModel):
     state: WorkflowState
     product_ids: list[str]
     rows: dict[str, list[str | int | float | bool | None]]
+    simulated: Literal[True]
 
 
 class CartPreviewResponse(BaseModel):

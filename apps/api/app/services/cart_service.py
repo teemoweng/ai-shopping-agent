@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from threading import Lock
 from uuid import uuid4
 
 from app.domain.contracts import (
@@ -26,6 +27,7 @@ class CartService:
         self.fixtures = fixtures
         self.sessions = sessions
         self.previews: dict[str, CartPreviewResponse] = {}
+        self._confirmation_lock = Lock()
 
     def compare(self, session_id: str, request: CompareRequest) -> CompareResponse:
         session = self.sessions.get(session_id)
@@ -38,6 +40,12 @@ class CartService:
         ]
         session.state = WorkflowState.COMPARE
         self.sessions.save(session)
+        self.sessions.append_event(
+            session,
+            "comparison_presented",
+            session.state,
+            {"product_ids": request.product_ids, "simulated": True},
+        )
         return CompareResponse(
             session_id=session.id,
             state=session.state,
@@ -58,6 +66,7 @@ class CartService:
                     product.white_cast_risk for product in products
                 ],
             },
+            simulated=True,
         )
 
     def preview(
@@ -94,36 +103,58 @@ class CartService:
             simulated=True,
         )
         self.previews[token] = response
+        self.sessions.append_event(
+            session,
+            "cart_preview_created",
+            session.state,
+            {
+                "sku_id": response.sku_id,
+                "quantity": response.quantity,
+                "simulated": True,
+            },
+        )
         return response
 
     def add(self, session_id: str, token: str) -> CartItemResponse:
         session = self.sessions.get(session_id)
-        if token in session.consumed_confirmation_tokens:
-            raise CartConflict("TOKEN_ALREADY_USED")
+        with self._confirmation_lock:
+            if token in session.consumed_confirmation_tokens:
+                raise CartConflict("TOKEN_ALREADY_USED")
 
-        preview = self.previews.get(token)
-        if preview is None or preview.session_id != session_id:
-            raise CartConflict("INVALID_CONFIRMATION_TOKEN")
+            preview = self.previews.get(token)
+            if preview is None or preview.session_id != session_id:
+                raise CartConflict("INVALID_CONFIRMATION_TOKEN")
 
-        current_sku = self.fixtures.get_sku(preview.sku_id)
-        if (
-            not current_sku.in_stock
-            or current_sku.inventory_units < preview.quantity
-        ):
-            raise CartConflict("INSUFFICIENT_STOCK")
-        if current_sku.price_usd != preview.unit_price_usd:
-            raise CartConflict("PRICE_CHANGED")
+            current_sku = self.fixtures.get_sku(preview.sku_id)
+            if (
+                not current_sku.in_stock
+                or current_sku.inventory_units < preview.quantity
+            ):
+                raise CartConflict("INSUFFICIENT_STOCK")
+            if current_sku.price_usd != preview.unit_price_usd:
+                raise CartConflict("PRICE_CHANGED")
 
-        session.consumed_confirmation_tokens.add(token)
-        session.state = WorkflowState.FEEDBACK_AND_MEMORY
-        self.sessions.save(session)
-        return CartItemResponse(
-            cart_id=f"cart_{uuid4()}",
-            cart_item_id=f"item_{uuid4()}",
-            session_id=session.id,
-            state=session.state,
-            sku_id=preview.sku_id,
-            quantity=preview.quantity,
-            unit_price_usd=preview.unit_price_usd,
-            simulated=True,
-        )
+            session.consumed_confirmation_tokens.add(token)
+            session.state = WorkflowState.FEEDBACK_AND_MEMORY
+            self.sessions.save(session)
+            response = CartItemResponse(
+                cart_id=f"cart_{uuid4()}",
+                cart_item_id=f"item_{uuid4()}",
+                session_id=session.id,
+                state=session.state,
+                sku_id=preview.sku_id,
+                quantity=preview.quantity,
+                unit_price_usd=preview.unit_price_usd,
+                simulated=True,
+            )
+            self.sessions.append_event(
+                session,
+                "simulated_cart_item_added",
+                session.state,
+                {
+                    "sku_id": response.sku_id,
+                    "quantity": response.quantity,
+                    "simulated": True,
+                },
+            )
+            return response
