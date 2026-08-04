@@ -21,7 +21,7 @@
 | ✅ DONE | 建立工程控制文档 | README、总路线、任务台、项目 Agent 契约、gitignore 均存在且互相一致 | [README](./README.md) · [PLAN](./PLAN.md) · [TASKS](./TASKS.md) · [AGENTS](./AGENTS.md) · [.gitignore](./.gitignore) |
 | ✅ DONE | 完成知识控制室与双向索引 | 产品、AI 方案、概念证据、评测和面试索引齐全；两层链接可达 | [知识控制室](../../AI产品经理/项目实战/AI导购Agent/00-项目总控.md) |
 | ✅ DONE | 完成首个实施级计划 | 文件、接口、测试、命令、预期结果和提交边界可逐项执行，无占位符 | [Foundation 实施计划](./docs/superpowers/plans/2026-08-04-mvp-foundation.md) |
-| 🚧 IN PROGRESS | 初始化独立 Git 仓库 | 当前目录已具备独立 `.git` 和 `main`；待初始文档提交后完成 | `.git/`、`git branch --show-current` 与待生成的 `git log` |
+| ✅ DONE | 初始化独立 Git 仓库 | 当前目录已具备独立 `.git`、`main` 分支和可核验的初始文档提交 | `.git/`、`git branch --show-current` 与 `git log --oneline` |
 | ⏭️ NEXT | 建立首个技术 ADR / spike 任务 | 自定义循环、OpenAI Agents SDK、LangGraph 使用同一最小场景与同一评分表 | 计划新增 `docs/decisions/` 与 `experiments/` 证据 |
 
 ## Next — Phase 1 Vertical Slice
