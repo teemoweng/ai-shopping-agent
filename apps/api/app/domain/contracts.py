@@ -165,6 +165,18 @@ class RecommendationCard(BaseModel):
     starting_price_usd: float
     evidence_ids: list[str]
 
+    @model_validator(mode="after")
+    def require_evidence_for_positive_verdict(self) -> RecommendationCard:
+        if (
+            not self.evidence_ids
+            and self.verdict is not Verdict.INSUFFICIENT_EVIDENCE
+        ):
+            raise ValueError(
+                "recommendation evidence is required unless verdict is "
+                "INSUFFICIENT_EVIDENCE"
+            )
+        return self
+
 
 class GuideTurnResponse(BaseModel):
     session_id: str
