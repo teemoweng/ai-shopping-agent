@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { GuideSheet } from "@/components/guide-sheet";
 import { ShortVideoFeed } from "@/components/short-video-feed";
 
 export default function Home() {
@@ -10,17 +11,7 @@ export default function Home() {
   return (
     <>
       <ShortVideoFeed onAskAi={() => setGuideOpen(true)} />
-      {guideOpen ? (
-        <div
-          className="guideLaunchDialog"
-          role="dialog"
-          aria-label="AI shopping guide"
-          aria-live="polite"
-        >
-          <span className="guideLaunchSignal" aria-hidden="true" />
-          Guide opening…
-        </div>
-      ) : null}
+      <GuideSheet open={guideOpen} onClose={() => setGuideOpen(false)} />
     </>
   );
 }
