@@ -660,7 +660,7 @@ export function GuideSheet({
               </div>
               <div>
                 <span>Inherited product</span>
-                <strong>Anchor · {turn.context.anchor_product_name}</strong>
+                <strong>Video anchor</strong>
                 <small>{turn.context.anchor_product_id}</small>
               </div>
               <p>{turn.context.caption}</p>

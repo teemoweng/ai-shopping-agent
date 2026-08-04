@@ -321,11 +321,16 @@ it("renders only the five fixed comparison facts with deterministic formatting",
   ]);
 });
 
-it("keeps the Task 14 product-name locator unambiguous after recommendations load", async () => {
+it("keeps the Task 14 substring product-name locator unambiguous after recommendations load", async () => {
   await reachRecommendations();
 
   const guide = screen.getByRole("dialog", { name: "AI shopping guide" });
-  expect(within(guide).getByText("Seoul Shade Daily Fluid")).toBeVisible();
+  const substringMatches = within(guide).getAllByText(
+    "Seoul Shade Daily Fluid",
+    { exact: false },
+  );
+  expect(substringMatches).toHaveLength(1);
+  expect(substringMatches[0]).toBeVisible();
 });
 
 it("enforces two to three selected products and synchronously blocks duplicate comparisons", async () => {
@@ -414,6 +419,7 @@ it("renders a valid three-product comparison in the requested order", async () =
 });
 
 describe.each([
+  ["a null payload", null],
   [
     "a short row",
     {
@@ -452,6 +458,39 @@ describe.each([
     {
       ...comparison,
       product_ids: ["cloud-veil-mineral", "seoul-shade-daily-fluid"],
+    },
+  ],
+  [
+    "too many product IDs",
+    {
+      ...comparison,
+      product_ids: [
+        "seoul-shade-daily-fluid",
+        "cloud-veil-mineral",
+        "jeju-sport-sun-gel",
+        "busan-soft-sun-milk",
+      ],
+      rows: {
+        starting_price_usd: [14, 17, 22, 16],
+        fragrance_free: [true, false, false, true],
+        water_resistance_minutes: [null, 40, 80, null],
+        finish: ["natural", "matte", "dewy", "natural"],
+        white_cast_risk: ["low", "medium", "low", "low"],
+      },
+    },
+  ],
+  [
+    "a mismatched product ID",
+    {
+      ...comparison,
+      product_ids: ["seoul-shade-daily-fluid", "jeju-sport-sun-gel"],
+    },
+  ],
+  [
+    "duplicate product IDs",
+    {
+      ...comparison,
+      product_ids: ["seoul-shade-daily-fluid", "seoul-shade-daily-fluid"],
     },
   ],
 ])("rejects a malformed comparison response with %s", (_case, malformedResponse) => {
@@ -545,6 +584,10 @@ describe.each([
   ["an empty object", {}],
   ["a missing item ID", { ...cartItem, cart_item_id: undefined }],
   ["a blank item ID", { ...cartItem, cart_item_id: "   " }],
+  ["the wrong session", { ...cartItem, session_id: "ses_other" }],
+  ["the wrong SKU", { ...cartItem, sku_id: "seoul-shade-30" }],
+  ["the wrong quantity", { ...cartItem, quantity: 2 }],
+  ["the wrong price", { ...cartItem, unit_price_usd: 18 }],
 ])("rejects a malformed successful cart response with %s", (_case, malformedResponse) => {
   it("never renders success and allows a fresh preview", async () => {
     api.addCartItem.mockResolvedValueOnce(malformedResponse);
