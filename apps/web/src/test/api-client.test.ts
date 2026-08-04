@@ -175,6 +175,61 @@ describe("shopping guide client", () => {
       message: "UNKNOWN_API_ERROR",
     });
   });
+
+  it("normalizes a plain-text HTTP error", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("Bad Gateway", {
+        status: 502,
+        headers: { "Content-Type": "text/plain" },
+      }),
+    );
+
+    const error = await createGuideSession("morning-routine-uv-001").catch(
+      (reason: unknown) => reason,
+    );
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({
+      status: 502,
+      code: "UNKNOWN_API_ERROR",
+      message: "UNKNOWN_API_ERROR",
+    });
+  });
+
+  it("normalizes a JSON null HTTP error", async () => {
+    mockJson(null, 500);
+
+    const error = await createGuideSession("morning-routine-uv-001").catch(
+      (reason: unknown) => reason,
+    );
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({
+      status: 500,
+      code: "UNKNOWN_API_ERROR",
+      message: "UNKNOWN_API_ERROR",
+    });
+  });
+
+  it("ignores a non-string backend error code", async () => {
+    mockJson({ detail: { code: 404 } }, 404);
+
+    await expect(createGuideSession("morning-routine-uv-001")).rejects.toMatchObject({
+      status: 404,
+      code: "UNKNOWN_API_ERROR",
+      message: "UNKNOWN_API_ERROR",
+    });
+  });
+
+  it("rejects an empty successful response as an invalid API response", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 200 }));
+
+    await expect(createGuideSession("morning-routine-uv-001")).rejects.toMatchObject({
+      status: 200,
+      code: "INVALID_API_RESPONSE",
+      message: "INVALID_API_RESPONSE",
+    });
+  });
 });
 
 describe("formatUsd", () => {

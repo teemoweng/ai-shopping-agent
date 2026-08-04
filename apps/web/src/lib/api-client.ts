@@ -17,15 +17,45 @@ export class ApiError extends Error {
   }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+async function parseResponseBody(response: Response): Promise<unknown> {
+  const body = await response.text();
+  if (!body) {
+    return undefined;
+  }
+
+  try {
+    return JSON.parse(body) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
+function getApiErrorCode(payload: unknown): string {
+  if (!isRecord(payload) || !isRecord(payload.detail)) {
+    return "UNKNOWN_API_ERROR";
+  }
+
+  return typeof payload.detail.code === "string"
+    ? payload.detail.code
+    : "UNKNOWN_API_ERROR";
+}
+
 async function post<T>(path: string, body: unknown): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  const payload = await response.json();
+  const payload = await parseResponseBody(response);
   if (!response.ok) {
-    throw new ApiError(response.status, payload.detail?.code ?? "UNKNOWN_API_ERROR");
+    throw new ApiError(response.status, getApiErrorCode(payload));
+  }
+  if (!isRecord(payload)) {
+    throw new ApiError(response.status, "INVALID_API_RESPONSE");
   }
   return payload as T;
 }
