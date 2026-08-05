@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from app.domain.contracts import HardConstraints, SoftPreferences
 from app.repositories.fixture_repository import FixtureRepository
 from app.workflow.filtering import filter_and_rank, parse_preferences
@@ -18,6 +20,63 @@ def test_parser_extracts_supported_hard_and_soft_preferences() -> None:
         in_stock=True,
     )
     assert parsed.soft.finish == "matte"
+
+
+@pytest.mark.parametrize(
+    ("text", "field", "expected"),
+    [
+        ("预算30美元以内", "max_price_usd", 30.0),
+        ("$30以内", "max_price_usd", 30.0),
+        ("无香", "fragrance_free", True),
+        ("无香精", "fragrance_free", True),
+        ("40分钟防水", "water_resistance_minutes", 40),
+        ("80分钟防水", "water_resistance_minutes", 80),
+    ],
+)
+def test_parser_extracts_chinese_hard_constraints(
+    text: str,
+    field: str,
+    expected: object,
+) -> None:
+    parsed = parse_preferences(text)
+    assert getattr(parsed.hard, field) == expected
+
+
+@pytest.mark.parametrize(
+    ("text", "field", "expected"),
+    [
+        ("水润妆效", "finish", "dewy"),
+        ("自然妆效", "finish", "natural"),
+        ("哑光妆效", "finish", "matte"),
+        ("干皮", "skin_type", "dry"),
+        ("混合皮", "skin_type", "combination"),
+        ("油皮", "skin_type", "oily"),
+        ("敏感肌", "skin_type", "sensitive"),
+        ("油敏皮", "skin_type", "sensitive"),
+        ("不泛白", "white_cast_concern", "high"),
+        ("白膜", "white_cast_concern", "high"),
+        ("泛白", "white_cast_concern", "high"),
+    ],
+)
+def test_parser_extracts_chinese_ranking_preferences(
+    text: str,
+    field: str,
+    expected: object,
+) -> None:
+    parsed = parse_preferences(text)
+    assert getattr(parsed.soft, field) == expected
+
+
+def test_parser_extracts_mixed_chinese_preferences() -> None:
+    parsed = parse_preferences("油敏皮、深肤色、预算30美元以内、自然妆效")
+    assert parsed == type(parsed)(
+        hard=HardConstraints(max_price_usd=30),
+        soft=SoftPreferences(
+            finish="natural",
+            skin_type="sensitive",
+            white_cast_concern="high",
+        ),
+    )
 
 
 def test_hard_filter_runs_before_soft_ranking() -> None:

@@ -6,10 +6,16 @@ from app.main import app
 client = TestClient(app)
 
 
-def create_content_session() -> dict:
+def create_content_session(locale: str | None = None) -> dict:
+    payload = {
+        "entry_point": "content",
+        "content_context_id": "morning-routine-uv-001",
+    }
+    if locale is not None:
+        payload["locale"] = locale
     response = client.post(
         "/api/v1/guide/sessions",
-        json={"entry_point": "content", "content_context_id": "morning-routine-uv-001"},
+        json=payload,
     )
     assert response.status_code == 201
     return response.json()
@@ -67,3 +73,112 @@ def test_search_contract_is_accepted_but_execution_is_explicitly_unavailable() -
     )
     assert response.status_code == 501
     assert response.json()["detail"]["code"] == "SEARCH_EXECUTION_NOT_AVAILABLE"
+
+
+def test_chinese_session_returns_one_skippable_fixed_clarification() -> None:
+    body = create_content_session(locale="zh-CN")
+    assert body["locale"] == "zh-CN"
+    assert body["guide_status"] == "WAITING_USER"
+    assert body["guide_view_kind"] == "WAITING_CLARIFICATION"
+    assert body["guide_revision"] == 1
+    assert body["facts_snapshot_at"] is not None
+    assert body["text"] == "主要是日常通勤，还是需要 40/80 分钟防水？"
+    assert body["quick_replies"] == ["日常通勤", "40 分钟", "80 分钟", "跳过"]
+    assert body["allowed_actions"] == [
+        "ANSWER_CLARIFICATION",
+        "SKIP_CLARIFICATION",
+        "UPDATE_CONSTRAINTS",
+        "RETURN_TO_FEED",
+    ]
+
+
+def test_chinese_message_returns_decision_ready_recommendation() -> None:
+    session = create_content_session(locale="zh-CN")
+    response = client.post(
+        f"/api/v1/guide/sessions/{session['session_id']}/messages",
+        json={
+            "message_id": "api_msg_zh",
+            "text": "油敏皮、深肤色、预算30美元以内、自然妆效",
+        },
+    )
+    body = response.json()
+    assert response.status_code == 200
+    assert body["guide_status"] == "ACTIVE"
+    assert body["guide_view_kind"] == "DECISION_READY"
+    assert body["degraded"] is False
+    assert "满足你明确条件" in body["text"]
+    assert body["recommendations"]
+    assert body["allowed_actions"] == [
+        "UPDATE_CONSTRAINTS",
+        "REQUEST_COMPARISON",
+        "OPEN_PRODUCT",
+        "RETURN_TO_FEED",
+    ]
+
+
+def test_chinese_no_match_has_only_recovery_actions() -> None:
+    session = create_content_session(locale="zh-CN")
+    response = client.post(
+        f"/api/v1/guide/sessions/{session['session_id']}/messages",
+        json={
+            "message_id": "api_msg_no_match",
+            "text": "预算15美元以内、无香精、80分钟防水",
+        },
+    )
+    body = response.json()
+    assert body["guide_view_kind"] == "NO_MATCH"
+    assert body["allowed_actions"] == ["RELAX_CONSTRAINT", "RETURN_TO_FEED"]
+    assert body["recommendations"] == []
+    assert "不会悄悄放宽" in body["text"]
+
+
+def test_chinese_insufficient_evidence_has_no_comparison_action(monkeypatch) -> None:
+    monkeypatch.setattr(
+        type(service.engine.tools),
+        "retrieve_evidence",
+        lambda self, query: [],
+    )
+    session = create_content_session(locale="zh-CN")
+    response = client.post(
+        f"/api/v1/guide/sessions/{session['session_id']}/messages",
+        json={"message_id": "api_msg_no_evidence", "text": "预算30美元以内"},
+    )
+    body = response.json()
+    assert body["guide_view_kind"] == "INSUFFICIENT_EVIDENCE"
+    assert body["allowed_actions"] == [
+        "OPEN_PRODUCT",
+        "CONTINUE_WITH_KNOWN",
+        "RETURN_TO_FEED",
+    ]
+    assert "证据不足" in body["text"]
+    assert "REQUEST_COMPARISON" not in body["allowed_actions"]
+
+
+def test_chinese_safe_boundary_has_no_product_actions() -> None:
+    session = create_content_session(locale="zh-CN")
+    response = client.post(
+        f"/api/v1/guide/sessions/{session['session_id']}/messages",
+        json={"message_id": "api_msg_safe", "text": "脸部肿胀并且呼吸困难"},
+    )
+    body = response.json()
+    assert body["guide_view_kind"] == "SAFE_BOUNDARY"
+    assert body["guide_status"] == "SAFE_EXIT"
+    assert body["recommendations"] == []
+    assert body["allowed_actions"] == ["RETURN_TO_FEED"]
+
+
+def test_latest_verified_snapshot_survives_reopen() -> None:
+    session = create_content_session(locale="zh-CN")
+    message = client.post(
+        f"/api/v1/guide/sessions/{session['session_id']}/messages",
+        json={"message_id": "api_msg_snapshot", "text": "预算30美元以内、自然妆效"},
+    )
+    reopened = client.get(f"/api/v1/guide/sessions/{session['session_id']}")
+    assert reopened.status_code == 200
+    assert reopened.json() == message.json()
+
+
+def test_unknown_snapshot_session_has_stable_not_found() -> None:
+    response = client.get("/api/v1/guide/sessions/ses_missing")
+    assert response.status_code == 404
+    assert response.json()["detail"]["code"] == "SESSION_NOT_FOUND"

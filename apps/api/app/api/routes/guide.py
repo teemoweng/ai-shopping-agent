@@ -21,6 +21,16 @@ def get_guide_service() -> GuideService:
 GuideServiceDependency = Annotated[GuideService, Depends(get_guide_service)]
 
 
+def session_not_found(error: KeyError) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail={
+            "code": "SESSION_NOT_FOUND",
+            "message": "Guide session does not exist.",
+        },
+    )
+
+
 @router.post(
     "/sessions",
     response_model=GuideTurnResponse,
@@ -59,10 +69,15 @@ def post_message(
     try:
         return guide_service.message(session_id, request)
     except KeyError as error:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={
-                "code": "SESSION_NOT_FOUND",
-                "message": "Guide session does not exist.",
-            },
-        ) from error
+        raise session_not_found(error) from error
+
+
+@router.get("/sessions/{session_id}", response_model=GuideTurnResponse)
+def get_session(
+    session_id: str,
+    guide_service: GuideServiceDependency,
+) -> GuideTurnResponse:
+    try:
+        return guide_service.get(session_id)
+    except KeyError as error:
+        raise session_not_found(error) from error

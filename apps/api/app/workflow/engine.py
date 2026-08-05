@@ -1,3 +1,4 @@
+from datetime import datetime
 from math import isfinite
 from time import perf_counter
 
@@ -7,7 +8,9 @@ from app.domain.contracts import (
     EvidenceReference,
     EvidenceStatus,
     GuideMessageRequest,
+    GuideStatus,
     GuideTurnResponse,
+    GuideViewKind,
     RecommendationCard,
     Verdict,
     WorkflowState,
@@ -15,9 +18,14 @@ from app.domain.contracts import (
 from app.domain.events import GuideSession
 from app.repositories.session_repository import SessionRepository
 from app.workflow.agent import (
+    allowed_actions_for,
     clarification_question,
+    clarification_quick_replies,
     is_medical_boundary,
     is_urgent_medical_boundary,
+    no_match_text,
+    recommendation_text,
+    safety_boundary_text,
 )
 from app.workflow.filtering import parse_preferences
 from app.workflow.tools import ShoppingTools
@@ -47,6 +55,10 @@ class WorkflowEngine:
                 for claim in context.claims
             ],
         )
+
+    def _facts_snapshot_at(self, session: GuideSession) -> datetime:
+        context = self.tools.get_content_context(session.content_context_id or "")
+        return self.tools.get_product(context.anchor_product_id).observed_at
 
     def _transition(self, session: GuideSession, state: WorkflowState) -> None:
         previous = session.state
@@ -134,15 +146,19 @@ class WorkflowEngine:
         return GuideTurnResponse(
             session_id=session.id,
             trace_id=session.trace_id,
+            locale=session.locale,
             state=session.state,
             kind="clarification",
-            text=clarification_question(),
+            text=clarification_question(session.locale),
             context=self._context(session),
-            quick_replies=[
-                "Daily commute",
-                "40 min water resistance",
-                "80 min water resistance",
-            ],
+            guide_status=GuideStatus.WAITING_USER,
+            guide_view_kind=GuideViewKind.WAITING_CLARIFICATION,
+            guide_revision=session.guide_revision,
+            facts_snapshot_at=self._facts_snapshot_at(session),
+            allowed_actions=allowed_actions_for(
+                GuideViewKind.WAITING_CLARIFICATION
+            ),
+            quick_replies=clarification_quick_replies(session.locale),
         )
 
     def handle_message(
@@ -165,25 +181,27 @@ class WorkflowEngine:
             return GuideTurnResponse(
                 session_id=session.id,
                 trace_id=session.trace_id,
+                locale=session.locale,
                 state=session.state,
                 kind="safety_boundary",
-                text=(
-                    "I can't diagnose a reaction. Hives, facial swelling, difficulty "
-                    "breathing, or possible anaphylaxis can be an emergency. Stop "
-                    "using the product and seek emergency medical help now; call "
-                    "local emergency services."
-                    if urgent
-                    else "I can compare labeled sunscreen facts, but I can't "
-                    "diagnose, treat, or claim sunscreen cures a disease. Stop "
-                    "using a product that is causing a reaction and seek a qualified "
-                    "medical professional."
-                ),
+                text=safety_boundary_text(session.locale, urgent=urgent),
                 context=self._context(session),
+                guide_status=GuideStatus.SAFE_EXIT,
+                guide_view_kind=GuideViewKind.SAFE_BOUNDARY,
+                guide_revision=session.guide_revision,
+                facts_snapshot_at=self._facts_snapshot_at(session),
+                allowed_actions=allowed_actions_for(GuideViewKind.SAFE_BOUNDARY),
             )
 
         parsed = parse_preferences(request.text)
-        session.hard_constraints = parsed.hard
-        session.soft_preferences = parsed.soft
+        if (
+            session.hard_constraints != parsed.hard
+            or session.soft_preferences != parsed.soft
+        ):
+            session.hard_constraints = parsed.hard
+            session.soft_preferences = parsed.soft
+            session.guide_revision += 1
+            self.sessions.save(session)
         self._transition(session, WorkflowState.VERIFY_CURRENT_PRODUCT)
         evidence_argument_summary: dict[str, object] = {
             "content_context_available": session.content_context_id is not None,
@@ -285,13 +303,16 @@ class WorkflowEngine:
             return GuideTurnResponse(
                 session_id=session.id,
                 trace_id=session.trace_id,
+                locale=session.locale,
                 state=session.state,
                 kind="no_match",
-                text=(
-                    "No product meets every stated must-have. I won't silently "
-                    "relax a hard constraint; change one requirement to continue."
-                ),
+                text=no_match_text(session.locale),
                 context=context,
+                guide_status=GuideStatus.WAITING_USER,
+                guide_view_kind=GuideViewKind.NO_MATCH,
+                guide_revision=session.guide_revision,
+                facts_snapshot_at=self._facts_snapshot_at(session),
+                allowed_actions=allowed_actions_for(GuideViewKind.NO_MATCH),
                 verdict=Verdict.NOT_RECOMMENDED,
                 evidence=evidence,
             )
@@ -337,19 +358,31 @@ class WorkflowEngine:
         }
         self.sessions.save(session)
         evidence_is_insufficient = not any(card.evidence_ids for card in cards)
+        guide_view_kind = (
+            GuideViewKind.INSUFFICIENT_EVIDENCE
+            if evidence_is_insufficient
+            else GuideViewKind.DECISION_READY
+        )
         return GuideTurnResponse(
             session_id=session.id,
             trace_id=session.trace_id,
+            locale=session.locale,
             state=session.state,
             kind="recommendation",
-            text=(
-                "These products pass your stated constraints, but there is "
-                "insufficient evidence to recommend one."
-                if evidence_is_insufficient
-                else "These options pass your must-haves. The first is the closest "
-                "fit; review the tradeoffs before choosing a size."
+            text=recommendation_text(
+                session.locale,
+                evidence_is_insufficient=evidence_is_insufficient,
             ),
             context=context,
+            guide_status=(
+                GuideStatus.WAITING_USER
+                if evidence_is_insufficient
+                else GuideStatus.ACTIVE
+            ),
+            guide_view_kind=guide_view_kind,
+            guide_revision=session.guide_revision,
+            facts_snapshot_at=self._facts_snapshot_at(session),
+            allowed_actions=allowed_actions_for(guide_view_kind),
             verdict=(
                 Verdict.INSUFFICIENT_EVIDENCE
                 if evidence_is_insufficient

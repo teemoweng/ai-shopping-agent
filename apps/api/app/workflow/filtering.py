@@ -30,19 +30,63 @@ class FilterResult:
 
 def parse_preferences(text: str) -> ParsedPreferences:
     normalized = text.lower()
-    price_match = re.search(r"(?:under|below|max|\$)\s*\$?(\d+(?:\.\d+)?)", normalized)
+    price_match = re.search(
+        r"(?:under|below|max|\$|预算\s*)\s*\$?(\d+(?:\.\d+)?)",
+        normalized,
+    )
     max_price = float(price_match.group(1)) if price_match else None
     fragrance_free = True if any(
-        phrase in normalized for phrase in ("fragrance-free", "fragrance free", "no fragrance")
+        phrase in normalized
+        for phrase in (
+            "fragrance-free",
+            "fragrance free",
+            "no fragrance",
+            "无香精",
+            "无香",
+        )
     ) else None
-    water_match = re.search(r"(40|80)\s*(?:minute|min)", normalized)
+    water_match = re.search(r"(40|80)\s*(?:minute|min|分钟)", normalized)
     water_minutes = int(water_match.group(1)) if water_match else None
-    finish = next((value for value in ("dewy", "natural", "matte") if value in normalized), None)
-    skin_type = next(
-        (value for value in ("dry", "combination", "oily", "sensitive") if value in normalized),
+    finish = next(
+        (
+            value
+            for value, phrases in (
+                ("dewy", ("dewy", "水润")),
+                ("natural", ("natural", "自然")),
+                ("matte", ("matte", "哑光")),
+            )
+            if any(phrase in normalized for phrase in phrases)
+        ),
         None,
     )
-    white_cast = "high" if "no white cast" in normalized or "white cast" in normalized else None
+    skin_type = next(
+        (
+            value
+            for value, phrases in (
+                ("sensitive", ("sensitive", "油敏皮", "敏感肌")),
+                ("combination", ("combination", "混合皮")),
+                ("oily", ("oily", "油皮")),
+                ("dry", ("dry", "干皮")),
+            )
+            if any(phrase in normalized for phrase in phrases)
+        ),
+        None,
+    )
+    white_cast = (
+        "high"
+        if any(
+            phrase in normalized
+            for phrase in (
+                "no white cast",
+                "white cast",
+                "不泛白",
+                "白膜",
+                "泛白",
+                "深肤色",
+            )
+        )
+        else None
+    )
     return ParsedPreferences(
         hard=HardConstraints(
             max_price_usd=max_price,

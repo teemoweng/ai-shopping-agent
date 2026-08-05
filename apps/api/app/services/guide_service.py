@@ -21,8 +21,10 @@ class GuideService:
             request.entry_point,
             request.content_context_id,
             request.search_query,
+            locale=request.locale,
         )
-        return self.engine.open_session(session)
+        response = self.engine.open_session(session)
+        return self.sessions.save_snapshot(session, response)
 
     def message(
         self,
@@ -30,4 +32,8 @@ class GuideService:
         request: GuideMessageRequest,
     ) -> GuideTurnResponse:
         session = self.sessions.get(session_id)
-        return self.engine.handle_message(session, request)
+        response = self.engine.handle_message(session, request)
+        return self.sessions.save_snapshot(session, response)
+
+    def get(self, session_id: str) -> GuideTurnResponse:
+        return self.sessions.get_snapshot(session_id)

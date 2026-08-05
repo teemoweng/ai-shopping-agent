@@ -1,12 +1,13 @@
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from types import MappingProxyType
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
 from app.domain.contracts import (
     EntryPoint,
+    GuideTurnResponse,
     HardConstraints,
     QueryIntent,
     SoftPreferences,
@@ -52,6 +53,7 @@ class GuideSession(BaseModel):
     entry_point: EntryPoint
     content_context_id: str | None
     search_query: str | None
+    locale: Literal["en-US", "zh-CN"] = "en-US"
     query_intent: QueryIntent | None = None
     state: WorkflowState = WorkflowState.ENTRY_INGEST
     hard_constraints: HardConstraints = Field(default_factory=HardConstraints)
@@ -59,6 +61,8 @@ class GuideSession(BaseModel):
     recommended_product_ids: list[str] = Field(default_factory=list)
     eligible_sku_ids_by_product: dict[str, list[str]] = Field(default_factory=dict)
     consumed_confirmation_tokens: set[str] = Field(default_factory=set)
+    guide_revision: int = Field(default=1, ge=1)
+    latest_response: GuideTurnResponse | None = None
 
 
 class TraceEvent(BaseModel):

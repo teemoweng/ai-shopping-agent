@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 from uuid import uuid4
 
-from app.domain.contracts import EntryPoint, WorkflowState
+from app.domain.contracts import EntryPoint, GuideTurnResponse, WorkflowState
 from app.domain.events import GuideSession, TraceEvent
 
 
@@ -18,6 +19,7 @@ class SessionRepository:
         entry_point: EntryPoint,
         content_context_id: str | None,
         search_query: str | None,
+        locale: Literal["en-US", "zh-CN"] = "en-US",
     ) -> GuideSession:
         session = GuideSession(
             id=f"ses_{uuid4()}",
@@ -25,6 +27,7 @@ class SessionRepository:
             entry_point=entry_point,
             content_context_id=content_context_id,
             search_query=search_query,
+            locale=locale,
         )
         self._sessions[session.id] = session
         return session
@@ -35,6 +38,22 @@ class SessionRepository:
     def save(self, session: GuideSession) -> GuideSession:
         self._sessions[session.id] = session
         return session
+
+    def save_snapshot(
+        self,
+        session: GuideSession,
+        response: GuideTurnResponse,
+    ) -> GuideTurnResponse:
+        snapshot = response.model_copy(deep=True)
+        session.latest_response = snapshot
+        self.save(session)
+        return snapshot.model_copy(deep=True)
+
+    def get_snapshot(self, session_id: str) -> GuideTurnResponse:
+        snapshot = self.get(session_id).latest_response
+        if snapshot is None:
+            raise KeyError(session_id)
+        return snapshot.model_copy(deep=True)
 
     def append_event(
         self,

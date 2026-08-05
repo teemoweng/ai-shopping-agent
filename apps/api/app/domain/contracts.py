@@ -31,6 +31,40 @@ class WorkflowState(StrEnum):
     FEEDBACK_AND_MEMORY = "FEEDBACK_AND_MEMORY"
 
 
+class GuideAction(StrEnum):
+    CONFIRM_CONTEXT = "CONFIRM_CONTEXT"
+    ANSWER_CLARIFICATION = "ANSWER_CLARIFICATION"
+    SKIP_CLARIFICATION = "SKIP_CLARIFICATION"
+    UPDATE_CONSTRAINTS = "UPDATE_CONSTRAINTS"
+    RELAX_CONSTRAINT = "RELAX_CONSTRAINT"
+    CONTINUE_WITH_KNOWN = "CONTINUE_WITH_KNOWN"
+    REQUEST_COMPARISON = "REQUEST_COMPARISON"
+    OPEN_PRODUCT = "OPEN_PRODUCT"
+    RETRY_GUIDE_OPERATION = "RETRY_GUIDE_OPERATION"
+    RETURN_TO_FEED = "RETURN_TO_FEED"
+
+
+class GuideStatus(StrEnum):
+    ACTIVE = "ACTIVE"
+    WAITING_USER = "WAITING_USER"
+    SAFE_EXIT = "SAFE_EXIT"
+    FAILED = "FAILED"
+
+
+class GuideViewKind(StrEnum):
+    OPENING_CONTEXT = "OPENING_CONTEXT"
+    CONTEXT_CONFIRMATION = "CONTEXT_CONFIRMATION"
+    WAITING_CLARIFICATION = "WAITING_CLARIFICATION"
+    VERIFYING_FACTS = "VERIFYING_FACTS"
+    DECISION_READY = "DECISION_READY"
+    NO_MATCH = "NO_MATCH"
+    INSUFFICIENT_EVIDENCE = "INSUFFICIENT_EVIDENCE"
+    COMPARISON_READY = "COMPARISON_READY"
+    SAFE_BOUNDARY = "SAFE_BOUNDARY"
+    RECOVERY_REQUIRED = "RECOVERY_REQUIRED"
+    FATAL_ERROR = "FATAL_ERROR"
+
+
 class Verdict(StrEnum):
     SUITABLE = "SUITABLE"
     CONDITIONAL = "CONDITIONAL"
@@ -64,6 +98,7 @@ class CreateGuideSessionRequest(BaseModel):
     entry_point: EntryPoint
     content_context_id: str | None = None
     search_query: Annotated[str | None, Field(min_length=2, max_length=200)] = None
+    locale: Literal["en-US", "zh-CN"] = "en-US"
 
     @classmethod
     def __get_pydantic_json_schema__(
@@ -79,6 +114,11 @@ class CreateGuideSessionRequest(BaseModel):
                     "properties": {
                         "content_context_id": {"minLength": 1, "type": "string"},
                         "entry_point": {"const": "content", "type": "string"},
+                        "locale": {
+                            "default": "en-US",
+                            "enum": ["en-US", "zh-CN"],
+                            "type": "string",
+                        },
                     },
                     "required": ["entry_point", "content_context_id"],
                     "type": "object",
@@ -87,6 +127,11 @@ class CreateGuideSessionRequest(BaseModel):
                     "additionalProperties": False,
                     "properties": {
                         "entry_point": {"const": "search", "type": "string"},
+                        "locale": {
+                            "default": "en-US",
+                            "enum": ["en-US", "zh-CN"],
+                            "type": "string",
+                        },
                         "search_query": {
                             "maxLength": 200,
                             "minLength": 2,
@@ -323,6 +368,7 @@ class RecommendationCard(BaseModel):
 class GuideTurnResponse(BaseModel):
     session_id: str
     trace_id: str
+    locale: Literal["en-US", "zh-CN"]
     state: WorkflowState
     kind: Literal[
         "opening",
@@ -333,6 +379,12 @@ class GuideTurnResponse(BaseModel):
     ]
     text: str
     context: ContentContextSummary
+    guide_status: GuideStatus
+    guide_view_kind: GuideViewKind
+    guide_revision: Annotated[int, Field(ge=1)]
+    facts_snapshot_at: datetime
+    allowed_actions: list[GuideAction]
+    degraded: bool = False
     verdict: Verdict | None = None
     recommendations: list[RecommendationCard] = Field(default_factory=list)
     evidence: list[EvidenceReference] = Field(default_factory=list)
