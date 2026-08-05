@@ -2,6 +2,7 @@ import type { components } from "@shopping-guide/contracts/src/api";
 
 import {
   validateCommerceOperationResponse,
+  validateComparisonResponse,
   validateGuideTurnResponse,
 } from "@/lib/decision-contracts";
 
@@ -136,7 +137,7 @@ export const sendGuideMessage = (
 export const compareProducts = (sessionId: string, productIds: string[]) =>
   post<CompareResponse>(`/guide/sessions/${sessionId}/compare`, {
     product_ids: productIds,
-  });
+  }, (payload) => validateComparisonResponse(payload, sessionId, productIds));
 
 export const previewCart = (sessionId: string, skuId: string) =>
   post<CartPreview>(`/guide/sessions/${sessionId}/cart/preview`, {

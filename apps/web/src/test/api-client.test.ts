@@ -53,7 +53,13 @@ const compareResponse = {
   session_id: "ses_test",
   state: "COMPARE",
   product_ids: ["product_one", "product_two"],
-  rows: { price_usd: [19, 24] },
+  rows: {
+    starting_price_usd: [19, 24],
+    fragrance_free: [true, false],
+    water_resistance_minutes: [null, 40],
+    finish: ["natural", "matte"],
+    white_cast_risk: ["low", "medium"],
+  },
   simulated: true,
 } satisfies components["schemas"]["CompareResponse"];
 
@@ -225,6 +231,19 @@ describe("shopping guide client", () => {
         body: JSON.stringify({ product_ids: ["product_one", "product_two"] }),
       },
     );
+  });
+
+  it("rejects a malformed comparison success payload at the client boundary", async () => {
+    mockJson({
+      ...compareResponse,
+      rows: { ...compareResponse.rows, finish: ["natural"] },
+    });
+
+    await expect(compareProducts("ses_test", ["product_one", "product_two"])).rejects.toMatchObject({
+      status: 200,
+      code: "INVALID_API_RESPONSE",
+      message: "INVALID_API_RESPONSE",
+    });
   });
 
   it("posts the exact one-item cart-preview contract", async () => {
