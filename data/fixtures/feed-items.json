@@ -1,0 +1,48 @@
+[
+  {
+    "id": "feed-uv-morning-001",
+    "synthetic": true,
+    "creator_handle": "@routine.notes",
+    "creator_display_name": "Routine Notes",
+    "caption_zh": "潮湿通勤前的轻薄防晒步骤：妆前使用感和防水需求要分开看。",
+    "media": {
+      "kind": "video",
+      "src": "/demo/feed-commerce.mp4",
+      "poster_src": "/demo/feed-commerce-poster.jpg",
+      "alt_zh": "创作者在早晨护肤步骤中展示合成防晒商品的视频",
+      "license_ref": "Pexels License，素材来源见 apps/web/public/demo/ASSET_SOURCES.md"
+    },
+    "engagement": {
+      "likes": 24800,
+      "comments": 642,
+      "favorites": 3100,
+      "shares": 488
+    },
+    "content_context_id": "morning-routine-uv-001",
+    "anchor_product_id": "seoul-shade-daily-fluid",
+    "commerce_status": "available"
+  },
+  {
+    "id": "feed-city-style-002",
+    "synthetic": true,
+    "creator_handle": "@city.frames",
+    "creator_display_name": "City Frames",
+    "caption_zh": "傍晚街头的层次穿搭记录。",
+    "media": {
+      "kind": "video",
+      "src": "/demo/feed-normal.mp4",
+      "poster_src": "/demo/feed-normal-poster.jpg",
+      "alt_zh": "创作者在城市街头展示穿搭的视频",
+      "license_ref": "Pexels License，素材来源见 apps/web/public/demo/ASSET_SOURCES.md"
+    },
+    "engagement": {
+      "likes": 12600,
+      "comments": 218,
+      "favorites": 850,
+      "shares": 104
+    },
+    "content_context_id": null,
+    "anchor_product_id": null,
+    "commerce_status": "none"
+  }
+]
