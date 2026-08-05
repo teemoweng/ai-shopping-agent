@@ -168,6 +168,108 @@ class CartItemResponse(BaseModel):
     simulated: Literal[True]
 
 
+class CatalogMediaResponse(BaseModel):
+    kind: Literal["video", "image"]
+    src: str
+    poster_src: str | None
+    alt_zh: str
+    license_ref: str
+
+
+class CatalogEngagementResponse(BaseModel):
+    likes: int
+    comments: int
+    favorites: int
+    shares: int
+
+
+class CatalogSkuResponse(BaseModel):
+    id: str
+    size_ml: int
+    price_usd: float
+    in_stock: bool
+    inventory_units: int
+    label: str
+    image_src: str
+
+
+class CatalogShippingResponse(BaseModel):
+    market: Literal["US"]
+    fee_usd: float
+    eta_min_days: int
+    eta_max_days: int
+    return_summary_zh: str
+
+
+class CatalogProductResponse(BaseModel):
+    id: str
+    brand: str
+    name: str
+    synthetic: Literal[True]
+    spf: int
+    broad_spectrum: bool
+    fragrance_free: bool
+    water_resistance_minutes: Literal[40, 80] | None
+    finish: Literal["dewy", "natural", "matte"]
+    skin_types: list[Literal["dry", "combination", "oily", "sensitive"]]
+    white_cast_risk: Literal["low", "medium", "high"]
+    active_filter_type: Literal["mineral", "organic", "hybrid"]
+    ingredient_highlights: list[str]
+    skus: list[CatalogSkuResponse]
+    display_name_zh: str
+    description_zh: str
+    media: CatalogMediaResponse
+    shipping: CatalogShippingResponse
+    list_price_usd: float
+    promotion: str | None
+    store_name: str
+    facts_version: str
+    observed_at: datetime
+    expires_at: datetime
+
+
+class CatalogProductSummary(BaseModel):
+    id: str
+    brand: str
+    name: str
+    display_name_zh: str
+    starting_price_usd: float
+    image_src: str
+
+
+class CatalogFeedItemResponse(BaseModel):
+    id: str
+    synthetic: Literal[True]
+    creator_handle: str
+    creator_display_name: str
+    caption_zh: str
+    media: CatalogMediaResponse
+    engagement: CatalogEngagementResponse
+    content_context_id: str | None
+    anchor_product_id: str | None
+    commerce_status: Literal["none", "available", "unavailable"]
+    anchor_product: CatalogProductSummary | None
+
+
+class FeedResponse(BaseModel):
+    feed_tabs: list[str]
+    bottom_nav_variant: str
+    items: list[CatalogFeedItemResponse]
+
+
+class CatalogFreshnessResponse(BaseModel):
+    facts_version: str
+    observed_at: datetime
+    expires_at: datetime
+
+
+class ProductDetailResponse(BaseModel):
+    product: CatalogProductResponse
+    starting_price_usd: float
+    freshness: CatalogFreshnessResponse
+    synthetic_disclosure: Literal[True]
+
+
 class ClaimVerification(BaseModel):
     claim_id: str
     text: str
