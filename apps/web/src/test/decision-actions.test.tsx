@@ -621,104 +621,29 @@ it("renders a valid three-product comparison in the requested order", async () =
   ]);
 });
 
-describe.each([
-  ["a null payload", null],
-  [
-    "a short row",
-    {
-      ...comparison,
-      rows: { ...comparison.rows, finish: ["natural"] },
-    },
-  ],
-  [
-    "a wrong value type",
-    {
-      ...comparison,
-      rows: { ...comparison.rows, fragrance_free: [true, "no"] },
-    },
-  ],
-  [
-    "a missing fixed row",
-    {
-      ...comparison,
-      rows: {
-        starting_price_usd: [14, 17],
-        fragrance_free: [true, false],
-        water_resistance_minutes: [null, 40],
-        finish: ["natural", "matte"],
-      },
-    },
-  ],
-  [
-    "an extra row",
-    {
-      ...comparison,
-      rows: { ...comparison.rows, future_fact: ["x", "y"] },
-    },
-  ],
-  [
-    "reordered product IDs",
-    {
-      ...comparison,
-      product_ids: ["cloud-veil-mineral", "seoul-shade-daily-fluid"],
-    },
-  ],
-  [
-    "too many product IDs",
-    {
-      ...comparison,
-      product_ids: [
-        "seoul-shade-daily-fluid",
-        "cloud-veil-mineral",
-        "jeju-sport-sun-gel",
-        "busan-soft-sun-milk",
-      ],
-      rows: {
-        starting_price_usd: [14, 17, 22, 16],
-        fragrance_free: [true, false, false, true],
-        water_resistance_minutes: [null, 40, 80, null],
-        finish: ["natural", "matte", "dewy", "natural"],
-        white_cast_risk: ["low", "medium", "low", "low"],
-      },
-    },
-  ],
-  [
-    "a mismatched product ID",
-    {
-      ...comparison,
-      product_ids: ["seoul-shade-daily-fluid", "jeju-sport-sun-gel"],
-    },
-  ],
-  [
-    "duplicate product IDs",
-    {
-      ...comparison,
-      product_ids: ["seoul-shade-daily-fluid", "seoul-shade-daily-fluid"],
-    },
-  ],
-])("rejects a malformed comparison response with %s", (_case, malformedResponse) => {
-  it("preserves selections and exposes a stable retry", async () => {
-    api.compareProducts.mockResolvedValueOnce(malformedResponse);
-    const user = await reachRecommendations();
-    await chooseComparison(user);
-    await user.click(screen.getByRole("button", { name: "Compare 2" }));
+it("uses the client rejection for malformed comparison recovery", async () => {
+  api.compareProducts.mockRejectedValueOnce(
+    new ApiError(200, "INVALID_API_RESPONSE"),
+  );
+  const user = await reachRecommendations();
+  await chooseComparison(user);
+  await user.click(screen.getByRole("button", { name: "Compare 2" }));
 
-    expect(
-      await screen.findByText(
-        "Comparison data was incomplete. Keep your selections and try comparing again.",
-      ),
-    ).toBeVisible();
-    expect(
-      screen.queryByRole("table", { name: "Product comparison" }),
-    ).not.toBeInTheDocument();
-    const retry = screen.getByRole("button", { name: "Compare 2" });
-    expect(retry).toBeEnabled();
-    await user.click(retry);
-    expect(api.compareProducts).toHaveBeenCalledTimes(2);
-    expect(
-      await screen.findByRole("table", { name: "Product comparison" }),
-    ).toBeVisible();
-  });
+  expect(
+    await screen.findByText(
+      "Comparison could not be loaded. Keep your selections and try comparing again.",
+    ),
+  ).toBeVisible();
+  expect(
+    screen.queryByRole("table", { name: "Product comparison" }),
+  ).not.toBeInTheDocument();
+  const retry = screen.getByRole("button", { name: "Compare 2" });
+  expect(retry).toBeEnabled();
+  await user.click(retry);
+  expect(api.compareProducts).toHaveBeenCalledTimes(2);
+  expect(
+    await screen.findByRole("table", { name: "Product comparison" }),
+  ).toBeVisible();
 });
 
 it("previews exact facts and renders a grounded decision receipt only after resolved confirmation", async () => {

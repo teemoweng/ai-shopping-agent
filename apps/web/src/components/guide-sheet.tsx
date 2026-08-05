@@ -20,10 +20,7 @@ import {
   previewCart,
   sendGuideMessage,
 } from "@/lib/api-client";
-import {
-  validateCartItemResponse,
-  validateComparisonResponse,
-} from "@/lib/decision-contracts";
+import { validateCartItemResponse } from "@/lib/decision-contracts";
 
 type GuideTurn = components["schemas"]["GuideTurnResponse"];
 type EvidenceStatus = components["schemas"]["EvidenceStatus"];
@@ -471,17 +468,7 @@ export function GuideSheet({
           decisionGenerationRef.current === generation &&
           comparisonVersionRef.current === operationVersion
         ) {
-          const validatedResponse = validateComparisonResponse(
-            response,
-            turn.session_id,
-            ids,
-          );
-          if (validatedResponse) {
-            setComparison(validatedResponse);
-          } else {
-            setComparison(null);
-            setComparisonError("INVALID_COMPARISON_RESPONSE");
-          }
+          setComparison(response);
         }
       })
       .catch((error: unknown) => {
@@ -836,11 +823,7 @@ export function GuideSheet({
               </div>
               {comparisonError ? (
                 <div className="decisionRecovery" role="alert">
-                  <p>
-                    {comparisonError === "INVALID_COMPARISON_RESPONSE"
-                      ? "Comparison data was incomplete. Keep your selections and try comparing again."
-                      : "Comparison could not be loaded. Keep your selections and try comparing again."}
-                  </p>
+                  <p>Comparison could not be loaded. Keep your selections and try comparing again.</p>
                 </div>
               ) : null}
               {comparison ? <ComparisonTable comparison={comparison} /> : null}
