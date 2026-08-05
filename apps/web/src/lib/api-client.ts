@@ -7,6 +7,12 @@ type GuideTurn = components["schemas"]["GuideTurnResponse"];
 type CompareResponse = components["schemas"]["CompareResponse"];
 type CartPreview = components["schemas"]["CartPreviewResponse"];
 type CartItem = components["schemas"]["CartItemResponse"];
+type FeedResponse = components["schemas"]["FeedResponse"];
+type ProductDetailResponse = components["schemas"]["ProductDetailResponse"];
+type CommercePreviewRequest = components["schemas"]["CommercePreviewRequest"];
+type CommerceAddRequest = components["schemas"]["CommerceAddRequest"];
+type CommerceOperationResponse =
+  components["schemas"]["CommerceOperationResponse"];
 
 export class ApiError extends Error {
   constructor(
@@ -50,10 +56,22 @@ function getApiErrorCode(payload: unknown): string {
 }
 
 async function post<T>(path: string, body: unknown): Promise<T> {
+  return request<T>(path, "POST", body);
+}
+
+async function get<T>(path: string): Promise<T> {
+  return request<T>(path, "GET");
+}
+
+async function request<T>(
+  path: string,
+  method: "GET" | "POST",
+  body?: unknown,
+): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
-    method: "POST",
+    method,
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    ...(method === "POST" ? { body: JSON.stringify(body) } : {}),
   });
   const payload = await parseResponseBody(response);
   if (!response.ok) {
@@ -65,11 +83,23 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return payload as T;
 }
 
-export const createGuideSession = (contentContextId: string) =>
+export const getFeed = () => get<FeedResponse>("/catalog/feed");
+
+export const getProduct = (productId: string) =>
+  get<ProductDetailResponse>(`/catalog/products/${encodeURIComponent(productId)}`);
+
+export const createGuideSession = (
+  contentContextId: string,
+  locale?: "zh-CN" | "en-US",
+) =>
   post<GuideTurn>("/guide/sessions", {
     entry_point: "content",
     content_context_id: contentContextId,
+    ...(locale ? { locale } : {}),
   });
+
+export const getGuideSession = (sessionId: string) =>
+  get<GuideTurn>(`/guide/sessions/${encodeURIComponent(sessionId)}`);
 
 export const sendGuideMessage = (
   sessionId: string,
@@ -96,3 +126,34 @@ export const addCartItem = (sessionId: string, confirmationToken: string) =>
   post<CartItem>(`/guide/sessions/${sessionId}/cart/items`, {
     confirmation_token: confirmationToken,
   });
+
+export const previewCommerce = (request: CommercePreviewRequest) =>
+  post<CommerceOperationResponse>("/commerce/cart/preview", request);
+
+export const acceptUpdatedFacts = (
+  operationId: string,
+  expectedRevision: number,
+) =>
+  post<CommerceOperationResponse>(
+    `/commerce/operations/${encodeURIComponent(operationId)}/accept-facts`,
+    { expected_transaction_revision: expectedRevision },
+  );
+
+export const confirmCommerce = (
+  operationId: string,
+  request: CommerceAddRequest,
+) =>
+  post<CommerceOperationResponse>(
+    `/commerce/operations/${encodeURIComponent(operationId)}/items`,
+    request,
+  );
+
+export const getCommerceOperation = (operationId: string) =>
+  get<CommerceOperationResponse>(
+    `/commerce/operations/${encodeURIComponent(operationId)}`,
+  );
+
+export const reconcileCommerce = (idempotencyKey: string) =>
+  get<CommerceOperationResponse>(
+    `/commerce/operations/by-idempotency/${encodeURIComponent(idempotencyKey)}`,
+  );

@@ -68,6 +68,13 @@ const clarificationTurn: GuideTurn = {
     "40 min water resistance",
     "80 min water resistance",
   ],
+  locale: "en-US",
+  guide_status: "WAITING_USER",
+  guide_view_kind: "WAITING_CLARIFICATION",
+  guide_revision: 1,
+  facts_snapshot_at: "2026-08-05T00:00:00Z",
+  allowed_actions: ["ANSWER_CLARIFICATION", "RETURN_TO_FEED"],
+  degraded: false,
 };
 
 const publicEvidence: components["schemas"]["EvidenceReference"] = {

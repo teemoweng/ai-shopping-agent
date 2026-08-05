@@ -5,9 +5,17 @@ import type { components } from "@shopping-guide/contracts/src/api";
 import {
   ApiError,
   addCartItem,
+  acceptUpdatedFacts,
   compareProducts,
+  confirmCommerce,
   createGuideSession,
+  getCommerceOperation,
+  getFeed,
+  getGuideSession,
+  getProduct,
+  previewCommerce,
   previewCart,
+  reconcileCommerce,
   sendGuideMessage,
 } from "@/lib/api-client";
 import { formatUsd } from "@/lib/formatters";
@@ -32,6 +40,13 @@ const guideTurn = {
   recommendations: [],
   trace_id: "trc_test",
   verdict: null,
+  locale: "en-US",
+  guide_status: "WAITING_USER",
+  guide_view_kind: "WAITING_CLARIFICATION",
+  guide_revision: 1,
+  facts_snapshot_at: "2026-08-05T00:00:00Z",
+  allowed_actions: ["ANSWER_CLARIFICATION", "RETURN_TO_FEED"],
+  degraded: false,
 } satisfies components["schemas"]["GuideTurnResponse"];
 
 const compareResponse = {
@@ -65,6 +80,34 @@ const cartItem = {
   unit_price_usd: 19,
   simulated: true,
 } satisfies components["schemas"]["CartItemResponse"];
+
+const commerceOperation = {
+  operation_id: "op_test",
+  purchase_origin: "FEED",
+  product_id: "seoul-shade-daily-fluid",
+  sku_id: "seoul-shade-50",
+  quantity: 1,
+  transaction_revision: 1,
+  facts_version: "facts_test",
+  commerce_view_kind: "AWAITING_CONFIRMATION",
+  operation_status: "ACTIVE",
+  allowed_actions: ["CONFIRM_ADD_TO_CART", "RETURN_TO_PRODUCT"],
+  facts: {
+    product_id: "seoul-shade-daily-fluid",
+    sku_id: "seoul-shade-50",
+    quantity: 1,
+    unit_price_usd: 19,
+    subtotal_usd: 19,
+    inventory_units: 12,
+    in_stock: true,
+    facts_version: "facts_test",
+    observed_at: "2026-08-05T00:00:00Z",
+  },
+  facts_diff: [],
+  confirmation_token: syntheticConfirmation,
+  confirmation_expires_at: "2026-08-05T00:05:00Z",
+  simulated: true,
+} satisfies components["schemas"]["CommerceOperationResponse"];
 
 function mockJson(payload: unknown, status = 200) {
   return vi.spyOn(globalThis, "fetch").mockResolvedValue(
@@ -109,6 +152,48 @@ describe("shopping guide client", () => {
           content_context_id: "morning-routine-uv-001",
         }),
       },
+    );
+  });
+
+  it("posts the explicit locale for a redesigned guide session", async () => {
+    const fetchMock = mockJson(guideTurn, 201);
+
+    await createGuideSession("morning-routine-uv-001", "zh-CN");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:8000/api/v1/guide/sessions",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entry_point: "content",
+          content_context_id: "morning-routine-uv-001",
+          locale: "zh-CN",
+        }),
+      },
+    );
+  });
+
+  it("gets the exact redesigned catalog and guide snapshot paths", async () => {
+    const fetchMock = mockJson({ feed_tabs: [], bottom_nav_variant: "demo", items: [] });
+    await getFeed();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:8000/api/v1/catalog/feed",
+      { method: "GET", headers: { "Content-Type": "application/json" } },
+    );
+
+    mockJson({}, 200);
+    await getProduct("seoul-shade-daily-fluid");
+    expect(fetch).toHaveBeenLastCalledWith(
+      "http://127.0.0.1:8000/api/v1/catalog/products/seoul-shade-daily-fluid",
+      { method: "GET", headers: { "Content-Type": "application/json" } },
+    );
+
+    mockJson(guideTurn);
+    await getGuideSession("ses_test");
+    expect(fetch).toHaveBeenLastCalledWith(
+      "http://127.0.0.1:8000/api/v1/guide/sessions/ses_test",
+      { method: "GET", headers: { "Content-Type": "application/json" } },
     );
   });
 
@@ -172,6 +257,70 @@ describe("shopping guide client", () => {
     );
   });
 
+  it("uses the exact independent commerce contracts", async () => {
+    const previewRequest: components["schemas"]["CommercePreviewRequest"] = {
+      purchase_origin: "FEED",
+      product_id: "seoul-shade-daily-fluid",
+      sku_id: "seoul-shade-50",
+      quantity: 1,
+      expected_transaction_revision: 0,
+      demo_scenario: "NORMAL",
+    };
+    const addRequest: components["schemas"]["CommerceAddRequest"] = {
+      confirmation_token: syntheticConfirmation,
+      idempotency_key: "idem_test",
+      expected_transaction_revision: 1,
+      demo_scenario: "NORMAL",
+    };
+
+    mockJson(commerceOperation, 201);
+    await previewCommerce(previewRequest);
+    expect(fetch).toHaveBeenLastCalledWith(
+      "http://127.0.0.1:8000/api/v1/commerce/cart/preview",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(previewRequest),
+      },
+    );
+
+    mockJson(commerceOperation);
+    await acceptUpdatedFacts("op_test", 1);
+    expect(fetch).toHaveBeenLastCalledWith(
+      "http://127.0.0.1:8000/api/v1/commerce/operations/op_test/accept-facts",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ expected_transaction_revision: 1 }),
+      },
+    );
+
+    mockJson(commerceOperation, 201);
+    await confirmCommerce("op_test", addRequest);
+    expect(fetch).toHaveBeenLastCalledWith(
+      "http://127.0.0.1:8000/api/v1/commerce/operations/op_test/items",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(addRequest),
+      },
+    );
+
+    mockJson(commerceOperation);
+    await getCommerceOperation("op_test");
+    expect(fetch).toHaveBeenLastCalledWith(
+      "http://127.0.0.1:8000/api/v1/commerce/operations/op_test",
+      { method: "GET", headers: { "Content-Type": "application/json" } },
+    );
+
+    mockJson(commerceOperation);
+    await reconcileCommerce("idem_test");
+    expect(fetch).toHaveBeenLastCalledWith(
+      "http://127.0.0.1:8000/api/v1/commerce/operations/by-idempotency/idem_test",
+      { method: "GET", headers: { "Content-Type": "application/json" } },
+    );
+  });
+
   it("preserves the server's stable error code", async () => {
     mockJson({ detail: { code: "SESSION_NOT_FOUND" } }, 404);
 
@@ -182,6 +331,16 @@ describe("shopping guide client", () => {
       status: 404,
       code: "SESSION_NOT_FOUND",
       message: "SESSION_NOT_FOUND",
+    });
+  });
+
+  it("preserves a commerce reconciliation error code", async () => {
+    mockJson({ detail: { code: "COMMIT_STATUS_UNKNOWN" } }, 409);
+
+    await expect(getCommerceOperation("op_unknown")).rejects.toMatchObject({
+      status: 409,
+      code: "COMMIT_STATUS_UNKNOWN",
+      message: "COMMIT_STATUS_UNKNOWN",
     });
   });
 

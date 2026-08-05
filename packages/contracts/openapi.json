@@ -141,6 +141,482 @@
         "title": "CartPreviewResponse",
         "type": "object"
       },
+      "CatalogEngagementResponse": {
+        "properties": {
+          "comments": {
+            "title": "Comments",
+            "type": "integer"
+          },
+          "favorites": {
+            "title": "Favorites",
+            "type": "integer"
+          },
+          "likes": {
+            "title": "Likes",
+            "type": "integer"
+          },
+          "shares": {
+            "title": "Shares",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "likes",
+          "comments",
+          "favorites",
+          "shares"
+        ],
+        "title": "CatalogEngagementResponse",
+        "type": "object"
+      },
+      "CatalogFeedItemResponse": {
+        "properties": {
+          "anchor_product": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CatalogProductSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "anchor_product_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anchor Product Id"
+          },
+          "caption_zh": {
+            "title": "Caption Zh",
+            "type": "string"
+          },
+          "commerce_status": {
+            "enum": [
+              "none",
+              "available",
+              "unavailable"
+            ],
+            "title": "Commerce Status",
+            "type": "string"
+          },
+          "content_context_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Context Id"
+          },
+          "creator_display_name": {
+            "title": "Creator Display Name",
+            "type": "string"
+          },
+          "creator_handle": {
+            "title": "Creator Handle",
+            "type": "string"
+          },
+          "engagement": {
+            "$ref": "#/components/schemas/CatalogEngagementResponse"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "media": {
+            "$ref": "#/components/schemas/CatalogMediaResponse"
+          },
+          "synthetic": {
+            "const": true,
+            "title": "Synthetic",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "synthetic",
+          "creator_handle",
+          "creator_display_name",
+          "caption_zh",
+          "media",
+          "engagement",
+          "content_context_id",
+          "anchor_product_id",
+          "commerce_status",
+          "anchor_product"
+        ],
+        "title": "CatalogFeedItemResponse",
+        "type": "object"
+      },
+      "CatalogFreshnessResponse": {
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "facts_version": {
+            "title": "Facts Version",
+            "type": "string"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "facts_version",
+          "observed_at",
+          "expires_at"
+        ],
+        "title": "CatalogFreshnessResponse",
+        "type": "object"
+      },
+      "CatalogMediaResponse": {
+        "properties": {
+          "alt_zh": {
+            "title": "Alt Zh",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "video",
+              "image"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "license_ref": {
+            "title": "License Ref",
+            "type": "string"
+          },
+          "poster_src": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Poster Src"
+          },
+          "src": {
+            "title": "Src",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "src",
+          "poster_src",
+          "alt_zh",
+          "license_ref"
+        ],
+        "title": "CatalogMediaResponse",
+        "type": "object"
+      },
+      "CatalogProductResponse": {
+        "properties": {
+          "active_filter_type": {
+            "enum": [
+              "mineral",
+              "organic",
+              "hybrid"
+            ],
+            "title": "Active Filter Type",
+            "type": "string"
+          },
+          "brand": {
+            "title": "Brand",
+            "type": "string"
+          },
+          "broad_spectrum": {
+            "title": "Broad Spectrum",
+            "type": "boolean"
+          },
+          "description_zh": {
+            "title": "Description Zh",
+            "type": "string"
+          },
+          "display_name_zh": {
+            "title": "Display Name Zh",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "facts_version": {
+            "title": "Facts Version",
+            "type": "string"
+          },
+          "finish": {
+            "enum": [
+              "dewy",
+              "natural",
+              "matte"
+            ],
+            "title": "Finish",
+            "type": "string"
+          },
+          "fragrance_free": {
+            "title": "Fragrance Free",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "ingredient_highlights": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Ingredient Highlights",
+            "type": "array"
+          },
+          "list_price_usd": {
+            "title": "List Price Usd",
+            "type": "number"
+          },
+          "media": {
+            "$ref": "#/components/schemas/CatalogMediaResponse"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "promotion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promotion"
+          },
+          "shipping": {
+            "$ref": "#/components/schemas/CatalogShippingResponse"
+          },
+          "skin_types": {
+            "items": {
+              "enum": [
+                "dry",
+                "combination",
+                "oily",
+                "sensitive"
+              ],
+              "type": "string"
+            },
+            "title": "Skin Types",
+            "type": "array"
+          },
+          "skus": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogSkuResponse"
+            },
+            "title": "Skus",
+            "type": "array"
+          },
+          "spf": {
+            "title": "Spf",
+            "type": "integer"
+          },
+          "store_name": {
+            "title": "Store Name",
+            "type": "string"
+          },
+          "synthetic": {
+            "const": true,
+            "title": "Synthetic",
+            "type": "boolean"
+          },
+          "water_resistance_minutes": {
+            "anyOf": [
+              {
+                "enum": [
+                  40,
+                  80
+                ],
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Water Resistance Minutes"
+          },
+          "white_cast_risk": {
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "White Cast Risk",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "brand",
+          "name",
+          "synthetic",
+          "spf",
+          "broad_spectrum",
+          "fragrance_free",
+          "water_resistance_minutes",
+          "finish",
+          "skin_types",
+          "white_cast_risk",
+          "active_filter_type",
+          "ingredient_highlights",
+          "skus",
+          "display_name_zh",
+          "description_zh",
+          "media",
+          "shipping",
+          "list_price_usd",
+          "promotion",
+          "store_name",
+          "facts_version",
+          "observed_at",
+          "expires_at"
+        ],
+        "title": "CatalogProductResponse",
+        "type": "object"
+      },
+      "CatalogProductSummary": {
+        "properties": {
+          "brand": {
+            "title": "Brand",
+            "type": "string"
+          },
+          "display_name_zh": {
+            "title": "Display Name Zh",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "image_src": {
+            "title": "Image Src",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "starting_price_usd": {
+            "title": "Starting Price Usd",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "brand",
+          "name",
+          "display_name_zh",
+          "starting_price_usd",
+          "image_src"
+        ],
+        "title": "CatalogProductSummary",
+        "type": "object"
+      },
+      "CatalogShippingResponse": {
+        "properties": {
+          "eta_max_days": {
+            "title": "Eta Max Days",
+            "type": "integer"
+          },
+          "eta_min_days": {
+            "title": "Eta Min Days",
+            "type": "integer"
+          },
+          "fee_usd": {
+            "title": "Fee Usd",
+            "type": "number"
+          },
+          "market": {
+            "const": "US",
+            "title": "Market",
+            "type": "string"
+          },
+          "return_summary_zh": {
+            "title": "Return Summary Zh",
+            "type": "string"
+          }
+        },
+        "required": [
+          "market",
+          "fee_usd",
+          "eta_min_days",
+          "eta_max_days",
+          "return_summary_zh"
+        ],
+        "title": "CatalogShippingResponse",
+        "type": "object"
+      },
+      "CatalogSkuResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "image_src": {
+            "title": "Image Src",
+            "type": "string"
+          },
+          "in_stock": {
+            "title": "In Stock",
+            "type": "boolean"
+          },
+          "inventory_units": {
+            "title": "Inventory Units",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "price_usd": {
+            "title": "Price Usd",
+            "type": "number"
+          },
+          "size_ml": {
+            "title": "Size Ml",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "size_ml",
+          "price_usd",
+          "in_stock",
+          "inventory_units",
+          "label",
+          "image_src"
+        ],
+        "title": "CatalogSkuResponse",
+        "type": "object"
+      },
       "ClaimVerification": {
         "properties": {
           "claim_id": {
@@ -167,6 +643,524 @@
         ],
         "title": "ClaimVerification",
         "type": "object"
+      },
+      "CommerceAcceptFactsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_transaction_revision": {
+            "minimum": 1.0,
+            "title": "Expected Transaction Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expected_transaction_revision"
+        ],
+        "title": "CommerceAcceptFactsRequest",
+        "type": "object"
+      },
+      "CommerceAction": {
+        "enum": [
+          "SELECT_SKU",
+          "SET_QUANTITY",
+          "PREVIEW_CART",
+          "ACCEPT_UPDATED_FACTS",
+          "CONFIRM_ADD_TO_CART",
+          "CANCEL_CONFIRMATION",
+          "RESELECT_SKU",
+          "RETRY_COMMERCE_OPERATION",
+          "RECONCILE_COMMIT",
+          "RETURN_TO_PRODUCT",
+          "CONTINUE_BROWSING"
+        ],
+        "title": "CommerceAction",
+        "type": "string"
+      },
+      "CommerceAddRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmation_token": {
+            "title": "Confirmation Token",
+            "type": "string"
+          },
+          "demo_scenario": {
+            "default": "NORMAL",
+            "enum": [
+              "NORMAL",
+              "COMMIT_STATUS_UNKNOWN"
+            ],
+            "title": "Demo Scenario",
+            "type": "string"
+          },
+          "expected_transaction_revision": {
+            "title": "Expected Transaction Revision",
+            "type": "integer"
+          },
+          "idempotency_key": {
+            "title": "Idempotency Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirmation_token",
+          "idempotency_key",
+          "expected_transaction_revision"
+        ],
+        "title": "CommerceAddRequest",
+        "type": "object"
+      },
+      "CommerceFactDiff": {
+        "properties": {
+          "current_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Value"
+          },
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "previous_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Value"
+          }
+        },
+        "required": [
+          "field",
+          "previous_value",
+          "current_value"
+        ],
+        "title": "CommerceFactDiff",
+        "type": "object"
+      },
+      "CommerceFactsResponse": {
+        "properties": {
+          "facts_version": {
+            "title": "Facts Version",
+            "type": "string"
+          },
+          "in_stock": {
+            "title": "In Stock",
+            "type": "boolean"
+          },
+          "inventory_units": {
+            "title": "Inventory Units",
+            "type": "integer"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "product_id": {
+            "title": "Product Id",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "sku_id": {
+            "title": "Sku Id",
+            "type": "string"
+          },
+          "subtotal_usd": {
+            "title": "Subtotal Usd",
+            "type": "number"
+          },
+          "unit_price_usd": {
+            "title": "Unit Price Usd",
+            "type": "number"
+          }
+        },
+        "required": [
+          "product_id",
+          "sku_id",
+          "quantity",
+          "unit_price_usd",
+          "subtotal_usd",
+          "inventory_units",
+          "in_stock",
+          "facts_version",
+          "observed_at"
+        ],
+        "title": "CommerceFactsResponse",
+        "type": "object"
+      },
+      "CommerceOperationResponse": {
+        "properties": {
+          "allowed_actions": {
+            "items": {
+              "$ref": "#/components/schemas/CommerceAction"
+            },
+            "title": "Allowed Actions",
+            "type": "array"
+          },
+          "commerce_view_kind": {
+            "$ref": "#/components/schemas/CommerceStep"
+          },
+          "confirmation_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmation Expires At"
+          },
+          "confirmation_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmation Token"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "facts": {
+            "$ref": "#/components/schemas/CommerceFactsResponse"
+          },
+          "facts_diff": {
+            "items": {
+              "$ref": "#/components/schemas/CommerceFactDiff"
+            },
+            "title": "Facts Diff",
+            "type": "array"
+          },
+          "facts_version": {
+            "title": "Facts Version",
+            "type": "string"
+          },
+          "guide_session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guide Session Id"
+          },
+          "operation_id": {
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "operation_status": {
+            "$ref": "#/components/schemas/CommerceOperationStatus"
+          },
+          "product_id": {
+            "title": "Product Id",
+            "type": "string"
+          },
+          "purchase_origin": {
+            "enum": [
+              "FEED",
+              "AI"
+            ],
+            "title": "Purchase Origin",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "receipt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CommerceReceiptResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "simulated": {
+            "const": true,
+            "title": "Simulated",
+            "type": "boolean"
+          },
+          "sku_id": {
+            "title": "Sku Id",
+            "type": "string"
+          },
+          "source_guide_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Guide Revision"
+          },
+          "transaction_revision": {
+            "minimum": 1.0,
+            "title": "Transaction Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "operation_id",
+          "purchase_origin",
+          "product_id",
+          "sku_id",
+          "quantity",
+          "transaction_revision",
+          "facts_version",
+          "commerce_view_kind",
+          "operation_status",
+          "allowed_actions",
+          "facts",
+          "simulated"
+        ],
+        "title": "CommerceOperationResponse",
+        "type": "object"
+      },
+      "CommerceOperationStatus": {
+        "enum": [
+          "ACTIVE",
+          "RECONCILIATION_REQUIRED",
+          "SUCCEEDED",
+          "FAILED",
+          "CANCELLED"
+        ],
+        "title": "CommerceOperationStatus",
+        "type": "string"
+      },
+      "CommercePreviewRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "demo_scenario": {
+            "default": "NORMAL",
+            "enum": [
+              "NORMAL",
+              "PRICE_CHANGED",
+              "OUT_OF_STOCK"
+            ],
+            "title": "Demo Scenario",
+            "type": "string"
+          },
+          "expected_transaction_revision": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Expected Transaction Revision",
+            "type": "integer"
+          },
+          "guide_session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guide Session Id"
+          },
+          "previous_operation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Operation Id"
+          },
+          "product_id": {
+            "title": "Product Id",
+            "type": "string"
+          },
+          "purchase_origin": {
+            "enum": [
+              "FEED",
+              "AI"
+            ],
+            "title": "Purchase Origin",
+            "type": "string"
+          },
+          "quantity": {
+            "default": 1,
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "sku_id": {
+            "title": "Sku Id",
+            "type": "string"
+          },
+          "source_guide_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Guide Revision"
+          }
+        },
+        "required": [
+          "purchase_origin",
+          "product_id",
+          "sku_id"
+        ],
+        "title": "CommercePreviewRequest",
+        "type": "object"
+      },
+      "CommerceReceiptResponse": {
+        "properties": {
+          "cart_id": {
+            "title": "Cart Id",
+            "type": "string"
+          },
+          "cart_item_id": {
+            "title": "Cart Item Id",
+            "type": "string"
+          },
+          "committed_at": {
+            "format": "date-time",
+            "title": "Committed At",
+            "type": "string"
+          },
+          "facts_version": {
+            "title": "Facts Version",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "operation_id": {
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "order_created": {
+            "const": false,
+            "title": "Order Created",
+            "type": "boolean"
+          },
+          "payment_created": {
+            "const": false,
+            "title": "Payment Created",
+            "type": "boolean"
+          },
+          "product_id": {
+            "title": "Product Id",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "receipt_id": {
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "simulated": {
+            "const": true,
+            "title": "Simulated",
+            "type": "boolean"
+          },
+          "sku_id": {
+            "title": "Sku Id",
+            "type": "string"
+          },
+          "subtotal_usd": {
+            "title": "Subtotal Usd",
+            "type": "number"
+          },
+          "unit_price_usd": {
+            "title": "Unit Price Usd",
+            "type": "number"
+          }
+        },
+        "required": [
+          "receipt_id",
+          "cart_id",
+          "cart_item_id",
+          "operation_id",
+          "idempotency_key",
+          "product_id",
+          "sku_id",
+          "quantity",
+          "unit_price_usd",
+          "subtotal_usd",
+          "facts_version",
+          "committed_at",
+          "simulated",
+          "order_created",
+          "payment_created"
+        ],
+        "title": "CommerceReceiptResponse",
+        "type": "object"
+      },
+      "CommerceStep": {
+        "enum": [
+          "PDP_READY",
+          "CHECKING_FACTS",
+          "AWAITING_CONFIRMATION",
+          "FACTS_CHANGED",
+          "COMMITTING",
+          "COMMIT_STATUS_UNKNOWN",
+          "SUCCEEDED",
+          "FAILED",
+          "CANCELLED"
+        ],
+        "title": "CommerceStep",
+        "type": "string"
       },
       "CompareRequest": {
         "properties": {
@@ -297,6 +1291,14 @@
               "entry_point": {
                 "const": "content",
                 "type": "string"
+              },
+              "locale": {
+                "default": "en-US",
+                "enum": [
+                  "en-US",
+                  "zh-CN"
+                ],
+                "type": "string"
               }
             },
             "required": [
@@ -310,6 +1312,14 @@
             "properties": {
               "entry_point": {
                 "const": "search",
+                "type": "string"
+              },
+              "locale": {
+                "default": "en-US",
+                "enum": [
+                  "en-US",
+                  "zh-CN"
+                ],
                 "type": "string"
               },
               "search_query": {
@@ -394,6 +1404,51 @@
         "title": "EvidenceStatus",
         "type": "string"
       },
+      "FeedResponse": {
+        "properties": {
+          "bottom_nav_variant": {
+            "title": "Bottom Nav Variant",
+            "type": "string"
+          },
+          "feed_tabs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Feed Tabs",
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogFeedItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "feed_tabs",
+          "bottom_nav_variant",
+          "items"
+        ],
+        "title": "FeedResponse",
+        "type": "object"
+      },
+      "GuideAction": {
+        "enum": [
+          "CONFIRM_CONTEXT",
+          "ANSWER_CLARIFICATION",
+          "SKIP_CLARIFICATION",
+          "UPDATE_CONSTRAINTS",
+          "RELAX_CONSTRAINT",
+          "CONTINUE_WITH_KNOWN",
+          "REQUEST_COMPARISON",
+          "OPEN_PRODUCT",
+          "RETRY_GUIDE_OPERATION",
+          "RETURN_TO_FEED"
+        ],
+        "title": "GuideAction",
+        "type": "string"
+      },
       "GuideMessageRequest": {
         "properties": {
           "message_id": {
@@ -416,10 +1471,32 @@
         "title": "GuideMessageRequest",
         "type": "object"
       },
+      "GuideStatus": {
+        "enum": [
+          "ACTIVE",
+          "WAITING_USER",
+          "SAFE_EXIT",
+          "FAILED"
+        ],
+        "title": "GuideStatus",
+        "type": "string"
+      },
       "GuideTurnResponse": {
         "properties": {
+          "allowed_actions": {
+            "items": {
+              "$ref": "#/components/schemas/GuideAction"
+            },
+            "title": "Allowed Actions",
+            "type": "array"
+          },
           "context": {
             "$ref": "#/components/schemas/ContentContextSummary"
+          },
+          "degraded": {
+            "default": false,
+            "title": "Degraded",
+            "type": "boolean"
           },
           "evidence": {
             "items": {
@@ -427,6 +1504,22 @@
             },
             "title": "Evidence",
             "type": "array"
+          },
+          "facts_snapshot_at": {
+            "format": "date-time",
+            "title": "Facts Snapshot At",
+            "type": "string"
+          },
+          "guide_revision": {
+            "minimum": 1.0,
+            "title": "Guide Revision",
+            "type": "integer"
+          },
+          "guide_status": {
+            "$ref": "#/components/schemas/GuideStatus"
+          },
+          "guide_view_kind": {
+            "$ref": "#/components/schemas/GuideViewKind"
           },
           "kind": {
             "enum": [
@@ -437,6 +1530,14 @@
               "safety_boundary"
             ],
             "title": "Kind",
+            "type": "string"
+          },
+          "locale": {
+            "enum": [
+              "en-US",
+              "zh-CN"
+            ],
+            "title": "Locale",
             "type": "string"
           },
           "quick_replies": {
@@ -482,13 +1583,36 @@
         "required": [
           "session_id",
           "trace_id",
+          "locale",
           "state",
           "kind",
           "text",
-          "context"
+          "context",
+          "guide_status",
+          "guide_view_kind",
+          "guide_revision",
+          "facts_snapshot_at",
+          "allowed_actions"
         ],
         "title": "GuideTurnResponse",
         "type": "object"
+      },
+      "GuideViewKind": {
+        "enum": [
+          "OPENING_CONTEXT",
+          "CONTEXT_CONFIRMATION",
+          "WAITING_CLARIFICATION",
+          "VERIFYING_FACTS",
+          "DECISION_READY",
+          "NO_MATCH",
+          "INSUFFICIENT_EVIDENCE",
+          "COMPARISON_READY",
+          "SAFE_BOUNDARY",
+          "RECOVERY_REQUIRED",
+          "FATAL_ERROR"
+        ],
+        "title": "GuideViewKind",
+        "type": "string"
       },
       "HTTPValidationError": {
         "properties": {
@@ -501,6 +1625,33 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "ProductDetailResponse": {
+        "properties": {
+          "freshness": {
+            "$ref": "#/components/schemas/CatalogFreshnessResponse"
+          },
+          "product": {
+            "$ref": "#/components/schemas/CatalogProductResponse"
+          },
+          "starting_price_usd": {
+            "title": "Starting Price Usd",
+            "type": "number"
+          },
+          "synthetic_disclosure": {
+            "const": true,
+            "title": "Synthetic Disclosure",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "product",
+          "starting_price_usd",
+          "freshness",
+          "synthetic_disclosure"
+        ],
+        "title": "ProductDetailResponse",
         "type": "object"
       },
       "RecommendationCard": {
@@ -640,6 +1791,298 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/catalog/feed": {
+      "get": {
+        "operationId": "get_feed_api_v1_catalog_feed_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Feed",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/v1/catalog/products/{product_id}": {
+      "get": {
+        "operationId": "get_product_api_v1_catalog_products__product_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "title": "Product Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Product",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/v1/commerce/cart/preview": {
+      "post": {
+        "operationId": "preview_api_v1_commerce_cart_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommercePreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommerceOperationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview",
+        "tags": [
+          "commerce"
+        ]
+      }
+    },
+    "/api/v1/commerce/operations/by-idempotency/{idempotency_key}": {
+      "get": {
+        "operationId": "get_by_idempotency_key_api_v1_commerce_operations_by_idempotency__idempotency_key__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "idempotency_key",
+            "required": true,
+            "schema": {
+              "title": "Idempotency Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommerceOperationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get By Idempotency Key",
+        "tags": [
+          "commerce"
+        ]
+      }
+    },
+    "/api/v1/commerce/operations/{operation_id}": {
+      "get": {
+        "operationId": "get_operation_api_v1_commerce_operations__operation_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "title": "Operation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommerceOperationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Operation",
+        "tags": [
+          "commerce"
+        ]
+      }
+    },
+    "/api/v1/commerce/operations/{operation_id}/accept-facts": {
+      "post": {
+        "operationId": "accept_facts_api_v1_commerce_operations__operation_id__accept_facts_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "title": "Operation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommerceAcceptFactsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommerceOperationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Accept Facts",
+        "tags": [
+          "commerce"
+        ]
+      }
+    },
+    "/api/v1/commerce/operations/{operation_id}/items": {
+      "post": {
+        "operationId": "add_item_api_v1_commerce_operations__operation_id__items_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "title": "Operation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommerceAddRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommerceOperationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Item",
+        "tags": [
+          "commerce"
+        ]
+      }
+    },
     "/api/v1/guide/sessions": {
       "post": {
         "operationId": "create_session_api_v1_guide_sessions_post",
@@ -676,6 +2119,48 @@
           }
         },
         "summary": "Create Session",
+        "tags": [
+          "guide"
+        ]
+      }
+    },
+    "/api/v1/guide/sessions/{session_id}": {
+      "get": {
+        "operationId": "get_session_api_v1_guide_sessions__session_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuideTurnResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Session",
         "tags": [
           "guide"
         ]

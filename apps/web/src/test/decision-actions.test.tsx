@@ -13,6 +13,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ComparisonTable } from "@/components/comparison-table";
 import { GuideSheet } from "@/components/guide-sheet";
 import { ApiError } from "@/lib/api-client";
+import {
+  validateCommerceOperationResponse,
+  validateGuideTurnResponse,
+} from "@/lib/decision-contracts";
 
 const api = vi.hoisted(() => ({
   addCartItem: vi.fn(),
@@ -74,7 +78,105 @@ const clarificationTurn: GuideTurn = {
   text: "Is water resistance a must, or is this mainly for a daily commute?",
   context,
   quick_replies: ["Daily commute"],
+  locale: "en-US",
+  guide_status: "WAITING_USER",
+  guide_view_kind: "WAITING_CLARIFICATION",
+  guide_revision: 1,
+  facts_snapshot_at: "2026-08-05T00:00:00Z",
+  allowed_actions: ["ANSWER_CLARIFICATION", "RETURN_TO_FEED"],
+  degraded: false,
 };
+
+const awaitingCommerceOperation: components["schemas"]["CommerceOperationResponse"] = {
+  operation_id: "op_test",
+  purchase_origin: "FEED",
+  product_id: "seoul-shade-daily-fluid",
+  sku_id: "seoul-shade-50",
+  quantity: 1,
+  transaction_revision: 1,
+  facts_version: "facts_test",
+  commerce_view_kind: "AWAITING_CONFIRMATION",
+  operation_status: "ACTIVE",
+  allowed_actions: ["CONFIRM_ADD_TO_CART", "RETURN_TO_PRODUCT"],
+  facts: {
+    product_id: "seoul-shade-daily-fluid",
+    sku_id: "seoul-shade-50",
+    quantity: 1,
+    unit_price_usd: 19,
+    subtotal_usd: 19,
+    inventory_units: 12,
+    in_stock: true,
+    facts_version: "facts_test",
+    observed_at: "2026-08-05T00:00:00Z",
+  },
+  facts_diff: [],
+  confirmation_token: firstConfirmation,
+  confirmation_expires_at: "2026-08-05T00:05:00Z",
+  simulated: true,
+};
+
+describe("server semantic guards", () => {
+  it("rejects unknown Guide actions and illegal Guide view/action combinations", () => {
+    expect(
+      validateGuideTurnResponse({
+        ...clarificationTurn,
+        allowed_actions: ["UNKNOWN_GUIDE_ACTION"],
+      }),
+    ).toBeNull();
+    expect(
+      validateGuideTurnResponse({
+        ...clarificationTurn,
+        guide_view_kind: "SAFE_BOUNDARY",
+        allowed_actions: ["REQUEST_COMPARISON"],
+      }),
+    ).toBeNull();
+  });
+
+  it("rejects unknown Commerce actions, illegal state actions, and missing facts", () => {
+    expect(
+      validateCommerceOperationResponse({
+        ...awaitingCommerceOperation,
+        allowed_actions: ["UNKNOWN_COMMERCE_ACTION"],
+      }),
+    ).toBeNull();
+    expect(
+      validateCommerceOperationResponse({
+        ...awaitingCommerceOperation,
+        commerce_view_kind: "COMMIT_STATUS_UNKNOWN",
+        operation_status: "RECONCILIATION_REQUIRED",
+        allowed_actions: ["RETRY_COMMERCE_OPERATION"],
+      }),
+    ).toBeNull();
+    expect(
+      validateCommerceOperationResponse({
+        ...awaitingCommerceOperation,
+        facts: undefined,
+      }),
+    ).toBeNull();
+  });
+
+  it("allows reconciliation as the only unknown-commit business action and rejects success secrets", () => {
+    expect(
+      validateCommerceOperationResponse({
+        ...awaitingCommerceOperation,
+        commerce_view_kind: "COMMIT_STATUS_UNKNOWN",
+        operation_status: "RECONCILIATION_REQUIRED",
+        allowed_actions: ["RECONCILE_COMMIT", "RETURN_TO_PRODUCT"],
+        confirmation_token: null,
+        confirmation_expires_at: null,
+      }),
+    ).not.toBeNull();
+    expect(
+      validateCommerceOperationResponse({
+        ...awaitingCommerceOperation,
+        commerce_view_kind: "SUCCEEDED",
+        operation_status: "SUCCEEDED",
+        allowed_actions: ["RETURN_TO_PRODUCT", "CONTINUE_BROWSING"],
+        confirmation_token: firstConfirmation,
+      }),
+    ).toBeNull();
+  });
+});
 
 const recommendationTurn: GuideTurn = {
   ...clarificationTurn,
