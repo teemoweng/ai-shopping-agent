@@ -39,6 +39,14 @@
 | ✅ DONE | SKU 预览、显式确认与模拟加购 | 价格/库存二次确认、单次 token、终态 decision receipt 与 API/UI/E2E 回归 |
 | ✅ DONE | 脱敏 Trace 与 Foundation eval | [1 条黄金 Trace，共 11 条脱敏事件记录](./artifacts/traces/samples/foundation-golden.jsonl)；6 个冻结案例规则评分 6/6 |
 
+## 正在执行 — TikTok 真实体验重设计 Demo
+
+| 状态 | 工作包 | 负责人 / 会话 | 预期证据 |
+|---|---|---|---|
+| 🚧 IN PROGRESS | 中文 TikTok Shop-inspired Feed、AI Commerce Sheet、PDP 与模拟加购重设计 | Codex · 当前任务 · 2026-08-05 | [实施计划](./docs/superpowers/plans/2026-08-05-tiktok-experience-redesign.md)、API/组件/E2E 回归、390×844 与 1440×1000 浏览器截图、媒体许可台账、验证报告、同步后的 README/ADR/产品日志 |
+
+本工作包是 Foundation 的高保真纠偏切片，不等于 Phase 2 完整 MVP。搜索、LIVE、真实 LLM、TikTok API、真实支付、店铺/客服/完整购物车页面仍不在当前范围。
+
 ## Next — Phase 1 扩展（均未开始）
 
 | 状态 | 工作包 | 当前缺口 / 进入条件 |
