@@ -344,6 +344,30 @@ describe("shopping guide client", () => {
     });
   });
 
+  it("rejects semantically invalid Guide and Commerce success payloads", async () => {
+    mockJson({ ...guideTurn, allowed_actions: ["UNKNOWN_GUIDE_ACTION"] });
+    await expect(getGuideSession("ses_test")).rejects.toMatchObject({
+      status: 200,
+      code: "INVALID_API_RESPONSE",
+    });
+
+    mockJson({
+      ...guideTurn,
+      guide_view_kind: "SAFE_BOUNDARY",
+      allowed_actions: ["ANSWER_CLARIFICATION"],
+    });
+    await expect(createGuideSession("morning-routine-uv-001")).rejects.toMatchObject({
+      status: 200,
+      code: "INVALID_API_RESPONSE",
+    });
+
+    mockJson({ ...commerceOperation, facts: undefined });
+    await expect(getCommerceOperation("op_test")).rejects.toMatchObject({
+      status: 200,
+      code: "INVALID_API_RESPONSE",
+    });
+  });
+
   it("uses a stable fallback for an unstructured API error", async () => {
     mockJson({ detail: "Service unavailable" }, 503);
 

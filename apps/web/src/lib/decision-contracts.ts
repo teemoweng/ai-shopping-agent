@@ -3,6 +3,7 @@ import type { components } from "@shopping-guide/contracts/src/api";
 type CompareResponse = components["schemas"]["CompareResponse"];
 type CartItemResponse = components["schemas"]["CartItemResponse"];
 type GuideTurnResponse = components["schemas"]["GuideTurnResponse"];
+type GuideKind = GuideTurnResponse["kind"];
 type GuideAction = components["schemas"]["GuideAction"];
 type GuideViewKind = components["schemas"]["GuideViewKind"];
 type CommerceOperationResponse =
@@ -12,6 +13,10 @@ type CommerceStep = components["schemas"]["CommerceStep"];
 type CommerceOperationStatus =
   components["schemas"]["CommerceOperationStatus"];
 type CommerceFactsResponse = components["schemas"]["CommerceFactsResponse"];
+type ContentContextSummary = components["schemas"]["ContentContextSummary"];
+type GuideStatus = components["schemas"]["GuideStatus"];
+type WorkflowState = components["schemas"]["WorkflowState"];
+type EvidenceStatus = components["schemas"]["EvidenceStatus"];
 
 const comparisonRowKeys = [
   "starting_price_usd",
@@ -93,6 +98,40 @@ const guideActionsByView: Record<GuideViewKind, readonly GuideAction[]> = {
   FATAL_ERROR: ["RETURN_TO_FEED"],
 };
 
+const guideStatuses = new Set<GuideStatus>([
+  "ACTIVE",
+  "WAITING_USER",
+  "SAFE_EXIT",
+  "FAILED",
+]);
+
+const workflowStates = new Set<WorkflowState>([
+  "ENTRY_INGEST",
+  "UNDERSTAND",
+  "CLARIFY",
+  "VERIFY_CURRENT_PRODUCT",
+  "FILTER_AND_RETRIEVE",
+  "PRESENT_RECOMMENDATION",
+  "COMPARE",
+  "SKU_AND_CART_CONFIRM",
+  "FEEDBACK_AND_MEMORY",
+]);
+
+const guideKinds = new Set<GuideKind>([
+  "opening",
+  "clarification",
+  "recommendation",
+  "no_match",
+  "safety_boundary",
+] as const);
+
+const evidenceStatuses = new Set<EvidenceStatus>([
+  "SUPPORTED",
+  "CONFLICTING",
+  "INSUFFICIENT_EVIDENCE",
+  "SUBJECTIVE_MIXED",
+]);
+
 const commerceActions = new Set<CommerceAction>([
   "SELECT_SKU",
   "SET_QUANTITY",
@@ -108,7 +147,7 @@ const commerceActions = new Set<CommerceAction>([
 ]);
 
 const commerceActionsByView: Record<CommerceStep, readonly CommerceAction[]> = {
-  PDP_READY: ["RETURN_TO_PRODUCT"],
+  PDP_READY: ["PREVIEW_CART", "RETURN_TO_PRODUCT"],
   CHECKING_FACTS: ["RETURN_TO_PRODUCT"],
   AWAITING_CONFIRMATION: [
     "SELECT_SKU",
@@ -126,7 +165,7 @@ const commerceActionsByView: Record<CommerceStep, readonly CommerceAction[]> = {
   COMMITTING: ["RETURN_TO_PRODUCT"],
   COMMIT_STATUS_UNKNOWN: ["RECONCILE_COMMIT", "RETURN_TO_PRODUCT"],
   SUCCEEDED: ["RETURN_TO_PRODUCT", "CONTINUE_BROWSING"],
-  FAILED: ["RETURN_TO_PRODUCT"],
+  FAILED: ["RETRY_COMMERCE_OPERATION", "RETURN_TO_PRODUCT"],
   CANCELLED: ["RETURN_TO_PRODUCT"],
 };
 
@@ -145,15 +184,39 @@ const commerceStatusByView: Record<CommerceStep, CommerceOperationStatus> = {
 const guideViewKinds = new Set<GuideViewKind>(Object.keys(guideActionsByView) as GuideViewKind[]);
 const commerceSteps = new Set<CommerceStep>(Object.keys(commerceActionsByView) as CommerceStep[]);
 
+function hasValidGuideContext(value: unknown): value is ContentContextSummary {
+  return (
+    isRecord(value) &&
+    isNonBlankString(value.id) &&
+    isNonBlankString(value.anchor_product_id) &&
+    isNonBlankString(value.anchor_product_name) &&
+    isNonBlankString(value.creator_handle) &&
+    isNonBlankString(value.caption) &&
+    Array.isArray(value.claims) &&
+    value.claims.every(
+      (claim) =>
+        isRecord(claim) &&
+        isNonBlankString(claim.claim_id) &&
+        isNonBlankString(claim.text) &&
+        isNonBlankString(claim.evidence_id) &&
+        evidenceStatuses.has(claim.status as EvidenceStatus),
+    )
+  );
+}
+
 export function validateGuideTurnResponse(value: unknown): GuideTurnResponse | null {
   if (
     !isRecord(value) ||
     !isNonBlankString(value.session_id) ||
     !isNonBlankString(value.trace_id) ||
     (value.locale !== "en-US" && value.locale !== "zh-CN") ||
+    !guideStatuses.has(value.guide_status as GuideStatus) ||
+    !workflowStates.has(value.state as WorkflowState) ||
+    !guideKinds.has(value.kind as GuideKind) ||
+    !isNonBlankString(value.text) ||
     !isPositiveInteger(value.guide_revision) ||
     !isTimestamp(value.facts_snapshot_at) ||
-    !isRecord(value.context) ||
+    !hasValidGuideContext(value.context) ||
     !guideViewKinds.has(value.guide_view_kind as GuideViewKind) ||
     !hasOnlyKnownActions(value.allowed_actions, guideActions)
   ) {

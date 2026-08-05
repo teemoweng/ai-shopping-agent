@@ -1,5 +1,10 @@
 import type { components } from "@shopping-guide/contracts/src/api";
 
+import {
+  validateCommerceOperationResponse,
+  validateGuideTurnResponse,
+} from "@/lib/decision-contracts";
+
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000/api/v1";
 
@@ -55,18 +60,25 @@ function getApiErrorCode(payload: unknown): string {
     : "UNKNOWN_API_ERROR";
 }
 
-async function post<T>(path: string, body: unknown): Promise<T> {
-  return request<T>(path, "POST", body);
+type ResponseGuard<T> = (payload: unknown) => T | null;
+
+async function post<T>(
+  path: string,
+  body: unknown,
+  guard?: ResponseGuard<T>,
+): Promise<T> {
+  return request<T>(path, "POST", body, guard);
 }
 
-async function get<T>(path: string): Promise<T> {
-  return request<T>(path, "GET");
+async function get<T>(path: string, guard?: ResponseGuard<T>): Promise<T> {
+  return request<T>(path, "GET", undefined, guard);
 }
 
 async function request<T>(
   path: string,
   method: "GET" | "POST",
   body?: unknown,
+  guard?: ResponseGuard<T>,
 ): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     method,
@@ -79,6 +91,13 @@ async function request<T>(
   }
   if (!isRecord(payload)) {
     throw new ApiError(response.status, "INVALID_API_RESPONSE");
+  }
+  if (guard) {
+    const validated = guard(payload);
+    if (!validated) {
+      throw new ApiError(response.status, "INVALID_API_RESPONSE");
+    }
+    return validated;
   }
   return payload as T;
 }
@@ -96,10 +115,13 @@ export const createGuideSession = (
     entry_point: "content",
     content_context_id: contentContextId,
     ...(locale ? { locale } : {}),
-  });
+  }, validateGuideTurnResponse);
 
 export const getGuideSession = (sessionId: string) =>
-  get<GuideTurn>(`/guide/sessions/${encodeURIComponent(sessionId)}`);
+  get<GuideTurn>(
+    `/guide/sessions/${encodeURIComponent(sessionId)}`,
+    validateGuideTurnResponse,
+  );
 
 export const sendGuideMessage = (
   sessionId: string,
@@ -109,7 +131,7 @@ export const sendGuideMessage = (
   post<GuideTurn>(`/guide/sessions/${sessionId}/messages`, {
     message_id: messageId,
     text,
-  });
+  }, validateGuideTurnResponse);
 
 export const compareProducts = (sessionId: string, productIds: string[]) =>
   post<CompareResponse>(`/guide/sessions/${sessionId}/compare`, {
@@ -128,7 +150,11 @@ export const addCartItem = (sessionId: string, confirmationToken: string) =>
   });
 
 export const previewCommerce = (request: CommercePreviewRequest) =>
-  post<CommerceOperationResponse>("/commerce/cart/preview", request);
+  post<CommerceOperationResponse>(
+    "/commerce/cart/preview",
+    request,
+    validateCommerceOperationResponse,
+  );
 
 export const acceptUpdatedFacts = (
   operationId: string,
@@ -137,6 +163,7 @@ export const acceptUpdatedFacts = (
   post<CommerceOperationResponse>(
     `/commerce/operations/${encodeURIComponent(operationId)}/accept-facts`,
     { expected_transaction_revision: expectedRevision },
+    validateCommerceOperationResponse,
   );
 
 export const confirmCommerce = (
@@ -146,14 +173,17 @@ export const confirmCommerce = (
   post<CommerceOperationResponse>(
     `/commerce/operations/${encodeURIComponent(operationId)}/items`,
     request,
+    validateCommerceOperationResponse,
   );
 
 export const getCommerceOperation = (operationId: string) =>
   get<CommerceOperationResponse>(
     `/commerce/operations/${encodeURIComponent(operationId)}`,
+    validateCommerceOperationResponse,
   );
 
 export const reconcileCommerce = (idempotencyKey: string) =>
   get<CommerceOperationResponse>(
     `/commerce/operations/by-idempotency/${encodeURIComponent(idempotencyKey)}`,
+    validateCommerceOperationResponse,
   );

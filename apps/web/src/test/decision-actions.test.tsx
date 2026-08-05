@@ -176,6 +176,55 @@ describe("server semantic guards", () => {
       }),
     ).toBeNull();
   });
+
+  it("accepts the only authoritative preview and retry combinations", () => {
+    expect(
+      validateCommerceOperationResponse({
+        ...awaitingCommerceOperation,
+        commerce_view_kind: "PDP_READY",
+        operation_status: "ACTIVE",
+        allowed_actions: ["PREVIEW_CART", "RETURN_TO_PRODUCT"],
+        confirmation_token: null,
+        confirmation_expires_at: null,
+      }),
+    ).not.toBeNull();
+    expect(
+      validateCommerceOperationResponse({
+        ...awaitingCommerceOperation,
+        commerce_view_kind: "FAILED",
+        operation_status: "FAILED",
+        allowed_actions: ["RETRY_COMMERCE_OPERATION", "RETURN_TO_PRODUCT"],
+        confirmation_token: null,
+        confirmation_expires_at: null,
+      }),
+    ).not.toBeNull();
+  });
+
+  it.each([
+    ["guide_status", { ...clarificationTurn, guide_status: undefined }],
+    ["state", { ...clarificationTurn, state: undefined }],
+    ["kind", { ...clarificationTurn, kind: undefined }],
+    ["text", { ...clarificationTurn, text: "" }],
+    ["context", { ...clarificationTurn, context: undefined }],
+  ])("rejects a Guide response without required %s", (_field, malformed) => {
+    expect(validateGuideTurnResponse(malformed)).toBeNull();
+  });
+
+  it.each([
+    "id",
+    "anchor_product_id",
+    "anchor_product_name",
+    "creator_handle",
+    "caption",
+    "claims",
+  ] as const)("rejects a Guide response without context.%s", (field) => {
+    expect(
+      validateGuideTurnResponse({
+        ...clarificationTurn,
+        context: { ...context, [field]: undefined },
+      }),
+    ).toBeNull();
+  });
 });
 
 const recommendationTurn: GuideTurn = {
