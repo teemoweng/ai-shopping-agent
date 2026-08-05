@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 640" role="img" aria-labelledby="title desc">
+  <title id="title">Mirae Lab Seoul Shade Daily Fluid</title>
+  <desc id="desc">Original synthetic geometric pack-shot for the concept demo.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f7efe4"/><stop offset="1" stop-color="#e5c9a6"/></linearGradient>
+    <linearGradient id="bottle" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fffdf7"/><stop offset="1" stop-color="#e8d7c4"/></linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%"><feDropShadow dx="0" dy="18" stdDeviation="14" flood-color="#775d48" flood-opacity=".22"/></filter>
+  </defs>
+  <rect width="480" height="640" rx="44" fill="url(#background)"/>
+  <circle cx="73" cy="92" r="116" fill="#ffffff" fill-opacity=".42"/>
+  <path d="M351 0h129v239c-62-18-103-58-129-111Z" fill="#bd8462" fill-opacity=".34"/>
+  <g filter="url(#shadow)">
+    <rect x="151" y="125" width="178" height="371" rx="32" fill="url(#bottle)" stroke="#dac3a8" stroke-width="3"/>
+    <rect x="178" y="81" width="124" height="62" rx="19" fill="#8b5f46"/>
+    <rect x="193" y="95" width="94" height="9" rx="4.5" fill="#d9b99b"/>
+    <path d="M151 380h178v84a32 32 0 0 1-32 32H183a32 32 0 0 1-32-32Z" fill="#2d5160"/>
+    <path d="M176 151h128v148H176Z" fill="#fffdf7"/>
+    <path d="m176 291 128-82v90l-128 82Z" fill="#e7c19a" fill-opacity=".55"/>
+    <text x="240" y="202" text-anchor="middle" fill="#264752" font-family="Arial, sans-serif" font-size="15" font-weight="700" letter-spacing="3">MIRAE LAB</text>
+    <text x="240" y="232" text-anchor="middle" fill="#4f3026" font-family="Arial, sans-serif" font-size="25" font-weight="700">SEOUL</text>
+    <text x="240" y="258" text-anchor="middle" fill="#4f3026" font-family="Arial, sans-serif" font-size="25" font-weight="700">SHADE</text>
+    <text x="240" y="330" text-anchor="middle" fill="#264752" font-family="Arial, sans-serif" font-size="13" letter-spacing="2">DAILY FLUID</text>
+    <text x="240" y="414" text-anchor="middle" fill="#edf4f2" font-family="Arial, sans-serif" font-size="20" font-weight="700">SPF 50</text>
+    <text x="240" y="438" text-anchor="middle" fill="#edf4f2" font-family="Arial, sans-serif" font-size="11" letter-spacing="1.6">SYNTHETIC DEMO</text>
+  </g>
+  <text x="240" y="566" text-anchor="middle" fill="#4f3026" font-family="Arial, sans-serif" font-size="14" letter-spacing="2">CONCEPT PACK-SHOT</text>
+</svg>
