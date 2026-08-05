@@ -1,5 +1,8 @@
 import json
+import re
 from collections.abc import Mapping
+from copy import deepcopy
+from datetime import datetime
 from math import isfinite
 from pathlib import Path
 
@@ -33,26 +36,189 @@ TOOL_PAYLOAD_KEYS = {
     "status",
 }
 FORBIDDEN_TRACE_KEYS = {
+    "account_id",
+    "actor_id",
     "text",
     "message",
     "raw_message",
+    "message_text",
+    "raw_text",
+    "input",
+    "raw_input",
+    "user_input",
+    "input_text",
+    "prompt",
+    "query",
     "chain_of_thought",
     "private_reasoning",
     "reasoning",
     "confirmation_token",
+    "confirm_token",
     "api_key",
     "secret",
+    "caller_id",
+    "caller_identifier",
+    "caller_user_id",
+    "caller_account_id",
+    "message_id",
+    "message_identifier",
+    "raw_message_id",
+    "user_message_id",
+    "request_message_id",
+    "client_message_id",
+    "user_id",
+    "customer_id",
+    "email",
+    "phone_number",
 }
+TRACE_RECORD_KEYS = {
+    "event_id",
+    "trace_id",
+    "session_id",
+    "event_type",
+    "state",
+    "timestamp",
+    "payload",
+}
+EXPECTED_EVENT_SEQUENCE = [
+    ("state_transition", "UNDERSTAND"),
+    ("state_transition", "CLARIFY"),
+    ("state_transition", "VERIFY_CURRENT_PRODUCT"),
+    ("tool_call", "VERIFY_CURRENT_PRODUCT"),
+    ("tool_result", "VERIFY_CURRENT_PRODUCT"),
+    ("state_transition", "FILTER_AND_RETRIEVE"),
+    ("tool_call", "FILTER_AND_RETRIEVE"),
+    ("tool_result", "FILTER_AND_RETRIEVE"),
+    ("state_transition", "PRESENT_RECOMMENDATION"),
+    ("cart_preview", "SKU_AND_CART_CONFIRM"),
+    ("cart_add", "FEEDBACK_AND_MEMORY"),
+]
+EXPECTED_TRANSITION_PAYLOADS = {
+    0: {"from": "ENTRY_INGEST", "to": "UNDERSTAND"},
+    1: {"from": "UNDERSTAND", "to": "CLARIFY"},
+    2: {"from": "CLARIFY", "to": "VERIFY_CURRENT_PRODUCT"},
+    5: {"from": "VERIFY_CURRENT_PRODUCT", "to": "FILTER_AND_RETRIEVE"},
+    8: {"from": "FILTER_AND_RETRIEVE", "to": "PRESENT_RECOMMENDATION"},
+}
+EXPECTED_TOOL_EVENTS = {
+    3: {
+        "event_type": "tool_call",
+        "tool_name": "retrieve_evidence",
+        "argument_summary": {
+            "content_context_available": True,
+            "includes_public_rule_terms": True,
+        },
+        "result_ids": [],
+        "status": "started",
+    },
+    4: {
+        "event_type": "tool_result",
+        "tool_name": "retrieve_evidence",
+        "argument_summary": {
+            "content_context_available": True,
+            "includes_public_rule_terms": True,
+        },
+        "result_ids": [
+            "fda-sunscreen-basics",
+            "fda-water-resistance-labeling",
+            "synthetic-review-finish-aggregate",
+        ],
+        "status": "succeeded",
+    },
+    6: {
+        "event_type": "tool_call",
+        "tool_name": "search_eligible_products",
+        "argument_summary": {
+            "hard_constraint_fields": [
+                "fragrance_free",
+                "in_stock",
+                "max_price_usd",
+            ],
+            "soft_preference_fields": ["finish"],
+            "in_stock_required": True,
+        },
+        "result_ids": [],
+        "status": "started",
+    },
+    7: {
+        "event_type": "tool_result",
+        "tool_name": "search_eligible_products",
+        "argument_summary": {
+            "hard_constraint_fields": [
+                "fragrance_free",
+                "in_stock",
+                "max_price_usd",
+            ],
+            "soft_preference_fields": ["finish"],
+            "in_stock_required": True,
+        },
+        "result_ids": ["seoul-shade-daily-fluid", "cloud-veil-mineral"],
+        "status": "succeeded",
+    },
+}
+EXPECTED_CART_EVENTS = {
+    9: (
+        "cart_preview",
+        {"sku_id": "seoul-shade-50", "quantity": 1, "simulated": True},
+    ),
+    10: (
+        "cart_add",
+        {"sku_id": "seoul-shade-50", "quantity": 1, "simulated": True},
+    ),
+}
+TRACE_ID_PATTERN = re.compile(
+    r"^(?:evt|trc|ses)_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-"
+    r"[0-9a-f]{4}-[0-9a-f]{12}$"
+)
+CONFIRMATION_TOKEN_PATTERN = re.compile(
+    r"(?i)(?:\bconfirmation[_-]?token\b|"
+    r"\bconfirm_[a-z0-9][a-z0-9._:-]{7,}\b)"
+)
 
 
 def _contains_forbidden_key(value: object) -> bool:
     if isinstance(value, dict):
-        return bool(FORBIDDEN_TRACE_KEYS & value.keys()) or any(
+        return any(
+            _normalize_trace_key(key) in FORBIDDEN_TRACE_KEYS for key in value
+        ) or any(
             _contains_forbidden_key(item) for item in value.values()
         )
     if isinstance(value, list):
         return any(_contains_forbidden_key(item) for item in value)
     return False
+
+
+def _normalize_trace_key(key: str) -> str:
+    with_word_boundaries = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", key)
+    return re.sub(r"[^a-z0-9]+", "_", with_word_boundaries.casefold()).strip("_")
+
+
+def _normalized_trace_text(value: str) -> str:
+    return " ".join(value.casefold().split())
+
+
+def _assert_recursively_private(value: object, location: str = "record") -> None:
+    if isinstance(value, dict):
+        for key, item in value.items():
+            assert isinstance(key, str), f"{location} contains a non-string key"
+            normalized_key = _normalize_trace_key(key)
+            assert normalized_key not in FORBIDDEN_TRACE_KEYS, (
+                f"{location}.{key} is a forbidden trace key"
+            )
+            _assert_recursively_private(item, f"{location}.{key}")
+        return
+    if isinstance(value, list):
+        for index, item in enumerate(value):
+            _assert_recursively_private(item, f"{location}[{index}]")
+        return
+    if isinstance(value, str):
+        normalized_value = _normalized_trace_text(value)
+        assert _normalized_trace_text(GOLDEN_INPUT) not in normalized_value, (
+            f"{location} contains raw user input"
+        )
+        assert not CONFIRMATION_TOKEN_PATTERN.search(value), (
+            f"{location} contains a confirmation token pattern"
+        )
 
 
 def _assert_ordered_subsequence(
@@ -66,6 +232,77 @@ def _assert_ordered_subsequence(
     assert cursor == len(expected), (
         f"missing ordered trace events: {expected[cursor:]}; observed: {events}"
     )
+
+
+def _load_committed_trace_records() -> list[dict[str, object]]:
+    return [
+        json.loads(line)
+        for line in COMMITTED_TRACE_SAMPLE.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+
+
+def _validate_committed_trace_records(records: list[dict[str, object]]) -> None:
+    assert len(records) == 11, "golden trace must contain exactly 11 records"
+    assert all(isinstance(record, dict) for record in records)
+    for index, record in enumerate(records):
+        _assert_recursively_private(record, f"records[{index}]")
+        assert set(record) == TRACE_RECORD_KEYS
+        assert isinstance(record["event_id"], str)
+        assert isinstance(record["trace_id"], str)
+        assert isinstance(record["session_id"], str)
+        assert TRACE_ID_PATTERN.fullmatch(record["event_id"])
+        assert TRACE_ID_PATTERN.fullmatch(record["trace_id"])
+        assert TRACE_ID_PATTERN.fullmatch(record["session_id"])
+        assert isinstance(record["event_type"], str)
+        assert isinstance(record["state"], str)
+        assert isinstance(record["timestamp"], str)
+        assert isinstance(record["payload"], dict)
+
+    assert len({record["event_id"] for record in records}) == len(records)
+    assert len({record["trace_id"] for record in records}) == 1
+    assert len({record["session_id"] for record in records}) == 1
+
+    timestamps = [datetime.fromisoformat(record["timestamp"]) for record in records]
+    assert all(timestamp.tzinfo is not None for timestamp in timestamps)
+    assert timestamps == sorted(timestamps), "golden trace timestamps must be ordered"
+
+    observed_sequence = [
+        (record["event_type"], record["state"]) for record in records
+    ]
+    assert observed_sequence == EXPECTED_EVENT_SEQUENCE, (
+        "golden trace must match the complete 11-event sequence"
+    )
+
+    for index, expected_payload in EXPECTED_TRANSITION_PAYLOADS.items():
+        assert records[index]["payload"] == expected_payload, (
+            f"transition record {index} must preserve its exact from/to pair"
+        )
+
+    for index, expected in EXPECTED_TOOL_EVENTS.items():
+        record = records[index]
+        payload = record["payload"]
+        assert record["event_type"] == expected["event_type"]
+        assert set(payload) == TOOL_PAYLOAD_KEYS
+        assert payload["tool_name"] == expected["tool_name"]
+        assert payload["argument_summary"] == expected["argument_summary"]
+        assert payload["result_ids"] == expected["result_ids"]
+        assert payload["status"] == expected["status"]
+        duration_ms = payload["duration_ms"]
+        assert type(duration_ms) in {int, float}
+        assert isfinite(duration_ms) and duration_ms >= 0
+        if record["event_type"] == "tool_call":
+            assert duration_ms == 0
+            assert payload["result_ids"] == []
+            assert payload["status"] == "started"
+        else:
+            assert payload["result_ids"]
+            assert payload["status"] == "succeeded"
+
+    for index, (expected_event_type, expected_payload) in EXPECTED_CART_EVENTS.items():
+        record = records[index]
+        assert record["event_type"] == expected_event_type
+        assert record["payload"] == expected_payload
 
 
 def test_golden_path_records_redacted_tool_and_cart_boundaries(tmp_path) -> None:
@@ -183,54 +420,77 @@ def test_golden_path_records_redacted_tool_and_cart_boundaries(tmp_path) -> None
 
 
 def test_committed_trace_sample_is_redacted() -> None:
-    records = [
-        json.loads(line)
-        for line in COMMITTED_TRACE_SAMPLE.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
+    _validate_committed_trace_records(_load_committed_trace_records())
 
-    assert records
-    assert len(records) == 11
-    assert all(isinstance(record, dict) for record in records)
-    assert {record["event_type"] for record in records} == {
-        "state_transition",
-        "tool_call",
-        "tool_result",
-        "cart_preview",
-        "cart_add",
-    }
-    assert len({record["trace_id"] for record in records}) == 1
-    assert len({record["session_id"] for record in records}) == 1
-    assert not any(_contains_forbidden_key(record) for record in records)
 
-    observable = [
-        (
-            record["event_type"],
-            (
-                record["payload"].get("tool_name")
-                if record["event_type"] in {"tool_call", "tool_result"}
-                else None
-            ),
-        )
-        for record in records
-    ]
-    _assert_ordered_subsequence(
-        observable,
-        [
-            ("state_transition", None),
-            ("tool_call", "search_eligible_products"),
-            ("tool_result", "search_eligible_products"),
-            ("cart_preview", None),
-            ("cart_add", None),
-        ],
+def test_committed_trace_validator_rejects_swapped_first_transitions() -> None:
+    records = deepcopy(_load_committed_trace_records())
+    records[0], records[1] = records[1], records[0]
+
+    with pytest.raises(AssertionError):
+        _validate_committed_trace_records(records)
+
+
+@pytest.mark.parametrize(
+    "identifier_key",
+    [
+        "caller_id",
+        "callerId",
+        "caller-identifier",
+        "message_id",
+        "messageId",
+        "message-identifier",
+        "user_message_id",
+        "rawMessageId",
+    ],
+)
+def test_committed_trace_validator_rejects_nested_caller_and_message_identifiers(
+    identifier_key: str,
+) -> None:
+    records = deepcopy(_load_committed_trace_records())
+    argument_summary = records[3]["payload"]["argument_summary"]
+    argument_summary["metadata"] = {identifier_key: "caller-controlled-value"}
+
+    with pytest.raises(AssertionError):
+        _validate_committed_trace_records(records)
+
+
+def test_committed_trace_validator_rejects_raw_user_input_in_arguments() -> None:
+    records = deepcopy(_load_committed_trace_records())
+    argument_summary = records[3]["payload"]["argument_summary"]
+    argument_summary["content_context_available"] = GOLDEN_INPUT
+
+    with pytest.raises(AssertionError):
+        _validate_committed_trace_records(records)
+
+
+def test_committed_trace_validator_rejects_started_tool_result() -> None:
+    records = deepcopy(_load_committed_trace_records())
+    records[4]["payload"]["status"] = "started"
+
+    with pytest.raises(AssertionError):
+        _validate_committed_trace_records(records)
+
+
+def test_committed_trace_validator_rejects_extra_twelfth_record() -> None:
+    records = deepcopy(_load_committed_trace_records())
+    extra_record = deepcopy(records[-1])
+    extra_record["event_id"] = "evt_00000000-0000-4000-8000-000000000000"
+    records.append(extra_record)
+
+    with pytest.raises(AssertionError):
+        _validate_committed_trace_records(records)
+
+
+def test_committed_trace_validator_rejects_nested_confirmation_token_value() -> None:
+    records = deepcopy(_load_committed_trace_records())
+    argument_summary = records[3]["payload"]["argument_summary"]
+    argument_summary["content_context_available"] = (
+        "confirm_00000000-0000-4000-8000-000000000000"
     )
-    tool_events = [
-        record
-        for record in records
-        if record["event_type"] in {"tool_call", "tool_result"}
-    ]
-    assert tool_events
-    assert all(set(record["payload"]) == TOOL_PAYLOAD_KEYS for record in tool_events)
+
+    with pytest.raises(AssertionError):
+        _validate_committed_trace_records(records)
 
 
 def test_safety_boundary_trace_omits_user_controlled_identifiers_and_text(
