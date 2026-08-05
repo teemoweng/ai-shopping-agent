@@ -21,6 +21,7 @@ from app.workflow.agent import (
     allowed_actions_for,
     clarification_question,
     clarification_quick_replies,
+    fallback_recommendation_text,
     is_medical_boundary,
     is_urgent_medical_boundary,
     no_match_text,
@@ -59,6 +60,29 @@ class WorkflowEngine:
     def _facts_snapshot_at(self, session: GuideSession) -> datetime:
         context = self.tools.get_content_context(session.content_context_id or "")
         return self.tools.get_product(context.anchor_product_id).observed_at
+
+    @staticmethod
+    def _verified_recommendation_text(
+        locale: str,
+        *,
+        evidence_is_insufficient: bool,
+    ) -> tuple[str, bool]:
+        try:
+            primary_text = recommendation_text(
+                locale,
+                evidence_is_insufficient=evidence_is_insufficient,
+            )
+        except Exception:  # noqa: BLE001 - deterministic fallback is the boundary
+            primary_text = ""
+        if primary_text.strip():
+            return primary_text, False
+        fallback_text = fallback_recommendation_text(
+            locale,
+            evidence_is_insufficient=evidence_is_insufficient,
+        )
+        if not fallback_text.strip():
+            raise ValueError("verified Guide fallback text must be nonempty")
+        return fallback_text, True
 
     def _transition(self, session: GuideSession, state: WorkflowState) -> None:
         previous = session.state
@@ -194,12 +218,24 @@ class WorkflowEngine:
             )
 
         parsed = parse_preferences(request.text)
+        merged_hard = session.hard_constraints.model_copy(
+            update={
+                field: getattr(parsed.hard, field)
+                for field in parsed.hard.model_fields_set
+            }
+        )
+        merged_soft = session.soft_preferences.model_copy(
+            update={
+                field: getattr(parsed.soft, field)
+                for field in parsed.soft.model_fields_set
+            }
+        )
         if (
-            session.hard_constraints != parsed.hard
-            or session.soft_preferences != parsed.soft
+            session.hard_constraints != merged_hard
+            or session.soft_preferences != merged_soft
         ):
-            session.hard_constraints = parsed.hard
-            session.soft_preferences = parsed.soft
+            session.hard_constraints = merged_hard
+            session.soft_preferences = merged_soft
             session.guide_revision += 1
             self.sessions.save(session)
         self._transition(session, WorkflowState.VERIFY_CURRENT_PRODUCT)
@@ -242,15 +278,15 @@ class WorkflowEngine:
         search_argument_summary: dict[str, object] = {
             "hard_constraint_fields": sorted(
                 field
-                for field, value in parsed.hard.model_dump().items()
+                for field, value in session.hard_constraints.model_dump().items()
                 if value is not None
             ),
             "soft_preference_fields": sorted(
                 field
-                for field, value in parsed.soft.model_dump().items()
+                for field, value in session.soft_preferences.model_dump().items()
                 if value is not None
             ),
-            "in_stock_required": parsed.hard.in_stock,
+            "in_stock_required": session.hard_constraints.in_stock,
         }
         self._append_tool_event(
             session,
@@ -263,7 +299,10 @@ class WorkflowEngine:
         )
         search_started_at = perf_counter()
         try:
-            result = self.tools.search_eligible_products(parsed.hard, parsed.soft)
+            result = self.tools.search_eligible_products(
+                session.hard_constraints,
+                session.soft_preferences,
+            )
         except Exception:
             self._append_failed_tool_event(
                 session,
@@ -363,16 +402,17 @@ class WorkflowEngine:
             if evidence_is_insufficient
             else GuideViewKind.DECISION_READY
         )
+        response_text, degraded = self._verified_recommendation_text(
+            session.locale,
+            evidence_is_insufficient=evidence_is_insufficient,
+        )
         return GuideTurnResponse(
             session_id=session.id,
             trace_id=session.trace_id,
             locale=session.locale,
             state=session.state,
             kind="recommendation",
-            text=recommendation_text(
-                session.locale,
-                evidence_is_insufficient=evidence_is_insufficient,
-            ),
+            text=response_text,
             context=context,
             guide_status=(
                 GuideStatus.WAITING_USER
@@ -383,6 +423,7 @@ class WorkflowEngine:
             guide_revision=session.guide_revision,
             facts_snapshot_at=self._facts_snapshot_at(session),
             allowed_actions=allowed_actions_for(guide_view_kind),
+            degraded=degraded,
             verdict=(
                 Verdict.INSUFFICIENT_EVIDENCE
                 if evidence_is_insufficient

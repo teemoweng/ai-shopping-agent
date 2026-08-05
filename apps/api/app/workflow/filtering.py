@@ -30,12 +30,31 @@ class FilterResult:
 
 def parse_preferences(text: str) -> ParsedPreferences:
     normalized = text.lower()
+    hard_updates: dict[str, object] = {}
+    soft_updates: dict[str, object] = {}
     price_match = re.search(
         r"(?:under|below|max|\$|预算\s*)\s*\$?(\d+(?:\.\d+)?)",
         normalized,
     )
-    max_price = float(price_match.group(1)) if price_match else None
-    fragrance_free = True if any(
+    if price_match:
+        hard_updates["max_price_usd"] = float(price_match.group(1))
+    elif any(
+        phrase in normalized
+        for phrase in ("预算不限", "取消预算", "no budget", "remove budget")
+    ):
+        hard_updates["max_price_usd"] = None
+
+    fragrance_removal = any(
+        phrase in normalized
+        for phrase in (
+            "香精不限",
+            "香味不限",
+            "取消无香",
+            "fragrance doesn't matter",
+            "no fragrance preference",
+        )
+    )
+    fragrance_free = any(
         phrase in normalized
         for phrase in (
             "fragrance-free",
@@ -44,9 +63,28 @@ def parse_preferences(text: str) -> ParsedPreferences:
             "无香精",
             "无香",
         )
-    ) else None
+    )
+    if fragrance_removal:
+        hard_updates["fragrance_free"] = None
+    elif fragrance_free:
+        hard_updates["fragrance_free"] = True
+
     water_match = re.search(r"(40|80)\s*(?:minute|min|分钟)", normalized)
-    water_minutes = int(water_match.group(1)) if water_match else None
+    if water_match:
+        hard_updates["water_resistance_minutes"] = int(water_match.group(1))
+    elif any(
+        phrase in normalized
+        for phrase in (
+            "日常通勤",
+            "不需要防水",
+            "防水不限",
+            "取消防水",
+            "water resistance not required",
+            "no water resistance",
+        )
+    ):
+        hard_updates["water_resistance_minutes"] = None
+
     finish = next(
         (
             value
@@ -59,6 +97,14 @@ def parse_preferences(text: str) -> ParsedPreferences:
         ),
         None,
     )
+    if any(
+        phrase in normalized
+        for phrase in ("妆效不限", "取消妆效", "no finish preference")
+    ):
+        soft_updates["finish"] = None
+    elif finish is not None:
+        soft_updates["finish"] = finish
+
     skin_type = next(
         (
             value
@@ -72,33 +118,42 @@ def parse_preferences(text: str) -> ParsedPreferences:
         ),
         None,
     )
-    white_cast = (
-        "high"
-        if any(
-            phrase in normalized
-            for phrase in (
-                "no white cast",
-                "white cast",
-                "不泛白",
-                "白膜",
-                "泛白",
-                "深肤色",
-            )
+    if any(
+        phrase in normalized
+        for phrase in ("肤质不限", "取消肤质", "no skin type preference")
+    ):
+        soft_updates["skin_type"] = None
+    elif skin_type is not None:
+        soft_updates["skin_type"] = skin_type
+
+    white_cast_removal = any(
+        phrase in normalized
+        for phrase in (
+            "不在意泛白",
+            "泛白不限",
+            "取消泛白要求",
+            "no white cast preference",
         )
-        else None
     )
+    white_cast_concern = any(
+        phrase in normalized
+        for phrase in (
+            "no white cast",
+            "white cast",
+            "不泛白",
+            "白膜",
+            "泛白",
+            "深肤色",
+        )
+    )
+    if white_cast_removal:
+        soft_updates["white_cast_concern"] = None
+    elif white_cast_concern:
+        soft_updates["white_cast_concern"] = "high"
+
     return ParsedPreferences(
-        hard=HardConstraints(
-            max_price_usd=max_price,
-            fragrance_free=fragrance_free,
-            water_resistance_minutes=water_minutes,
-            in_stock=True,
-        ),
-        soft=SoftPreferences(
-            finish=finish,
-            skin_type=skin_type,
-            white_cast_concern=white_cast,
-        ),
+        hard=HardConstraints.model_validate(hard_updates),
+        soft=SoftPreferences.model_validate(soft_updates),
     )
 
 

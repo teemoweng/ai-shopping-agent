@@ -16,6 +16,7 @@ from app.repositories.session_repository import SessionRepository
 from app.services.cart_service import CartService
 from app.services.guide_service import GuideService
 from app.workflow import agent
+from app.workflow import engine as engine_module
 from app.workflow.engine import WorkflowEngine
 from app.workflow.tools import ShoppingTools
 
@@ -61,6 +62,40 @@ def test_every_guide_view_has_explicit_server_actions() -> None:
         view_kind.value: [action.value for action in agent.allowed_actions_for(view_kind)]
         for view_kind in GuideViewKind
     } == expected
+
+
+@pytest.mark.parametrize("failure_mode", ["blank", "exception"])
+def test_invalid_primary_copy_uses_verified_decision_fallback_without_retry(
+    tmp_path,
+    monkeypatch,
+    failure_mode: str,
+) -> None:
+    engine, _, sessions = build_services(tmp_path)
+    session = sessions.create(
+        EntryPoint.CONTENT,
+        "morning-routine-uv-001",
+        None,
+        locale="zh-CN",
+    )
+    engine.open_session(session)
+
+    def failed_renderer(locale: str, *, evidence_is_insufficient: bool) -> str:
+        if failure_mode == "exception":
+            raise RuntimeError("injected presentation failure")
+        return ""
+
+    monkeypatch.setattr(engine_module, "recommendation_text", failed_renderer)
+
+    turn = engine.handle_message(
+        session,
+        GuideMessageRequest(message_id="msg_fallback", text="预算30美元以内"),
+    )
+
+    assert turn.guide_view_kind == "DECISION_READY"
+    assert turn.degraded is True
+    assert turn.text.strip()
+    assert turn.recommendations
+    assert "RETRY_GUIDE_OPERATION" not in turn.allowed_actions
 
 
 @pytest.mark.parametrize(
@@ -174,6 +209,106 @@ def test_guide_revision_changes_only_for_decision_inputs(tmp_path) -> None:
         request=CartPreviewRequest(sku_id="cloud-veil-50", quantity=1),
     )
     assert session.guide_revision == revision_before_decision_actions
+
+
+def test_partial_update_preserves_existing_constraints_and_repeats_stably(
+    tmp_path,
+) -> None:
+    engine, _, sessions = build_services(tmp_path)
+    session = sessions.create(
+        EntryPoint.CONTENT,
+        "morning-routine-uv-001",
+        None,
+        locale="zh-CN",
+    )
+    engine.open_session(session)
+    initial = engine.handle_message(
+        session,
+        GuideMessageRequest(
+            message_id="msg_partial_initial",
+            text="预算30美元以内、无香精、自然妆效",
+        ),
+    )
+
+    changed = engine.handle_message(
+        session,
+        GuideMessageRequest(message_id="msg_partial_change", text="改成哑光"),
+    )
+
+    assert session.hard_constraints.max_price_usd == 30
+    assert session.hard_constraints.fragrance_free is True
+    assert session.soft_preferences.finish == "matte"
+    assert changed.guide_revision == initial.guide_revision + 1
+    assert "jeju-sport-sun-gel" not in {
+        card.product_id for card in changed.recommendations
+    }
+
+    repeated = engine.handle_message(
+        session,
+        GuideMessageRequest(message_id="msg_partial_repeat", text="改成哑光"),
+    )
+    assert repeated.guide_revision == changed.guide_revision
+
+
+def test_non_preference_message_does_not_clear_constraints_or_increment_revision(
+    tmp_path,
+) -> None:
+    engine, _, sessions = build_services(tmp_path)
+    session = sessions.create(
+        EntryPoint.CONTENT,
+        "morning-routine-uv-001",
+        None,
+        locale="zh-CN",
+    )
+    engine.open_session(session)
+    initial = engine.handle_message(
+        session,
+        GuideMessageRequest(
+            message_id="msg_non_pref_initial",
+            text="预算30美元以内、无香精、自然妆效",
+        ),
+    )
+
+    follow_up = engine.handle_message(
+        session,
+        GuideMessageRequest(
+            message_id="msg_non_pref_followup",
+            text="视频里的说法可信吗？",
+        ),
+    )
+
+    assert session.hard_constraints.max_price_usd == 30
+    assert session.hard_constraints.fragrance_free is True
+    assert session.soft_preferences.finish == "natural"
+    assert follow_up.guide_revision == initial.guide_revision
+
+
+def test_explicit_removal_clears_only_the_named_preference(tmp_path) -> None:
+    engine, _, sessions = build_services(tmp_path)
+    session = sessions.create(
+        EntryPoint.CONTENT,
+        "morning-routine-uv-001",
+        None,
+        locale="zh-CN",
+    )
+    engine.open_session(session)
+    initial = engine.handle_message(
+        session,
+        GuideMessageRequest(
+            message_id="msg_remove_initial",
+            text="预算30美元以内、无香精、哑光妆效",
+        ),
+    )
+
+    removed = engine.handle_message(
+        session,
+        GuideMessageRequest(message_id="msg_remove_budget", text="预算不限"),
+    )
+
+    assert session.hard_constraints.max_price_usd is None
+    assert session.hard_constraints.fragrance_free is True
+    assert session.soft_preferences.finish == "matte"
+    assert removed.guide_revision == initial.guide_revision + 1
 
 
 def test_returned_turn_cannot_mutate_stored_verified_snapshot(tmp_path) -> None:

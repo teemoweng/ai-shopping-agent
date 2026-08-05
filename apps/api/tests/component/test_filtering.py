@@ -79,6 +79,19 @@ def test_parser_extracts_mixed_chinese_preferences() -> None:
     )
 
 
+def test_parser_marks_only_preferences_mentioned_in_partial_update() -> None:
+    parsed = parse_preferences("改成哑光")
+    assert parsed.hard.model_fields_set == set()
+    assert parsed.soft.model_fields_set == {"finish"}
+
+
+def test_parser_marks_explicit_budget_removal_as_an_update() -> None:
+    parsed = parse_preferences("预算不限")
+    assert parsed.hard.model_fields_set == {"max_price_usd"}
+    assert parsed.hard.max_price_usd is None
+    assert parsed.soft.model_fields_set == set()
+
+
 def test_hard_filter_runs_before_soft_ranking() -> None:
     products = FixtureRepository.load(FIXTURE_ROOT).products.values()
     result = filter_and_rank(

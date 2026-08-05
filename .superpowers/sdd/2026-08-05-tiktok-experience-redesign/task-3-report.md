@@ -107,3 +107,71 @@ Focused commit message: `feat: add bilingual guide semantics and snapshots`.
 - Snapshot recovery follows the existing in-process Foundation repository. It
   survives Sheet close/reopen and PDP round-trips, but not an API process
   restart; durable persistence remains outside this task's scope.
+
+## Review fix round 1
+
+### Status
+
+Both Important review findings were reproduced, fixed with focused tests, and
+verified without adding a model or a second recovery interaction.
+
+### RED / GREEN evidence
+
+- Degraded fallback RED:
+  `uv --directory apps/api run pytest tests/component/test_guide_semantics.py::test_invalid_primary_copy_uses_verified_decision_fallback_without_retry -q`
+  returned `1 failed`: invalid primary copy still produced `degraded=false`.
+- Degraded fallback GREEN: the same test returned `1 passed`. The final test is
+  parameterized over blank and exception failures. Both return a nonempty,
+  schema-valid deterministic result in the existing `DECISION_READY` view with
+  `degraded=true`, recommendations preserved, and no retry action.
+- Preference patch RED: the two parser field-set tests plus three Guide semantic
+  tests returned `5 failed`. The failures reproduced whole-object clearing for
+  a local finish update and a non-preference message, and showed explicit budget
+  removal could not be distinguished from omission.
+- Preference patch GREEN: the same five tests returned `5 passed`. Parsed models
+  now use Pydantic `model_fields_set` as the patch contract; the engine merges
+  only mentioned fields, searches with the merged session state, and increments
+  revision only when the effective decision inputs change.
+
+### Implementation and self-review
+
+- The primary response renderer remains deterministic and is not represented as
+  an LLM. Blank or exceptional presentation output crosses a deterministic
+  nonempty-text verification boundary, then uses localized fixed copy. The
+  resulting `GuideTurnResponse` still performs normal Pydantic validation.
+- The fallback is directly reachable within the existing message request and
+  returns the decision immediately. It does not emit `RECOVERY_REQUIRED` or
+  authorize `RETRY_GUIDE_OPERATION`.
+- Omitted fields no longer imply deletion. Local `改成哑光` preserves budget and
+  fragrance; a non-preference follow-up preserves all decision inputs; repeating
+  the same partial update leaves revision unchanged.
+- Explicit removal is represented separately: `预算不限` marks only
+  `max_price_usd` as an update with value `None`, preserving unrelated hard and
+  soft preferences. Equivalent narrow removal phrases are supported for the
+  other parsed fields.
+- Effective merged constraints, rather than the local patch, are passed to
+  search and trace argument summaries, preserving hard-filter behavior and
+  Foundation trace compatibility.
+
+### Verification
+
+Commands run for this fix round:
+
+```sh
+uv --directory apps/api run pytest tests/component/test_guide_semantics.py tests/component/test_filtering.py tests/api/test_guide_api.py tests/component/test_workflow.py -q
+uv --directory apps/api run pytest tests/contract/test_contracts.py tests/component/test_session_repository.py tests/component/test_trace_coverage.py tests/api/test_compare_cart_api.py tests/eval/test_foundation_eval.py -q
+uv --directory apps/api run pytest -q
+uv --directory apps/api run ruff check app tests ../../evals
+git diff --check
+```
+
+Final commit-gate results:
+
+- Required focused suites: `82 passed, 1 warning`.
+- Related contract/legacy/trace/decision/eval regression: `69 passed, 1 warning`.
+- Full API suite: `175 passed, 1 warning`.
+- Ruff: `All checks passed!`.
+- Diff whitespace check: clean.
+
+Focused fix commit message:
+`fix: preserve guide preferences and expose degraded fallback`.

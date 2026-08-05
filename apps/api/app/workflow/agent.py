@@ -161,3 +161,23 @@ def recommendation_text(locale: str, *, evidence_is_insufficient: bool) -> str:
         "These options pass your must-haves. The first is the closest fit; "
         "review the tradeoffs before choosing a size."
     )
+
+
+def fallback_recommendation_text(
+    locale: str,
+    *,
+    evidence_is_insufficient: bool,
+) -> str:
+    if locale == "zh-CN":
+        if evidence_is_insufficient:
+            return "已切换为简版结果：候选满足明确条件，但现有证据不足，无法确认首选。"
+        return "已切换为简版结果：以下候选满足明确条件，请查看已核验的理由与取舍。"
+    if evidence_is_insufficient:
+        return (
+            "A simplified result is shown: candidates meet the stated constraints, "
+            "but the available evidence is insufficient to confirm a top choice."
+        )
+    return (
+        "A simplified result is shown: these candidates meet the stated "
+        "constraints; review the verified reasons and tradeoffs."
+    )
