@@ -37,7 +37,7 @@
 | ✅ DONE | 词法证据检索、硬过滤后排序与零候选 | [六案例规则评测](./evals/cases/foundation-cases.jsonl)；Hybrid/Vector/Reranker 不在此完成项内 |
 | ✅ DONE | 内容电商移动端纵向切片 | [移动截图](./artifacts/screenshots/foundation-mobile.png)；2 条旅程 × 2 个 Chromium viewport = 4/4 |
 | ✅ DONE | SKU 预览、显式确认与模拟加购 | 价格/库存二次确认、单次 token、终态 decision receipt 与 API/UI/E2E 回归 |
-| ✅ DONE | 脱敏 Trace 与 Foundation eval | [11 条黄金 Trace 样本](./artifacts/traces/samples/foundation-golden.jsonl)；6 个冻结案例规则评分 6/6 |
+| ✅ DONE | 脱敏 Trace 与 Foundation eval | [1 条黄金 Trace，共 11 条脱敏事件记录](./artifacts/traces/samples/foundation-golden.jsonl)；6 个冻结案例规则评分 6/6 |
 
 ## Next — Phase 1 扩展（均未开始）
 

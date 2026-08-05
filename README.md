@@ -72,7 +72,7 @@ flowchart TB
 
 | 当前已验证 | 后续仍待实现 |
 |---|---|
-| Next.js + TypeScript、FastAPI、进程内 session、JSON fixtures、词法检索、硬过滤/确定性排序、白名单 Tool、脱敏 Trace、显式模拟加购确认 | 真实 LLM Shopping Agent、可替换模型适配层、PostgreSQL + pgvector、BM25 + Vector + RRF/Reranker、授权长期偏好、实时多模态、搜索 UI、生产可观测与部署 |
+| Next.js + TypeScript、FastAPI、进程内 session、JSON fixtures、词法检索、硬过滤/确定性排序、白名单 Tool、1 条黄金 Trace（11 条脱敏事件记录）、显式模拟加购确认 | 真实 LLM Shopping Agent、可替换模型适配层、PostgreSQL + pgvector、BM25 + Vector + RRF/Reranker、授权长期偏好、实时多模态、搜索 UI、生产可观测与部署 |
 
 先不接 LLM 是一个产品基线决策：先证明交易事实、硬约束、证据、状态与确认边界能被确定性测试锁住；后续模型接入必须在同一套回归上证明新增价值，而不能把“会生成语言”误写成推荐质量。
 
@@ -85,7 +85,8 @@ flowchart TB
 - `golden-daily`、`water-40`、`zero-match`、`medical-boundary`、`injection-shaped-text`、`search-contract`；
 - 规则评分器实测为 6/6、fixture-suite pass rate 1.0；它只证明这 6 个冻结案例在来源 commit 上通过，不代表真实用户、真实模型或广泛商品质量；
 - 真实浏览器覆盖 golden 与 zero-match 两条旅程，分别在 390×844 移动 Chromium 和 1440×1000 桌面 Chromium 运行，共 4 个用例；
-- 代表性 Trace 只提交允许的状态、Tool 和模拟购物车边界，不含原始用户消息、确认 token 或隐藏推理。
+- clean-source release gate 实测 119 个 API 测试与 68 个 Web 单元测试通过；这些是工程回归计数，不是产品质量分数；
+- 仓库只提交 1 条代表性黄金 Trace，共 11 条允许的状态、Tool 和模拟购物车脱敏事件记录，不含原始用户消息、确认 token 或隐藏推理。
 
 后续完整评测仍按以下层次扩展：
 
@@ -105,7 +106,7 @@ flowchart TB
 - [完整验证记录](./artifacts/evidence/foundation-verification.md)
 - [可复现运行 manifest](./artifacts/evidence/foundation-run-manifest.json)
 - [六案例 fixture suite](./evals/cases/foundation-cases.jsonl)
-- [脱敏黄金 Trace 样本](./artifacts/traces/samples/foundation-golden.jsonl)
+- [1 条黄金 Trace（11 条脱敏事件记录）](./artifacts/traces/samples/foundation-golden.jsonl)
 - [移动端终态截图](./artifacts/screenshots/foundation-mobile.png)
 
 ## 本地安装、启动与验证
