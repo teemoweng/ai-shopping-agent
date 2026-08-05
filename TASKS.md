@@ -1,8 +1,8 @@
 # AI Shopping Agent 任务台
 
-> 当前阶段：Phase 0 — Planning / Foundation
+> 当前阶段：Phase 1 — Foundation 子切片已验证；Vertical Slice 扩展未完成
 >
-> 最后更新：2026-08-04
+> 最后更新：2026-08-05
 > 本文件只反映可核验的真实状态；规划目标不等于已实现结果。
 
 ## 状态图例
@@ -13,7 +13,7 @@
 - 🧊 `LATER`：确认保留，当前阶段不实施
 - ⛔ `BLOCKED`：存在明确外部依赖；必须同时写明解除条件
 
-## Now — Phase 0
+## 已完成 — Phase 0 控制面
 
 | 状态 | 任务 | 完成定义 | 证据 |
 |---|---|---|---|
@@ -22,25 +22,35 @@
 | ✅ DONE | 完成知识控制室与双向索引 | 产品、AI 方案、概念证据、评测和面试索引齐全；两层链接可达 | [知识控制室](../../AI产品经理/项目实战/AI导购Agent/00-项目总控.md) |
 | ✅ DONE | 完成首个实施级计划 | 文件、接口、测试、命令、预期结果和提交边界可逐项执行，无占位符 | [Foundation 实施计划](./docs/superpowers/plans/2026-08-04-mvp-foundation.md) |
 | ✅ DONE | 初始化独立 Git 仓库 | 当前目录已具备独立 `.git`、`main` 分支和可核验的初始文档提交 | `.git/`、`git branch --show-current` 与 `git log --oneline` |
-| ⏭️ NEXT | 建立首个技术 ADR / spike 任务 | 自定义循环、OpenAI Agents SDK、LangGraph 使用同一最小场景与同一评分表 | 计划新增 `docs/decisions/` 与 `experiments/` 证据 |
+| ⏭️ NEXT | 建立真实 Agent 编排 ADR / spike | 自定义循环、OpenAI Agents SDK、LangGraph 使用同一最小场景与同一评分表 | 尚未开始；不能用当前确定性 Workflow 代替该证据 |
 
-## Next — Phase 1 Vertical Slice
+## 已验证 — Foundation 子切片
 
-以下任务只有在实施级计划通过检查后开始；当前均未实现。
+以下条目只关闭有代码、自动化测试与发布证据支持的窄范围，不等于整个 Phase 1 完成。
 
 | 状态 | 工作包 | 必须产生的可验证证据 |
 |---|---|---|
-| 🚧 IN PROGRESS | 工程骨架与本地一键启动（`codex/mvp-foundation`） | Foundation Task 1 的布局检查、Web lint、FastAPI import 验证与独立提交 |
-| ⏭️ NEXT | 领域 schema 与 12 SPU / 36 SKU 种子数据 | schema、种子脚本、完整性 / 约束测试、数据卡和版本号 |
-| ⏭️ NEXT | 搜索扩展契约（只预留） | `entry_point = content \| search`、`search_query` 与派生 `query_intent` 的 contract test；不含搜索 UI / 排序 |
-| ⏭️ NEXT | 12 个离线 `ContentContext` | 时间戳字幕、OCR、商品识别、主张标签、置信度与低置信度样例 |
-| ⏭️ NEXT | 确定性 Workflow | 状态迁移表、非法迁移测试、最大轮次 / 超时 / 取消测试 |
-| ⏭️ NEXT | Shopping Agent 与白名单 Tools | 结构化工具 schema、路由测试、未授权调用拒绝、调用预算 trace |
-| ⏭️ NEXT | 商品事实、证据检索与硬过滤 | 结构化事实测试、检索基线、硬约束零违规测试、零候选解释 |
-| ⏭️ NEXT | Verifier 与安全降级 | 事实 / 引用 / 安全 / schema 校验、拒答与模板降级回归 |
-| ⏭️ NEXT | TikTok 风格移动端纵向切片 | 视觉基线截图、移动 / 桌面 Playwright 路径、加载 / 错误 / 空态 |
-| ⏭️ NEXT | SKU 确认与模拟加购 | 预览、用户确认、库存二次校验、幂等加购与购物车反馈测试 |
-| ⏭️ NEXT | Trace 与首批端到端评测 | trace schema、黄金 / 失败路径、P0/P1 回归报告和已知局限 |
+| ✅ DONE | 工程骨架与本地启动/测试链路 | [Foundation verification](./artifacts/evidence/foundation-verification.md) |
+| ✅ DONE | 领域 schema 与小型 fixture baseline | 3 SPU / 6 SKU、1 `ContentContext`、3 份证据；[fixtures](./data/fixtures) 与 API/组件测试 |
+| ✅ DONE | 搜索扩展契约（只预留） | `entry_point = content \| search` 与保留错误 `SEARCH_EXECUTION_NOT_AVAILABLE`；不含搜索执行/UI |
+| ✅ DONE | 确定性 Workflow 与白名单 Tools 基线 | 状态迁移、`retrieve_evidence` / `search_eligible_products` Tool trace、固定安全边界 |
+| ✅ DONE | 词法证据检索、硬过滤后排序与零候选 | [六案例规则评测](./evals/cases/foundation-cases.jsonl)；Hybrid/Vector/Reranker 不在此完成项内 |
+| ✅ DONE | 内容电商移动端纵向切片 | [移动截图](./artifacts/screenshots/foundation-mobile.png)；2 条旅程 × 2 个 Chromium viewport = 4/4 |
+| ✅ DONE | SKU 预览、显式确认与模拟加购 | 价格/库存二次确认、单次 token、终态 decision receipt 与 API/UI/E2E 回归 |
+| ✅ DONE | 脱敏 Trace 与 Foundation eval | [11 条黄金 Trace 样本](./artifacts/traces/samples/foundation-golden.jsonl)；6 个冻结案例规则评分 6/6 |
+
+## Next — Phase 1 扩展（均未开始）
+
+| 状态 | 工作包 | 当前缺口 / 进入条件 |
+|---|---|---|
+| ⏭️ NEXT | 真实 LLM Shopping Agent 与生成式 Verifier | 先做模型/编排 ADR，在同一回归上证明相对确定性基线的新增价值 |
+| ⏭️ NEXT | 扩展到约 12 SPU / 36 SKU 与 12 个 `ContentContext` | 当前仅 3 / 6 / 1；需补别名、缺失、冲突、过期与低置信样例 |
+| ⏭️ NEXT | Hybrid Retrieval | BM25 + Vector + RRF、可选 Reranker、索引版本与 Recall/NDCG/引用消融 |
+| ⏭️ NEXT | 搜索 UI 与搜索执行 | 当前只保留请求契约和 501；需独立搜索任务与专项评测 |
+| ⏭️ NEXT | 实时/准实时多模态输入 | 当前 `ContentContext` 为离线 fixture，不含真实 ASR/OCR/视频模型调用 |
+| ⏭️ NEXT | 授权偏好 Memory | 当前只有 session 状态；需查看/修改/删除与敏感信息禁止持久化 |
+| ⏭️ NEXT | 模型质量、延迟与成本基线 | 当前 `duration_ms` 只是本地 trace 字段；未测 Token、P50/P95、缓存或单位成本 |
+| ⏭️ NEXT | 场景化用户研究 | 浏览器自动化不是用户研究；需经单独批准的招募、任务、观察和结论 |
 
 ## Later
 
@@ -73,9 +83,9 @@
 | 阶段与出口条件 | [PLAN.md](./PLAN.md) | 已设计 |
 | 当前执行状态 | [TASKS.md](./TASKS.md) | 已建立，持续更新 |
 | 产品判断与面试叙事 | [知识控制室](../../AI产品经理/项目实战/AI导购Agent/00-项目总控.md) | 已设计，持续更新 |
-| 实施级代码 / 测试计划 | [Foundation 实施计划](./docs/superpowers/plans/2026-08-04-mvp-foundation.md) | 已建立，未执行 |
-| 代码、schema、数据、trace | 尚无 | 未实现 |
-| 自动评测结果 | 尚无 | 未评测 |
+| 实施级代码 / 测试计划 | [Foundation 实施计划](./docs/superpowers/plans/2026-08-04-mvp-foundation.md) | Foundation 子切片已执行；后续阶段未执行 |
+| 代码、schema、数据、trace | [README](./README.md) · [脱敏 Trace](./artifacts/traces/samples/foundation-golden.jsonl) | Foundation 子切片已评测 |
+| 自动评测结果 | [Foundation verification](./artifacts/evidence/foundation-verification.md) · [六案例](./evals/cases/foundation-cases.jsonl) | 6 个确定性 fixture 案例已评测 |
 | 部署与用户研究 | 尚无 | 未开始 |
 
 ## 更新规则

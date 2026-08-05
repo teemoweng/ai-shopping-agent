@@ -1,6 +1,6 @@
 # AI Shopping Agent 总路线图
 
-> 状态：已确认产品方向，进入 Planning / Foundation。本文管理“先验证什么、每阶段交付什么、何时可以进入下一阶段”，不代替实施级任务拆解和测试步骤。
+> 状态：Foundation Baseline 已验证，Phase 1 仍在纵向切片扩展中。本文管理“先验证什么、每阶段交付什么、何时可以进入下一阶段”，不代替实施级任务拆解和测试步骤。
 
 ## 1. 项目目标与成功定义
 
@@ -46,6 +46,19 @@
 - 所有“planned / implemented / evaluated”状态可以被文档和文件路径核对。
 
 ## 4. Phase 1 — Vertical Slice
+
+### 2026-08-05 已验证的 Foundation 子切片
+
+这不是整个 Phase 1 完成标记。它只冻结了一条小而可复跑的确定性基线，用来让后续真实 LLM、Hybrid Retrieval 和数据扩展有同一对照物。
+
+| 已验证子范围 | 证据 | 尚未覆盖的 Phase 1 目标 |
+|---|---|---|
+| 3 SPU / 6 SKU、1 个 `ContentContext`、3 份证据文档 | [fixtures](./data/fixtures) · [验证记录](./artifacts/evidence/foundation-verification.md) | 约 12 SPU / 36 SKU、12 个内容上下文和更丰富异常数据 |
+| 确定性 Workflow、白名单 Tools、词法证据检索、硬过滤后排序 | [六案例评测](./evals/cases/foundation-cases.jsonl) · [脱敏 Trace](./artifacts/traces/samples/foundation-golden.jsonl) | 真实 LLM Shopping Agent、生成式 Verifier、Hybrid/RRF/Reranker |
+| 内容入口 → 约束 → 推荐 → 2 款比较 → SKU 预览 → 用户确认 → 模拟加购 | [移动截图](./artifacts/screenshots/foundation-mobile.png) · [E2E](./apps/web/e2e/guide.spec.ts) | 更广失败/超时旅程、搜索 UI、多模态实时输入、长期偏好 |
+| 6 个规则评分案例 6/6；2 条旅程 × 2 个 Chromium viewport = 4/4 | [Foundation verification](./artifacts/evidence/foundation-verification.md) | 正式大样本 Benchmark、真实模型质量/延迟/成本、用户研究与业务结果 |
+
+因此当前可以声称“Foundation 子切片已实现并在冻结合成集上评测”，不能声称 Phase 1 的 12 SPU / 36 SKU 纵向切片、Agent 模型能力或整体 MVP 已完成。
 
 ### 要验证的产品假设
 

@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-08-04T23:59:49Z",
+  "source_commit": "5f12d79dc00f2c10b4bf0e796df46a41db4adca8",
+  "release_commands": [
+    "pnpm check:layout",
+    "uv --directory apps/api run ruff check app tests ../../evals",
+    "uv --directory apps/api run pytest tests -q",
+    "uv --directory apps/api run python -m scripts.export_openapi",
+    "pnpm --dir packages/contracts generate",
+    "git diff --exit-code -- packages/contracts/openapi.json packages/contracts/src/api.ts",
+    "pnpm --dir apps/web test",
+    "pnpm --dir apps/web lint",
+    "pnpm --dir apps/web exec tsc --noEmit",
+    "uv --directory apps/api run python ../../evals/run_foundation.py",
+    "pnpm --dir apps/web test:e2e",
+    "if rg -n --hidden --glob '!**/.git/**' --glob '!**/node_modules/**' \"(api[_-]?key|secret|token)[[:space:]]*[:=][[:space:]]*[\\\"'][^\\\"']+[\\\"']\" .; then\n  echo \"Potential committed secret found\" >&2\n  exit 1\nelse\n  scan_status=$?\n  if [ \"$scan_status\" -eq 1 ]; then\n    echo \"Secret scan clean\"\n  else\n    exit \"$scan_status\"\n  fi\nfi"
+  ],
+  "input_sha256": {
+    "data/fixtures/products.json": "7cd31986f5857f75f76e70a21bf85decf317759bbc676f4a60688b3e26b0f0a8",
+    "data/fixtures/content-contexts.json": "756fb06bf7d9172c7a45db19be324c5f8782167c2e9b5fd53ab5988111b7b548",
+    "data/fixtures/evidence.json": "520990ebabca72a5818fa21ceb1d45fe95f33a748b3c0da69fe291aed5a961e6",
+    "evals/cases/foundation-cases.jsonl": "e4ce5c660dd584c967491ccb291258634b539ce0abd93705a6e585148a6bc087",
+    "evals/run_foundation.py": "8e753eb84f757a49826d7a6e21f56179123e24c05eb8d5bef1f778ba2b6b7469",
+    "package.json": "d4bc2f6c1217c6b3ee29bea3bae40d04c6958a40d9a8c7815dca3cf09aa9313f",
+    "pnpm-lock.yaml": "54f01c3a8df2b274fdd9896bdc606a80c2941f2ca20bab5ccf4a4f01cfd0512c",
+    "pnpm-workspace.yaml": "f742e5f9b49b304ffc16baa204814745b24b6ca4d3bd5ed68486baa04ef3d99e",
+    "apps/web/package.json": "07ec45c465894cfac3a1c5b119ad681e3ded03b43e296f3b02c582021513a035",
+    "apps/web/playwright.config.ts": "d0a670cb1fa771cbd68a874517cc31a5a2d70a9de48d051c3f774e2abb772736",
+    "apps/web/vitest.config.ts": "118ab09af3c1f49cdf9e962985ba7d4c9465aa75b5cf163fcb8595cd68e6d819",
+    "apps/web/next.config.ts": "614bce25b089c3f19b1e17a6346c74b858034040154c6621e7d35303004767cc",
+    "apps/api/pyproject.toml": "73d72766465dbd951c9a2a26a80401c86e50b8a5710badf8e0fed2f5d44c3a5e",
+    "apps/api/uv.lock": "e2660bdac542699197906f7563f3c3ed9de633bee7fe543e97be914d0da3162b",
+    "packages/contracts/package.json": "bafd81df9d69862a3cee0fcaddfefe092d1337c6ad5ef2fc3c54c562c619a288",
+    "packages/contracts/openapi.json": "4eed4b05456206a621932c3aca9ca262c9ab31c170c90e2f6ad600fdb2c064ed"
+  },
+  "fixture_summary": {
+    "spu": 3,
+    "sku": 6,
+    "content_contexts": 1,
+    "evidence_documents": 3,
+    "synthetic": true
+  },
+  "evaluation_summary": {
+    "scorer": "deterministic_rule_scorer",
+    "llm_judge": false,
+    "total": 6,
+    "passed": 6,
+    "pass_rate": 1.0,
+    "case_ids": [
+      "golden-daily",
+      "water-40",
+      "zero-match",
+      "medical-boundary",
+      "injection-shaped-text",
+      "search-contract"
+    ]
+  },
+  "browser_summary": {
+    "engine": "chromium",
+    "projects": ["mobile-chromium", "desktop-interview"],
+    "journeys": [
+      "content context reaches a confirmed simulated cart item",
+      "zero match is explicit and recoverable"
+    ],
+    "total": 4,
+    "passed": 4
+  },
+  "raw_trace": {
+    "path": "apps/api/runtime/traces.jsonl",
+    "tracked": false,
+    "capture_boundary_before": {
+      "recorded_at": "2026-08-04T23:48:02Z",
+      "line_count": 5134,
+      "sha256": "eebac17c7e2351d2a5773ca21d8ea11b293c8ca0ee1fa282ebbc8f208173bcc6"
+    },
+    "capture_boundary_after": {
+      "recorded_at": "2026-08-04T23:48:16Z",
+      "line_count": 5146,
+      "sha256": "92f07f841e56e9be8e33501f6d7feecdc6ddc65831b5f922a751ec50724f8c0e"
+    },
+    "appended_line_range_inclusive": [5135, 5146],
+    "selected_trace_id": "trc_a6721b0d-e073-4db8-aafc-6d6d077da7c9",
+    "selected_session_id": "ses_e08d89d5-8101-4338-a0e5-43ada4012ef3",
+    "selection_rule": "Select the one trace/session wholly contained in the 12 newly appended records after the captured line boundary.",
+    "extraction_rule": {
+      "preserve_source_order": true,
+      "allowed_event_types": [
+        "state_transition",
+        "tool_call",
+        "tool_result",
+        "cart_preview",
+        "cart_add"
+      ],
+      "excluded_event_types": ["comparison_presented"],
+      "expected_sample_records": 11
+    }
+  },
+  "artifacts": {
+    "screenshot": {
+      "path": "artifacts/screenshots/foundation-mobile.png",
+      "sha256": "cc7be098e23cd10add2cf7bfbc4c501bbde3f255a69700ed59357660b6b6e676",
+      "viewport": {"width": 390, "height": 844},
+      "capture_project": "mobile-chromium"
+    },
+    "redacted_trace_sample": {
+      "path": "artifacts/traces/samples/foundation-golden.jsonl",
+      "sha256": "965bc6c03a1cff2b1f9baf2c7221a4dfa4bdb92b323b6d36b8f99f661ce76469",
+      "records": 11
+    },
+    "verification_record": {
+      "path": "artifacts/evidence/foundation-verification.md",
+      "sha256": "50b89274d768eb0108a000abe7a3a23909ec645387051506b575853a75b545b9"
+    }
+  },
+  "known_limits": [
+    "No real LLM, embedding model, vector index, or LLM judge is used.",
+    "The 6/6 result applies only to the six frozen synthetic fixture cases.",
+    "Browser automation covers two journeys in two Chromium viewport projects and is not a user study.",
+    "Trace duration_ms values are observability fields, not a latency baseline.",
+    "No production cost, conversion, user-impact, or reliability claim is supported."
+  ]
+}

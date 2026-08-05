@@ -3,7 +3,7 @@
 一个面向美国市场的跨境 K-Beauty 防晒 AI 导购概念原型：用户在 TikTok 风格的可购物短视频中被商品种草后，通过 `Ask AI` 进入对话，由系统核实内容主张、识别购买约束、解释适配性，并完成商品比较、SKU 选择与模拟加购。
 
 > [!IMPORTANT]
-> 当前仓库处于 **Planning / Foundation** 阶段。产品范围、总体架构和评测承诺已定义；可运行应用、商品数据、模型调用、自动化评测与演示结果均尚未实现。本文不会把规划目标表述成已完成结果。
+> 当前仓库已完成一个可复跑的 **Foundation Baseline**：真实本地 Next.js + FastAPI 链路、3 个合成 SPU / 6 个 SKU、1 个离线 `ContentContext`、3 份证据、确定性 Workflow、词法证据检索、硬过滤、比较与用户确认后的模拟加购。它不是 TikTok 官方产品，也没有接入真实 LLM、PostgreSQL、向量检索、支付或真实用户流量。
 
 ## 为什么做这个产品
 
@@ -51,36 +51,43 @@ flowchart LR
 
 界面将复现内容电商的关键交互结构，例如竖屏视频、创作者信息、商品锚点、右侧操作栏、AI 底部抽屉、结构化决策卡片和购物车反馈；但会清楚标注为求职作品集概念原型，不冒充 TikTok 官方产品，也不复制受保护的品牌资产。
 
-## 产品架构
+## 产品架构与真实能力边界
 
-这个项目属于 Agent 产品，但不把所有步骤都交给 Agent：
+产品理想态属于 Agent 产品，但当前可运行 Foundation 刻意先实现确定性基线：
 
-- **Shopping Agent** 负责理解自然语言和软偏好、决定是否需要高信息量追问、选择下一项白名单工具、组织面向用户的解释；
-- **Deterministic Workflow** 负责状态推进、必做检查、硬约束、安全边界、工具调用预算、超时与加购确认；
-- **Tools** 负责内容上下文、商品事实、证据检索、主张核实、候选过滤、排序、比较、偏好和购物车；
-- **Verifier** 在输出前检查事实来源、证据引用、安全规则和结构化响应格式。
+- **当前 Deterministic Workflow** 用显式规则解析已冻结的预算、香型、防水和妆效表达，推进状态，执行必做检查、硬约束、安全边界与加购确认，并调用固定白名单 Tool；当前没有真实模型推理或自由工具选择；
+- **Foundation Tools** 从版本化 JSON fixtures 读取内容、商品和证据，以词法匹配检索证据，先做结构化硬过滤再做确定性软偏好排序，并生成比较/模拟购物车事实；
+- **Schema 与测试充当当前 verifier 边界**，校验 API、比较和购物车响应；完整生成式输出 Verifier 随真实 LLM 一起进入后续阶段。
 
 ```mermaid
 flowchart TB
     UI["TikTok-style Web UI"] --> WF["Deterministic Workflow"]
-    WF <--> AG["Controlled Shopping Agent"]
-    AG --> TL["Whitelisted Tools"]
-    TL --> DB["PostgreSQL structured facts"]
-    TL --> RET["Hybrid retrieval + evidence"]
-    TL --> MEM["Session / authorized preference memory"]
-    AG --> VER["Verifier"]
-    VER --> WF
+    WF --> TL["Whitelisted Tools"]
+    TL --> DB["Versioned JSON fixtures"]
+    TL --> RET["Lexical evidence retrieval"]
+    TL --> FIL["Hard filter before deterministic rank"]
     WF --> UI
-    WF --> OBS["Trace, metrics, eval artifacts"]
+    WF --> OBS["Redacted Trace + rule-scored eval"]
 ```
 
-规划中的技术基线是 Next.js + TypeScript、Python FastAPI、PostgreSQL + pgvector、混合检索与可追踪的模型适配层。具体 Agent 编排框架和模型供应商将在同一最小场景上做可替换对比后再锁定，当前不把某个 SDK 写成既定事实。
+| 当前已验证 | 后续仍待实现 |
+|---|---|
+| Next.js + TypeScript、FastAPI、进程内 session、JSON fixtures、词法检索、硬过滤/确定性排序、白名单 Tool、脱敏 Trace、显式模拟加购确认 | 真实 LLM Shopping Agent、可替换模型适配层、PostgreSQL + pgvector、BM25 + Vector + RRF/Reranker、授权长期偏好、实时多模态、搜索 UI、生产可观测与部署 |
+
+先不接 LLM 是一个产品基线决策：先证明交易事实、硬约束、证据、状态与确认边界能被确定性测试锁住；后续模型接入必须在同一套回归上证明新增价值，而不能把“会生成语言”误写成推荐质量。
 
 ## 数据与评测承诺
 
-结构化数据库是价格、库存、SKU、促销与配送事实的唯一来源；创作者内容、OCR、评论和用户输入都视为不可信输入。模型没有证据时必须说明信息不足或拒绝给出确定性判断。
+结构化、版本化的商品事实是价格、库存、SKU、促销与配送信息的唯一来源：当前 Foundation 使用仓库内 JSON fixtures，后续再迁移到数据库。创作者内容、OCR、评论和用户输入都视为不可信输入；没有证据时必须说明信息不足或拒绝给出确定性判断。
 
-项目将同步建设可复跑评测，而不是在演示完成后补几条案例：
+当前已提交一个六案例的确定性 Foundation 回归集，而不是在演示后手写结果：
+
+- `golden-daily`、`water-40`、`zero-match`、`medical-boundary`、`injection-shaped-text`、`search-contract`；
+- 规则评分器实测为 6/6、fixture-suite pass rate 1.0；它只证明这 6 个冻结案例在来源 commit 上通过，不代表真实用户、真实模型或广泛商品质量；
+- 真实浏览器覆盖 golden 与 zero-match 两条旅程，分别在 390×844 移动 Chromium 和 1440×1000 桌面 Chromium 运行，共 4 个用例；
+- 代表性 Trace 只提交允许的状态、Tool 和模拟购物车边界，不含原始用户消息、确认 token 或隐藏推理。
+
+后续完整评测仍按以下层次扩展：
 
 - 组件层：意图与关键约束、澄清、检索与排序、引用、主张核实、工具参数、记忆、安全和多模态抽取；
 - 端到端层：内容进入、约束冲突、无候选、库存过期、用户改口、比较加购、超时降级和提示注入；
@@ -91,20 +98,67 @@ flowchart TB
 
 详细的目标、阶段出口和风险见 [PLAN.md](./PLAN.md)。当前任务状态与证据入口见 [TASKS.md](./TASKS.md)。
 
+## Foundation 证据快照
+
+![Foundation mobile decision receipt](./artifacts/screenshots/foundation-mobile.png)
+
+- [完整验证记录](./artifacts/evidence/foundation-verification.md)
+- [可复现运行 manifest](./artifacts/evidence/foundation-run-manifest.json)
+- [六案例 fixture suite](./evals/cases/foundation-cases.jsonl)
+- [脱敏黄金 Trace 样本](./artifacts/traces/samples/foundation-golden.jsonl)
+- [移动端终态截图](./artifacts/screenshots/foundation-mobile.png)
+
+## 本地安装、启动与验证
+
+要求：Node.js、pnpm 11、Python 3.12+、uv，以及 Playwright Chromium。以下命令已在 Node.js 24.14.0、pnpm 11.20.0、Python 3.14.5 与 uv 0.11.14 的本地 Foundation 基线上实际运行；这些是本次验证环境，不代表全部可兼容版本。
+
+```bash
+pnpm install --frozen-lockfile
+uv --directory apps/api sync --frozen
+pnpm --dir apps/web exec playwright install chromium
+```
+
+分别在两个终端启动 API 与 Web：
+
+```bash
+uv --directory apps/api run uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+```bash
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api/v1 pnpm --dir apps/web dev --hostname 127.0.0.1 --port 3000
+```
+
+打开 `http://127.0.0.1:3000`，从商品锚点进入 `Ask AI`。常用验证命令：
+
+```bash
+pnpm check:layout
+uv --directory apps/api run ruff check app tests ../../evals
+uv --directory apps/api run pytest tests -q
+uv --directory apps/api run python -m scripts.export_openapi
+pnpm --dir packages/contracts generate
+git diff --exit-code -- packages/contracts/openapi.json packages/contracts/src/api.ts
+pnpm --dir apps/web test
+pnpm --dir apps/web lint
+pnpm --dir apps/web exec tsc --noEmit
+uv --directory apps/api run python ../../evals/run_foundation.py
+pnpm --dir apps/web test:e2e
+```
+
+完整 release gate、命令时间、真实计数、secret scan 与证据校验见[验证记录](./artifacts/evidence/foundation-verification.md)。
+
 ## 当前状态
 
 | 能力 | 状态 |
 |---|---|
 | 产品范围与关键原则 | 已确认 |
-| 工程控制文档 | 已建立 |
-| 实施级任务计划 | 已建立，尚未执行 |
-| 可运行前后端 | 未实现 |
-| 合成商品与场景数据 | 未实现 |
-| 模型 / Agent / Workflow | 未实现 |
-| 自动评测与真实结果 | 未实现 |
+| 可运行前后端 | Foundation 本地链路已验证 |
+| 合成商品与场景数据 | 3 SPU / 6 SKU、1 ContentContext、3 evidence documents |
+| Workflow / Tools | 确定性基线已实现并评测；真实 LLM Agent 未实现 |
+| RAG | 词法证据检索基线已评测；向量/Hybrid/Reranker 未实现 |
+| 自动评测 | 6 个冻结案例规则评分 6/6；不代表广泛模型/产品质量 |
+| 浏览器旅程 | 2 条旅程 × 2 个 Chromium viewport = 4/4 |
+| 用户/业务结果 | 未研究、未上线、未测转化 |
 | 部署地址 | 无 |
-
-因此目前没有可信的安装或运行命令。等工程骨架落地后，README 才会补充经过实际验证的环境要求、启动命令、测试命令和部署地址。
 
 ## 双层项目索引
 
