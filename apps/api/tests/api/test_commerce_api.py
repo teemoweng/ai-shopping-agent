@@ -111,11 +111,27 @@ def test_unknown_commit_result_reconciles_by_idempotency_key() -> None:
 
     assert uncertain.status_code == 201
     assert uncertain.json()["commerce_view_kind"] == "COMMIT_STATUS_UNKNOWN"
+    assert uncertain.json()["operation_status"] == "RECONCILIATION_REQUIRED"
+    assert uncertain.json()["allowed_actions"] == [
+        "RECONCILE_COMMIT",
+        "RETURN_TO_PRODUCT",
+    ]
     assert "receipt" not in uncertain.json()
     pending = client.get(
         f"/api/v1/commerce/operations/{preview['operation_id']}"
     )
     assert pending.json() == uncertain.json()
+
+    blocked_write = client.post(
+        f"/api/v1/commerce/operations/{preview['operation_id']}/items",
+        json={
+            "confirmation_token": preview["confirmation_token"],
+            "idempotency_key": idempotency_key,
+            "expected_transaction_revision": preview["transaction_revision"],
+        },
+    )
+    assert blocked_write.status_code == 409
+    assert blocked_write.json()["detail"]["code"] == "COMMIT_STATUS_UNKNOWN"
 
     reconciled = client.get(
         f"/api/v1/commerce/operations/by-idempotency/{idempotency_key}"

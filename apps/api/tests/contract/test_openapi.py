@@ -55,6 +55,10 @@ def test_openapi_exposes_locked_commerce_request_scenarios() -> None:
         "sku_id",
     ]
     assert preview["properties"]["purchase_origin"]["enum"] == ["FEED", "AI"]
+    assert preview["properties"]["previous_operation_id"] == {
+        "anyOf": [{"type": "string"}, {"type": "null"}],
+        "title": "Previous Operation Id",
+    }
     assert preview["properties"]["demo_scenario"]["enum"] == [
         "NORMAL",
         "PRICE_CHANGED",

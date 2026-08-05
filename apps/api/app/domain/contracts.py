@@ -86,12 +86,14 @@ class CommerceAction(StrEnum):
     CANCEL_CONFIRMATION = "CANCEL_CONFIRMATION"
     RESELECT_SKU = "RESELECT_SKU"
     RETRY_COMMERCE_OPERATION = "RETRY_COMMERCE_OPERATION"
+    RECONCILE_COMMIT = "RECONCILE_COMMIT"
     RETURN_TO_PRODUCT = "RETURN_TO_PRODUCT"
     CONTINUE_BROWSING = "CONTINUE_BROWSING"
 
 
 class CommerceOperationStatus(StrEnum):
     ACTIVE = "ACTIVE"
+    RECONCILIATION_REQUIRED = "RECONCILIATION_REQUIRED"
     SUCCEEDED = "SUCCEEDED"
     FAILED = "FAILED"
     CANCELLED = "CANCELLED"
@@ -222,6 +224,7 @@ class CommercePreviewRequest(BaseModel):
     product_id: str
     sku_id: str
     quantity: Annotated[int, Field(ge=1, le=5)] = 1
+    previous_operation_id: str | None = None
     expected_transaction_revision: Annotated[int, Field(ge=0)] = 0
     demo_scenario: Literal["NORMAL", "PRICE_CHANGED", "OUT_OF_STOCK"] = (
         "NORMAL"
@@ -235,6 +238,15 @@ class CommercePreviewRequest(BaseModel):
             raise ValueError("FEED purchase origin forbids Guide provenance")
         if self.purchase_origin == "AI" and not (has_session and has_revision):
             raise ValueError("AI purchase origin requires complete Guide provenance")
+        is_followup = self.expected_transaction_revision > 0
+        if is_followup and self.previous_operation_id is None:
+            raise ValueError(
+                "follow-up preview requires previous_operation_id"
+            )
+        if not is_followup and self.previous_operation_id is not None:
+            raise ValueError(
+                "initial preview forbids previous_operation_id"
+            )
         return self
 
 

@@ -62,13 +62,25 @@ class CommerceService:
             self._validate_provenance(request)
             previous = None
             if request.expected_transaction_revision:
-                previous = self.repository.find_operation_for_revision(
-                    purchase_origin=request.purchase_origin,
-                    guide_session_id=request.guide_session_id,
-                    product_id=request.product_id,
-                    transaction_revision=request.expected_transaction_revision,
-                )
-                if previous is None:
+                try:
+                    previous = self.repository.get_operation(
+                        request.previous_operation_id or ""
+                    )
+                except KeyError as error:
+                    raise CommerceConflict(
+                        "TRANSACTION_REVISION_CONFLICT"
+                    ) from error
+                self._raise_if_reconciliation_required(previous)
+                if (
+                    previous.operation_status is not CommerceOperationStatus.ACTIVE
+                    or previous.transaction_revision
+                    != request.expected_transaction_revision
+                    or previous.purchase_origin != request.purchase_origin
+                    or previous.guide_session_id != request.guide_session_id
+                    or previous.source_guide_revision
+                    != request.source_guide_revision
+                    or previous.product_id != request.product_id
+                ):
                     raise CommerceConflict("TRANSACTION_REVISION_CONFLICT")
             product = self.fixtures.get_product(request.product_id)
             sku = next(
@@ -133,6 +145,7 @@ class CommerceService:
         now = self.clock.now()
         with self.repository.transaction():
             operation = self.repository.get_operation(operation_id)
+            self._raise_if_reconciliation_required(operation)
             if operation.transaction_revision != request.expected_transaction_revision:
                 raise CommerceConflict("TRANSACTION_REVISION_CONFLICT")
             if operation.commerce_view_kind is not CommerceStep.FACTS_CHANGED:
@@ -154,6 +167,7 @@ class CommerceService:
     ) -> CommerceOperationResponse:
         with self.repository.transaction():
             operation = self.repository.get_operation(operation_id)
+            self._raise_if_reconciliation_required(operation)
             try:
                 existing = self.repository.get_receipt_by_idempotency_key(
                     request.idempotency_key
@@ -241,7 +255,9 @@ class CommerceService:
             operation.updated_at = now
             if request.demo_scenario == "COMMIT_STATUS_UNKNOWN":
                 operation.commerce_view_kind = CommerceStep.COMMIT_STATUS_UNKNOWN
-                operation.operation_status = CommerceOperationStatus.ACTIVE
+                operation.operation_status = (
+                    CommerceOperationStatus.RECONCILIATION_REQUIRED
+                )
                 operation.error_code = "COMMIT_STATUS_UNKNOWN"
                 self.repository.save_operation(operation)
                 return self._response(operation)
@@ -285,6 +301,17 @@ class CommerceService:
             raise CommerceConflict("STALE_GUIDE_REVISION")
 
     @staticmethod
+    def _raise_if_reconciliation_required(
+        operation: CommerceOperation,
+    ) -> None:
+        if (
+            operation.commerce_view_kind is CommerceStep.COMMIT_STATUS_UNKNOWN
+            or operation.operation_status
+            is CommerceOperationStatus.RECONCILIATION_REQUIRED
+        ):
+            raise CommerceConflict("COMMIT_STATUS_UNKNOWN")
+
+    @staticmethod
     def _allowed_actions(operation: CommerceOperation) -> list[CommerceAction]:
         if operation.commerce_view_kind is CommerceStep.AWAITING_CONFIRMATION:
             return [
@@ -308,7 +335,7 @@ class CommerceService:
             ]
         if operation.commerce_view_kind is CommerceStep.COMMIT_STATUS_UNKNOWN:
             return [
-                CommerceAction.RETRY_COMMERCE_OPERATION,
+                CommerceAction.RECONCILE_COMMIT,
                 CommerceAction.RETURN_TO_PRODUCT,
             ]
         if operation.commerce_view_kind is CommerceStep.SUCCEEDED:
@@ -410,7 +437,7 @@ class CommerceService:
         return facts.model_copy(
             update={
                 "inventory_units": inventory,
-                "in_stock": inventory >= facts.quantity,
+                "in_stock": facts.in_stock and inventory >= facts.quantity,
             }
         )
 

@@ -5,7 +5,6 @@ from contextlib import contextmanager
 from datetime import datetime
 from threading import RLock
 
-from app.domain.contracts import CommerceOperationStatus
 from app.domain.events import (
     CommerceConfirmationToken,
     CommerceOperation,
@@ -49,26 +48,6 @@ class CommerceRepository:
     def get_token(self, token: str) -> CommerceConfirmationToken:
         with self._lock:
             return self._tokens[token]
-
-    def find_operation_for_revision(
-        self,
-        *,
-        purchase_origin: str,
-        guide_session_id: str | None,
-        product_id: str,
-        transaction_revision: int,
-    ) -> CommerceOperation | None:
-        with self._lock:
-            matches = [
-                operation
-                for operation in self._operations.values()
-                if operation.purchase_origin == purchase_origin
-                and operation.guide_session_id == guide_session_id
-                and operation.product_id == product_id
-                and operation.transaction_revision == transaction_revision
-                and operation.operation_status is CommerceOperationStatus.ACTIVE
-            ]
-            return matches[-1] if matches else None
 
     def invalidate_tokens_for_operation(
         self,

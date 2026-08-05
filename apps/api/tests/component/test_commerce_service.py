@@ -223,6 +223,7 @@ def test_selection_change_advances_transaction_not_guide_revision(
         "source_guide_revision": original_guide_revision,
         "product_id": "seoul-shade-daily-fluid",
         "sku_id": "seoul-shade-30",
+        "previous_operation_id": first.operation_id,
         "expected_transaction_revision": first.transaction_revision,
     }
     next_values.update(selection_update)
@@ -257,6 +258,7 @@ def test_invalid_selection_does_not_invalidate_previous_confirmation(
         service.preview(
             feed_preview_request(
                 sku_id="cloud-veil-30",
+                previous_operation_id=first.operation_id,
                 expected_transaction_revision=first.transaction_revision,
             )
         )
@@ -286,6 +288,7 @@ def test_concurrent_selection_updates_allow_one_revision_winner(
             return service.preview(
                 feed_preview_request(
                     quantity=quantity,
+                    previous_operation_id=first.operation_id,
                     expected_transaction_revision=first.transaction_revision,
                 )
             )
@@ -300,6 +303,35 @@ def test_concurrent_selection_updates_allow_one_revision_winner(
     assert len(successes) == 1
     assert successes[0].transaction_revision == 2
     assert [error.code for error in conflicts] == ["TRANSACTION_REVISION_CONFLICT"]
+
+
+def test_updating_one_feed_chain_does_not_cancel_an_independent_chain(
+    tmp_path: Path,
+) -> None:
+    service, repository, _, _ = build_service(tmp_path)
+    chain_a = service.preview(feed_preview_request())
+    chain_b = service.preview(feed_preview_request())
+
+    updated_a = service.preview(
+        feed_preview_request(
+            quantity=2,
+            previous_operation_id=chain_a.operation_id,
+            expected_transaction_revision=chain_a.transaction_revision,
+        )
+    )
+
+    assert updated_a.transaction_revision == 2
+    assert repository.get_token(chain_a.confirmation_token).invalidated_at is not None
+    assert repository.get_token(chain_b.confirmation_token).invalidated_at is None
+    committed_b = service.add_item(
+        chain_b.operation_id,
+        CommerceAddRequest(
+            confirmation_token=chain_b.confirmation_token,
+            idempotency_key="idem_independent_chain_b",
+            expected_transaction_revision=chain_b.transaction_revision,
+        ),
+    )
+    assert committed_b.commerce_view_kind == "SUCCEEDED"
 
 
 def test_price_changed_preview_returns_diff_and_acceptance_issues_fresh_token(
@@ -357,6 +389,35 @@ def test_out_of_stock_preview_only_allows_sku_reselection(tmp_path: Path) -> Non
     assert response.error_code == "OUT_OF_STOCK"
     assert response.facts.in_stock is False
     assert response.facts.inventory_units == 0
+    assert response.confirmation_token is None
+    assert response.allowed_actions == ["RESELECT_SKU", "RETURN_TO_PRODUCT"]
+
+
+def test_explicitly_unavailable_sku_never_receives_confirmation_token(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    service, _, _, _ = build_service(tmp_path)
+    original_get_product = type(service.fixtures).get_product
+
+    def unavailable_product(fixtures, product_id: str):
+        product = original_get_product(fixtures, product_id)
+        skus = tuple(
+            sku.model_copy(update={"in_stock": False, "inventory_units": 9})
+            if sku.id == "seoul-shade-30"
+            else sku
+            for sku in product.skus
+        )
+        return product.model_copy(update={"skus": skus})
+
+    monkeypatch.setattr(type(service.fixtures), "get_product", unavailable_product)
+
+    response = service.preview(feed_preview_request())
+
+    assert response.facts.inventory_units == 9
+    assert response.facts.in_stock is False
+    assert response.commerce_view_kind == "FACTS_CHANGED"
+    assert response.error_code == "OUT_OF_STOCK"
     assert response.confirmation_token is None
     assert response.allowed_actions == ["RESELECT_SKU", "RETURN_TO_PRODUCT"]
 
@@ -482,15 +543,45 @@ def test_unknown_commit_result_reconciles_to_single_success_receipt(
     )
 
     assert uncertain.commerce_view_kind == "COMMIT_STATUS_UNKNOWN"
-    assert uncertain.operation_status == "ACTIVE"
+    assert uncertain.operation_status == "RECONCILIATION_REQUIRED"
     assert uncertain.error_code == "COMMIT_STATUS_UNKNOWN"
     assert uncertain.receipt is None
     assert uncertain.confirmation_token is None
     assert uncertain.allowed_actions == [
-        "RETRY_COMMERCE_OPERATION",
+        "RECONCILE_COMMIT",
         "RETURN_TO_PRODUCT",
     ]
     assert service.get_operation(preview.operation_id) == uncertain
+    assert repository.cart_count == 1
+    assert repository.inventory_units("seoul-shade-30", default=18) == 17
+
+    from app.services.commerce_service import CommerceConflict
+
+    with pytest.raises(CommerceConflict, match="COMMIT_STATUS_UNKNOWN"):
+        service.preview(
+            feed_preview_request(
+                quantity=2,
+                previous_operation_id=preview.operation_id,
+                expected_transaction_revision=preview.transaction_revision,
+            )
+        )
+    with pytest.raises(CommerceConflict, match="COMMIT_STATUS_UNKNOWN"):
+        service.accept_facts(
+            preview.operation_id,
+            CommerceAcceptFactsRequest(
+                expected_transaction_revision=preview.transaction_revision
+            ),
+        )
+    for retry_key in ("idem_unknown", "idem_unknown_second_write"):
+        with pytest.raises(CommerceConflict, match="COMMIT_STATUS_UNKNOWN"):
+            service.add_item(
+                preview.operation_id,
+                CommerceAddRequest(
+                    confirmation_token=preview.confirmation_token,
+                    idempotency_key=retry_key,
+                    expected_transaction_revision=preview.transaction_revision,
+                ),
+            )
     assert repository.cart_count == 1
     assert repository.inventory_units("seoul-shade-30", default=18) == 17
 

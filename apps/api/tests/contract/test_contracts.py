@@ -214,6 +214,44 @@ def test_commerce_contract_enums_are_complete_and_stable() -> None:
         "CANCEL_CONFIRMATION",
         "RESELECT_SKU",
         "RETRY_COMMERCE_OPERATION",
+        "RECONCILE_COMMIT",
         "RETURN_TO_PRODUCT",
         "CONTINUE_BROWSING",
     ]
+    assert [status.value for status in contracts.CommerceOperationStatus] == [
+        "ACTIVE",
+        "RECONCILIATION_REQUIRED",
+        "SUCCEEDED",
+        "FAILED",
+        "CANCELLED",
+    ]
+
+
+def test_initial_commerce_preview_omits_previous_operation() -> None:
+    request = contracts.CommercePreviewRequest(
+        purchase_origin="FEED",
+        product_id="seoul-shade-daily-fluid",
+        sku_id="seoul-shade-30",
+    )
+    assert request.expected_transaction_revision == 0
+    assert request.previous_operation_id is None
+
+
+def test_followup_commerce_preview_requires_exact_previous_operation() -> None:
+    with pytest.raises(ValidationError):
+        contracts.CommercePreviewRequest(
+            purchase_origin="FEED",
+            product_id="seoul-shade-daily-fluid",
+            sku_id="seoul-shade-50",
+            expected_transaction_revision=1,
+        )
+
+
+def test_initial_commerce_preview_forbids_previous_operation() -> None:
+    with pytest.raises(ValidationError):
+        contracts.CommercePreviewRequest(
+            purchase_origin="FEED",
+            product_id="seoul-shade-daily-fluid",
+            sku_id="seoul-shade-30",
+            previous_operation_id="cop_previous",
+        )
