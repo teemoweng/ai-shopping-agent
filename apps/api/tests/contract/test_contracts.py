@@ -162,3 +162,58 @@ def test_guide_view_kind_values_are_complete_and_stable() -> None:
         "RECOVERY_REQUIRED",
         "FATAL_ERROR",
     ]
+
+
+def test_feed_commerce_preview_forbids_guide_provenance() -> None:
+    with pytest.raises(ValidationError):
+        contracts.CommercePreviewRequest(
+            purchase_origin="FEED",
+            guide_session_id="ses_guide",
+            source_guide_revision=2,
+            product_id="seoul-shade-daily-fluid",
+            sku_id="seoul-shade-30",
+        )
+
+
+@pytest.mark.parametrize(
+    ("guide_session_id", "source_guide_revision"),
+    [(None, None), ("ses_guide", None), (None, 2)],
+)
+def test_ai_commerce_preview_requires_complete_guide_provenance(
+    guide_session_id: str | None,
+    source_guide_revision: int | None,
+) -> None:
+    with pytest.raises(ValidationError):
+        contracts.CommercePreviewRequest(
+            purchase_origin="AI",
+            guide_session_id=guide_session_id,
+            source_guide_revision=source_guide_revision,
+            product_id="seoul-shade-daily-fluid",
+            sku_id="seoul-shade-30",
+        )
+
+
+def test_commerce_contract_enums_are_complete_and_stable() -> None:
+    assert [step.value for step in contracts.CommerceStep] == [
+        "PDP_READY",
+        "CHECKING_FACTS",
+        "AWAITING_CONFIRMATION",
+        "FACTS_CHANGED",
+        "COMMITTING",
+        "COMMIT_STATUS_UNKNOWN",
+        "SUCCEEDED",
+        "FAILED",
+        "CANCELLED",
+    ]
+    assert [action.value for action in contracts.CommerceAction] == [
+        "SELECT_SKU",
+        "SET_QUANTITY",
+        "PREVIEW_CART",
+        "ACCEPT_UPDATED_FACTS",
+        "CONFIRM_ADD_TO_CART",
+        "CANCEL_CONFIRMATION",
+        "RESELECT_SKU",
+        "RETRY_COMMERCE_OPERATION",
+        "RETURN_TO_PRODUCT",
+        "CONTINUE_BROWSING",
+    ]

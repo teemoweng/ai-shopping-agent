@@ -6,6 +6,11 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
 from app.domain.contracts import (
+    CommerceFactDiff,
+    CommerceFactsResponse,
+    CommerceOperationStatus,
+    CommerceReceiptResponse,
+    CommerceStep,
     EntryPoint,
     GuideTurnResponse,
     HardConstraints,
@@ -63,6 +68,43 @@ class GuideSession(BaseModel):
     consumed_confirmation_tokens: set[str] = Field(default_factory=set)
     guide_revision: int = Field(default=1, ge=1)
     latest_response: GuideTurnResponse | None = None
+
+
+class CommerceOperation(BaseModel):
+    id: str
+    purchase_origin: Literal["FEED", "AI"]
+    guide_session_id: str | None = None
+    source_guide_revision: int | None = None
+    product_id: str
+    sku_id: str
+    quantity: int
+    transaction_revision: int
+    facts: CommerceFactsResponse
+    commerce_view_kind: CommerceStep
+    operation_status: CommerceOperationStatus
+    facts_diff: list[CommerceFactDiff] = Field(default_factory=list)
+    demo_scenario: Literal["NORMAL", "PRICE_CHANGED", "OUT_OF_STOCK"] = "NORMAL"
+    error_code: str | None = None
+    receipt_id: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class CommerceConfirmationToken(BaseModel):
+    token: str
+    operation_id: str
+    transaction_revision: int
+    facts_version: str
+    sku_id: str
+    quantity: int
+    unit_price_usd: float
+    expires_at: datetime
+    consumed_at: datetime | None = None
+    invalidated_at: datetime | None = None
+
+
+class CommerceReceipt(CommerceReceiptResponse):
+    pass
 
 
 class TraceEvent(BaseModel):

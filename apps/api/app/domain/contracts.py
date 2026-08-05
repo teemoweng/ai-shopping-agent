@@ -65,6 +65,38 @@ class GuideViewKind(StrEnum):
     FATAL_ERROR = "FATAL_ERROR"
 
 
+class CommerceStep(StrEnum):
+    PDP_READY = "PDP_READY"
+    CHECKING_FACTS = "CHECKING_FACTS"
+    AWAITING_CONFIRMATION = "AWAITING_CONFIRMATION"
+    FACTS_CHANGED = "FACTS_CHANGED"
+    COMMITTING = "COMMITTING"
+    COMMIT_STATUS_UNKNOWN = "COMMIT_STATUS_UNKNOWN"
+    SUCCEEDED = "SUCCEEDED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+
+
+class CommerceAction(StrEnum):
+    SELECT_SKU = "SELECT_SKU"
+    SET_QUANTITY = "SET_QUANTITY"
+    PREVIEW_CART = "PREVIEW_CART"
+    ACCEPT_UPDATED_FACTS = "ACCEPT_UPDATED_FACTS"
+    CONFIRM_ADD_TO_CART = "CONFIRM_ADD_TO_CART"
+    CANCEL_CONFIRMATION = "CANCEL_CONFIRMATION"
+    RESELECT_SKU = "RESELECT_SKU"
+    RETRY_COMMERCE_OPERATION = "RETRY_COMMERCE_OPERATION"
+    RETURN_TO_PRODUCT = "RETURN_TO_PRODUCT"
+    CONTINUE_BROWSING = "CONTINUE_BROWSING"
+
+
+class CommerceOperationStatus(StrEnum):
+    ACTIVE = "ACTIVE"
+    SUCCEEDED = "SUCCEEDED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+
+
 class Verdict(StrEnum):
     SUITABLE = "SUITABLE"
     CONDITIONAL = "CONDITIONAL"
@@ -179,6 +211,104 @@ class CartPreviewRequest(BaseModel):
 
 class AddCartItemRequest(BaseModel):
     confirmation_token: str
+
+
+class CommercePreviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    purchase_origin: Literal["FEED", "AI"]
+    guide_session_id: str | None = None
+    source_guide_revision: int | None = None
+    product_id: str
+    sku_id: str
+    quantity: Annotated[int, Field(ge=1, le=5)] = 1
+    expected_transaction_revision: Annotated[int, Field(ge=0)] = 0
+    demo_scenario: Literal["NORMAL", "PRICE_CHANGED", "OUT_OF_STOCK"] = (
+        "NORMAL"
+    )
+
+    @model_validator(mode="after")
+    def validate_purchase_origin(self) -> CommercePreviewRequest:
+        has_session = self.guide_session_id is not None
+        has_revision = self.source_guide_revision is not None
+        if self.purchase_origin == "FEED" and (has_session or has_revision):
+            raise ValueError("FEED purchase origin forbids Guide provenance")
+        if self.purchase_origin == "AI" and not (has_session and has_revision):
+            raise ValueError("AI purchase origin requires complete Guide provenance")
+        return self
+
+
+class CommerceAddRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    confirmation_token: str
+    idempotency_key: str
+    expected_transaction_revision: int
+    demo_scenario: Literal["NORMAL", "COMMIT_STATUS_UNKNOWN"] = "NORMAL"
+
+
+class CommerceAcceptFactsRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_transaction_revision: Annotated[int, Field(ge=1)]
+
+
+class CommerceFactsResponse(BaseModel):
+    product_id: str
+    sku_id: str
+    quantity: int
+    unit_price_usd: float
+    subtotal_usd: float
+    inventory_units: int
+    in_stock: bool
+    facts_version: str
+    observed_at: datetime
+
+
+class CommerceFactDiff(BaseModel):
+    field: str
+    previous_value: str | float | int | bool | None
+    current_value: str | float | int | bool | None
+
+
+class CommerceReceiptResponse(BaseModel):
+    receipt_id: str
+    cart_id: str
+    cart_item_id: str
+    operation_id: str
+    idempotency_key: str
+    product_id: str
+    sku_id: str
+    quantity: int
+    unit_price_usd: float
+    subtotal_usd: float
+    facts_version: str
+    committed_at: datetime
+    simulated: Literal[True]
+    order_created: Literal[False]
+    payment_created: Literal[False]
+
+
+class CommerceOperationResponse(BaseModel):
+    operation_id: str
+    purchase_origin: Literal["FEED", "AI"]
+    guide_session_id: str | None = None
+    source_guide_revision: int | None = None
+    product_id: str
+    sku_id: str
+    quantity: int
+    transaction_revision: Annotated[int, Field(ge=1)]
+    facts_version: str
+    commerce_view_kind: CommerceStep
+    operation_status: CommerceOperationStatus
+    allowed_actions: list[CommerceAction]
+    facts: CommerceFactsResponse
+    facts_diff: list[CommerceFactDiff] = Field(default_factory=list)
+    confirmation_token: str | None = None
+    confirmation_expires_at: datetime | None = None
+    receipt: CommerceReceiptResponse | None = None
+    error_code: str | None = None
+    simulated: Literal[True]
 
 
 class CompareResponse(BaseModel):
