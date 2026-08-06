@@ -1,5 +1,6 @@
 import type { components } from "@shopping-guide/contracts/src/api";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -31,6 +32,13 @@ vi.mock("@/lib/api-client", async (importOriginal) => {
 
 type FeedResponse = components["schemas"]["FeedResponse"];
 type ProductDetailResponse = components["schemas"]["ProductDetailResponse"];
+
+interface PendingPlay {
+  video: HTMLMediaElement;
+  promise: Promise<void>;
+  resolve: () => void;
+  reject: (reason: Error) => void;
+}
 
 const FEED: FeedResponse = {
   feed_tabs: ["For You", "Following"],
@@ -138,6 +146,26 @@ function ActiveIndexHarness() {
       onNotice={vi.fn()}
     />
   );
+}
+
+function installDeferredPlayback() {
+  const pending: PendingPlay[] = [];
+  const play = vi
+    .mocked(HTMLMediaElement.prototype.play)
+    .mockImplementation(function (this: HTMLMediaElement) {
+      let resolve!: () => void;
+      let reject!: (reason: Error) => void;
+      const promise = new Promise<void>((resolvePromise, rejectPromise) => {
+        resolve = resolvePromise;
+        reject = rejectPromise;
+      });
+      pending.push({ video: this, promise, resolve, reject });
+      return promise;
+    });
+  const pause = vi.mocked(HTMLMediaElement.prototype.pause);
+  play.mockClear();
+  pause.mockClear();
+  return { pending, pause, play };
 }
 
 beforeEach(() => {
@@ -335,12 +363,69 @@ describe("Chinese short-video Feed", () => {
     fireEvent.scroll(scroller);
 
     await waitFor(() => {
-      expect(firstPause).toHaveBeenCalledOnce();
+      expect(firstPause).toHaveBeenCalled();
       expect(secondPlay).toHaveBeenCalledOnce();
     });
     expect(firstPlay).not.toHaveBeenCalled();
-    expect(secondPause).not.toHaveBeenCalled();
+    expect(secondPause).toHaveBeenCalled();
+    expect(secondPlay.mock.invocationCallOrder.at(-1)).toBeGreaterThan(
+      secondPause.mock.invocationCallOrder.at(-1)!,
+    );
   });
+
+  it.each(["resolve", "reject"] as const)(
+    "re-pauses a stale active play after an index switch when it %s",
+    async (outcome) => {
+      const { pending, pause, play } = installDeferredPlayback();
+      render(<ActiveIndexHarness />);
+      const [firstVideo] = screen.getAllByTestId(
+        "feed-video",
+      ) as HTMLVideoElement[];
+
+      await waitFor(() => {
+        expect(
+          play.mock.contexts.filter((video) => video === firstVideo).length,
+        ).toBeGreaterThan(0);
+      });
+      const firstRequest = pending.find(
+        (request) => request.video === firstVideo,
+      );
+      expect(firstRequest).toBeDefined();
+
+      const scroller = screen.getByTestId("feed-scroll");
+      Object.defineProperties(scroller, {
+        clientHeight: { configurable: true, value: 800 },
+        scrollTop: { configurable: true, value: 800 },
+      });
+      fireEvent.scroll(scroller);
+      await waitFor(() => {
+        expect(
+          play.mock.contexts.filter(
+            (video) => video !== firstVideo,
+          ).length,
+        ).toBeGreaterThan(0);
+      });
+      const pausesBeforeSettle = pause.mock.contexts.filter(
+        (video) => video === firstVideo,
+      ).length;
+      expect(pausesBeforeSettle).toBeGreaterThan(0);
+
+      await act(async () => {
+        if (outcome === "resolve") {
+          firstRequest!.resolve();
+        } else {
+          firstRequest!.reject(new Error("late autoplay rejection"));
+        }
+        await Promise.resolve();
+      });
+
+      await waitFor(() => {
+        expect(
+          pause.mock.contexts.filter((video) => video === firstVideo).length,
+        ).toBeGreaterThan(pausesBeforeSettle);
+      });
+    },
+  );
 
   it("uses Web Share and reports the result through the shared notice", async () => {
     const user = userEvent.setup();
@@ -502,7 +587,7 @@ describe("DemoShell", () => {
     await user.click(productEntry);
     const back = screen.getByRole("button", { name: "返回内容流" });
     await waitFor(() => expect(back).toHaveFocus());
-    expect(pause).toHaveBeenCalledOnce();
+    expect(pause).toHaveBeenCalled();
 
     const restoredPlay = vi
       .mocked(HTMLMediaElement.prototype.play)
@@ -524,68 +609,63 @@ describe("DemoShell", () => {
         }),
       ).toHaveFocus();
     });
+    await act(async () => {
+      await Promise.resolve();
+    });
   });
 
-  it("restores a paused direct-PDP video after the Feed mount playback effect", async () => {
+  it("re-pauses an already-requested play after PDP restores a paused snapshot", async () => {
+    const { pending, pause, play } = installDeferredPlayback();
     const user = userEvent.setup();
     render(<DemoShell />);
 
-    const video = (await screen.findAllByTestId(
+    const originalVideo = (await screen.findAllByTestId(
       "feed-video",
     ))[0] as HTMLVideoElement;
-    video.currentTime = 2.5;
-    video.muted = true;
-    Object.defineProperty(video, "paused", {
-      configurable: true,
-      value: true,
+    await waitFor(() => {
+      expect(
+        play.mock.contexts.filter((video) => video === originalVideo).length,
+      ).toBeGreaterThan(0);
     });
+    const originalRequest = pending.find(
+      (request) => request.video === originalVideo,
+    );
+    expect(originalRequest).toBeDefined();
+    expect(originalVideo.paused).toBe(true);
+    originalVideo.currentTime = 2.5;
+    originalVideo.muted = true;
+
     await user.click(
       screen.getByRole("button", {
         name: /查看商品 Seoul Shade Daily Fluid/,
       }),
     );
-
-    const restoredPlay = vi.mocked(HTMLMediaElement.prototype.play);
-    const restoredPause = vi.mocked(HTMLMediaElement.prototype.pause);
-    restoredPlay.mockClear();
-    restoredPause.mockClear();
-    restoredPlay.mockImplementation(function (this: HTMLMediaElement) {
-      return Promise.resolve().then(() => {
-        Object.defineProperty(this, "paused", {
-          configurable: true,
-          value: false,
-        });
-      });
-    });
-    restoredPause.mockImplementation(function (this: HTMLMediaElement) {
-      Object.defineProperty(this, "paused", {
-        configurable: true,
-        value: true,
-      });
-    });
     await user.click(screen.getByRole("button", { name: "返回内容流" }));
     const restoredVideo = (await screen.findAllByTestId(
       "feed-video",
     ))[0] as HTMLVideoElement;
-
     await waitFor(() => {
       expect(Math.abs(restoredVideo.currentTime - 2.5)).toBeLessThanOrEqual(
         0.25,
       );
-      expect(restoredPause.mock.contexts).toContain(restoredVideo);
+      expect(pause.mock.contexts).toContain(restoredVideo);
     });
-    const lastActivePlay = Math.max(
-      ...restoredPlay.mock.invocationCallOrder.filter(
-        (_, index) => restoredPlay.mock.contexts[index] === restoredVideo,
-      ),
-    );
-    const lastActivePause = Math.max(
-      ...restoredPause.mock.invocationCallOrder.filter(
-        (_, index) => restoredPause.mock.contexts[index] === restoredVideo,
-      ),
-    );
-    expect(lastActivePause).toBeGreaterThan(lastActivePlay);
-    await waitFor(() => expect(restoredVideo.paused).toBe(true));
+    const pausesBeforeSettle = pause.mock.contexts.filter(
+      (video) => video === originalVideo,
+    ).length;
+    expect(pausesBeforeSettle).toBeGreaterThan(0);
+
+    await act(async () => {
+      originalRequest!.resolve();
+      await originalRequest!.promise;
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(
+        pause.mock.contexts.filter((video) => video === originalVideo).length,
+      ).toBeGreaterThan(pausesBeforeSettle);
+    });
     expect(restoredVideo.muted).toBe(true);
   });
 

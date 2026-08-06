@@ -13,13 +13,110 @@ import {
 
 import {
   captureAndPauseVideo,
-  restoreVideoSnapshot,
   type VideoSnapshot,
 } from "@/lib/demo-navigation";
 
 import { ProductAnchor } from "./product-anchor";
 
 type FeedItem = components["schemas"]["CatalogFeedItemResponse"];
+
+interface PlaybackIntent {
+  generation: number;
+  shouldPlay: boolean;
+  video: HTMLVideoElement;
+}
+
+type PlaybackIntents = Record<string, PlaybackIntent | undefined>;
+
+function setPlaybackIntent(
+  intents: PlaybackIntents,
+  itemId: string,
+  video: HTMLVideoElement,
+  shouldPlay: boolean,
+): PlaybackIntent {
+  const intent = {
+    generation: (intents[itemId]?.generation ?? 0) + 1,
+    shouldPlay,
+    video,
+  };
+  intents[itemId] = intent;
+  return intent;
+}
+
+function safelyPauseVideo(video: HTMLVideoElement) {
+  try {
+    video.pause();
+  } catch {
+    // A media failure must not interrupt Feed navigation or restoration.
+  }
+}
+
+function pauseVideoPlayback(
+  intents: PlaybackIntents,
+  itemId: string,
+  video: HTMLVideoElement,
+) {
+  setPlaybackIntent(intents, itemId, video, false);
+  safelyPauseVideo(video);
+}
+
+function enforceSettledPlaybackIntent(
+  intents: PlaybackIntents,
+  itemId: string,
+  video: HTMLVideoElement,
+  generation: number,
+) {
+  const current = intents[itemId];
+  const requestStillOwnsPlayback =
+    current?.generation === generation &&
+    current.shouldPlay &&
+    current.video === video;
+  const newerPlayOwnsSameVideo =
+    current?.generation !== generation &&
+    current?.shouldPlay === true &&
+    current.video === video;
+  if (!requestStillOwnsPlayback && !newerPlayOwnsSameVideo) {
+    safelyPauseVideo(video);
+  }
+}
+
+function requestVideoPlayback(
+  intents: PlaybackIntents,
+  itemId: string,
+  video: HTMLVideoElement,
+): Promise<void> {
+  const { generation } = setPlaybackIntent(intents, itemId, video, true);
+  let playResult: Promise<void> | undefined;
+  try {
+    playResult = video.play();
+  } catch {
+    return Promise.resolve();
+  }
+  const enforceLatestIntent = () =>
+    enforceSettledPlaybackIntent(intents, itemId, video, generation);
+  return Promise.resolve(playResult).then(enforceLatestIntent, enforceLatestIntent);
+}
+
+function restoreVideoPlayback(
+  intents: PlaybackIntents,
+  itemId: string,
+  video: HTMLVideoElement,
+  snapshot: VideoSnapshot,
+): Promise<void> {
+  try {
+    video.currentTime = Number.isFinite(snapshot.currentTime)
+      ? Math.max(0, snapshot.currentTime)
+      : 0;
+  } catch {
+    // Some browsers reject seeking until metadata is available.
+  }
+  video.muted = snapshot.muted;
+  if (snapshot.paused) {
+    pauseVideoPlayback(intents, itemId, video);
+    return Promise.resolve();
+  }
+  return requestVideoPlayback(intents, itemId, video);
+}
 
 export interface ShortVideoFeedHandle {
   capture(itemId: string): VideoSnapshot | null;
@@ -97,12 +194,10 @@ export const ShortVideoFeed = forwardRef<
   const productEntryElements = useRef<
     Record<string, HTMLButtonElement | null>
   >({});
+  const playbackIntentsRef = useRef<PlaybackIntents>({});
   const [likedIds, setLikedIds] = useState<Set<string>>(() => new Set());
   const [savedIds, setSavedIds] = useState<Set<string>>(() => new Set());
   const initialVideoRestoreRef = useRef(initialVideoRestore);
-  const preservedPlaybackItemIdRef = useRef(
-    initialVideoRestore?.itemId ?? null,
-  );
   const [mutedById, setMutedById] = useState<Record<string, boolean>>(() =>
     initialVideoRestore
       ? {
@@ -131,50 +226,55 @@ export const ShortVideoFeed = forwardRef<
   }, [commentItem]);
 
   useEffect(() => {
-    const pendingRestore = initialVideoRestoreRef.current;
-    const activeItemId = items[activeIndex]?.id ?? null;
-    if (
-      preservedPlaybackItemIdRef.current &&
-      preservedPlaybackItemIdRef.current !== activeItemId
-    ) {
-      preservedPlaybackItemIdRef.current = null;
+    if (!initialVideoRestore) {
+      initialVideoRestoreRef.current = null;
     }
-    for (const [index, item] of items.entries()) {
-      const video = videoElements.current[item.id];
+  }, [initialVideoRestore]);
+
+  useEffect(() => {
+    const pendingRestore = initialVideoRestoreRef.current;
+    const intents = playbackIntentsRef.current;
+    const videosAtSetup = items.map((item, index) => ({
+      index,
+      item,
+      video: videoElements.current[item.id],
+    }));
+    for (const { index, item, video } of videosAtSetup) {
       if (!video) {
         continue;
       }
       if (index === activeIndex && pendingRestore?.itemId === item.id) {
-        initialVideoRestoreRef.current = null;
-        void restoreVideoSnapshot(video, pendingRestore.snapshot);
-        continue;
-      }
-      if (
-        index === activeIndex &&
-        preservedPlaybackItemIdRef.current === item.id
-      ) {
+        void restoreVideoPlayback(
+          intents,
+          item.id,
+          video,
+          pendingRestore.snapshot,
+        );
         continue;
       }
       if (index !== activeIndex) {
-        try {
-          video.pause();
-        } catch {
-          // A failed background pause must not interrupt Feed navigation.
-        }
+        pauseVideoPlayback(intents, item.id, video);
         continue;
       }
-      try {
-        void Promise.resolve(video.play()).catch(() => undefined);
-      } catch {
-        // Autoplay policies and media readiness can reject active playback.
-      }
+      void requestVideoPlayback(intents, item.id, video);
     }
+    return () => {
+      for (const { item, video } of videosAtSetup) {
+        if (video) {
+          pauseVideoPlayback(intents, item.id, video);
+        }
+      }
+    };
   }, [activeIndex, items]);
 
   useImperativeHandle(ref, () => ({
     capture(itemId) {
       const video = videoElements.current[itemId];
-      return video ? captureAndPauseVideo(video) : null;
+      if (!video) {
+        return null;
+      }
+      setPlaybackIntent(playbackIntentsRef.current, itemId, video, false);
+      return captureAndPauseVideo(video);
     },
     async restore(itemId, snapshot) {
       const video = videoElements.current[itemId];
@@ -182,7 +282,12 @@ export const ShortVideoFeed = forwardRef<
         return;
       }
       setMutedById((current) => ({ ...current, [itemId]: snapshot.muted }));
-      await restoreVideoSnapshot(video, snapshot);
+      await restoreVideoPlayback(
+        playbackIntentsRef.current,
+        itemId,
+        video,
+        snapshot,
+      );
     },
     focusProduct(itemId) {
       productEntryElements.current[itemId]?.focus();
