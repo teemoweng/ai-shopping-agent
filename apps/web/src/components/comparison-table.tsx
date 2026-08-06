@@ -4,13 +4,14 @@ import { formatUsd } from "@/lib/formatters";
 
 type CompareResponse = components["schemas"]["CompareResponse"];
 type CompareValue = string | number | boolean | null;
+type ProductRole = "current" | "alternative";
 
 const comparisonRows = [
-  { key: "starting_price_usd", label: "Starting price" },
-  { key: "fragrance_free", label: "Fragrance free" },
-  { key: "water_resistance_minutes", label: "Water resistance" },
-  { key: "finish", label: "Finish" },
-  { key: "white_cast_risk", label: "White-cast risk" },
+  { key: "starting_price_usd", label: "起售价快照" },
+  { key: "fragrance_free", label: "无香精" },
+  { key: "water_resistance_minutes", label: "防水标注" },
+  { key: "finish", label: "妆效" },
+  { key: "white_cast_risk", label: "泛白风险" },
 ] as const;
 
 function formatComparisonValue(
@@ -18,39 +19,45 @@ function formatComparisonValue(
   value: CompareValue | undefined,
 ) {
   if (key === "starting_price_usd") {
-    return typeof value === "number" ? formatUsd(value) : "Not available";
+    return typeof value === "number" ? formatUsd(value) : "暂无数据";
   }
   if (key === "fragrance_free") {
-    return typeof value === "boolean" ? (value ? "Yes" : "No") : "Not available";
+    return typeof value === "boolean" ? (value ? "是" : "否") : "暂无数据";
   }
   if (key === "water_resistance_minutes") {
     if (value === null) {
-      return "Not labeled water resistant";
+      return "未标注防水";
     }
-    return typeof value === "number" ? `${value} min` : "Not available";
+    return typeof value === "number" ? `${value} 分钟` : "暂无数据";
   }
-  return typeof value === "string" ? value : "Not available";
+  return typeof value === "string" ? value : "暂无数据";
 }
 
 export function ComparisonTable({
   comparison,
+  productNames = {},
+  anchorProductId,
+  onOpenProduct,
 }: {
   comparison: CompareResponse;
+  productNames?: Record<string, string>;
+  anchorProductId?: string;
+  onOpenProduct?: (productId: string, role: ProductRole) => void;
 }) {
   return (
     <section className="comparisonPanel" aria-labelledby="comparison-heading">
       <div className="sectionHeading">
-        <span>{comparison.product_ids.length} selected products</span>
-        <h2 id="comparison-heading">Product comparison</h2>
+        <span>{comparison.product_ids.length} 款合格候选</span>
+        <h2 id="comparison-heading">比较结果</h2>
       </div>
       <div className="comparisonScroller">
-        <table aria-label="Product comparison">
+        <table aria-label="商品对比">
           <thead>
             <tr>
-              <th scope="col">Product fact</th>
+              <th scope="col">对比维度</th>
               {comparison.product_ids.map((productId) => (
                 <th scope="col" key={productId}>
-                  {productId}
+                  {productNames[productId] ?? productId}
                 </th>
               ))}
             </tr>
@@ -61,7 +68,10 @@ export function ComparisonTable({
                 <th scope="row">{row.label}</th>
                 {comparison.product_ids.map((productId, index) => (
                   <td key={`${row.key}-${productId}`}>
-                    {formatComparisonValue(row.key, comparison.rows[row.key]?.[index])}
+                    {formatComparisonValue(
+                      row.key,
+                      comparison.rows[row.key]?.[index],
+                    )}
                   </td>
                 ))}
               </tr>
@@ -69,6 +79,31 @@ export function ComparisonTable({
           </tbody>
         </table>
       </div>
+      {onOpenProduct ? (
+        <div className="comparisonProductActions">
+          {comparison.product_ids.map((productId) => {
+            const name = productNames[productId] ?? productId;
+            return (
+              <button
+                type="button"
+                key={productId}
+                aria-label={`查看 ${name}`}
+                onClick={() =>
+                  onOpenProduct(
+                    productId,
+                    productId === anchorProductId ? "current" : "alternative",
+                  )
+                }
+              >
+                查看 {name}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+      <small className="comparisonFreshnessNote">
+        价格仅为比较快照，进入商品页后会重新核验库存与交易事实。
+      </small>
     </section>
   );
 }

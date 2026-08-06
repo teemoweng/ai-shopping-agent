@@ -2,53 +2,73 @@
 
 import type { components } from "@shopping-guide/contracts/src/api";
 
-import { formatUsd } from "@/lib/formatters";
-
 type Recommendation = components["schemas"]["RecommendationCard"];
+type EvidenceReference = components["schemas"]["EvidenceReference"];
+type EvidenceStatus = components["schemas"]["EvidenceStatus"];
 type Verdict = components["schemas"]["Verdict"];
+type ProductRole = "current" | "alternative";
 
 const verdictLabels = {
-  SUITABLE: "Suitable",
-  CONDITIONAL: "Conditional fit",
-  NOT_RECOMMENDED: "Not recommended",
-  INSUFFICIENT_EVIDENCE: "Evidence limited",
+  SUITABLE: "适合",
+  CONDITIONAL: "有条件适合",
+  NOT_RECOMMENDED: "不建议",
+  INSUFFICIENT_EVIDENCE: "信息不足",
 } satisfies Record<Verdict, string>;
+
+const evidenceLabels = {
+  SUPPORTED: "有公开依据",
+  CONFLICTING: "与来源冲突",
+  INSUFFICIENT_EVIDENCE: "证据不足",
+  SUBJECTIVE_MIXED: "主观体验分歧",
+} satisfies Record<EvidenceStatus, string>;
+
+function safePublicUrl(evidence: EvidenceReference) {
+  if (evidence.synthetic || evidence.source_kind !== "public_rule") {
+    return null;
+  }
+  try {
+    const url = new URL(evidence.url);
+    return url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
 
 export function RecommendationCard({
   recommendation,
   index,
-  selectedSkuId,
-  onSelectedSkuChange,
+  role,
+  evidence,
+  comparisonEnabled,
   selectedForCompare,
   compareDisabled = false,
   onCompareChange,
+  onOpenProduct,
 }: {
   recommendation: Recommendation;
   index: number;
-  selectedSkuId: string | null;
-  onSelectedSkuChange: (skuId: string | null) => void;
+  role: ProductRole;
+  evidence: EvidenceReference[];
+  comparisonEnabled: boolean;
   selectedForCompare: boolean;
   compareDisabled?: boolean;
   onCompareChange: (productId: string, selected: boolean) => void;
+  onOpenProduct?: (productId: string, role: ProductRole) => void;
 }) {
-  const selectedSkuForCard = recommendation.eligible_sku_ids.includes(
-    selectedSkuId ?? "",
-  )
-    ? selectedSkuId
-    : null;
-  const hasEligibleSku = recommendation.eligible_sku_ids.length > 0;
-  const evidenceLabel = `${recommendation.evidence_ids.length} evidence ${
-    recommendation.evidence_ids.length === 1 ? "source" : "sources"
-  }`;
-
   return (
-    <article className="recommendationCard">
+    <article
+      className="recommendationCard"
+      aria-label={`${recommendation.name} 商品建议`}
+    >
       <div className="recommendationTopline">
-        {index === 0 ? <span className="closestFit">Closest fit</span> : <span />}
-        <span
-          className="verdictBadge"
-          data-verdict={recommendation.verdict}
-        >
+        <span className={index === 0 ? "closestFit" : "candidateRole"}>
+          {role === "current"
+            ? "视频同款"
+            : index === 0
+              ? "优先建议"
+              : "合格替代"}
+        </span>
+        <span className="verdictBadge" data-verdict={recommendation.verdict}>
           {verdictLabels[recommendation.verdict]}
         </span>
       </div>
@@ -56,64 +76,87 @@ export function RecommendationCard({
       <div className="recommendationIdentity">
         <span>{recommendation.brand}</span>
         <h3>{recommendation.name}</h3>
-        <strong>{formatUsd(recommendation.starting_price_usd)}</strong>
       </div>
 
       <div className="decisionColumns">
-        <section aria-label={`Why ${recommendation.name} fits`}>
-          <h4>Why it fits</h4>
+        <section aria-label={`${recommendation.name} 的适配原因`}>
+          <h4>为什么适合</h4>
           <ul>
-            {recommendation.fit_reasons.map((reason) => (
+            {recommendation.fit_reasons.slice(0, 3).map((reason) => (
               <li key={reason}>{reason}</li>
             ))}
           </ul>
         </section>
-        <section aria-label={`Tradeoffs for ${recommendation.name}`}>
-          <h4>Tradeoffs</h4>
+        <section aria-label={`${recommendation.name} 的取舍`}>
+          <h4>需要接受的取舍</h4>
           <ul>
-            {recommendation.tradeoffs.map((tradeoff) => (
+            {recommendation.tradeoffs.slice(0, 3).map((tradeoff) => (
               <li key={tradeoff}>{tradeoff}</li>
             ))}
           </ul>
         </section>
       </div>
 
+      {evidence.length > 0 ? (
+        <div className="recommendationEvidence">
+          {evidence.map((item) => {
+            const sourceUrl = safePublicUrl(item);
+            return (
+              <details key={item.evidence_id} data-status={item.status}>
+                <summary>
+                  <span>{evidenceLabels[item.status]}</span>
+                  {item.title}
+                </summary>
+                <p>{item.summary}</p>
+                {item.synthetic ? (
+                  <small>合成评测证据 · 不是外部用户研究</small>
+                ) : sourceUrl ? (
+                  <a
+                    href={sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {item.title}
+                    <span aria-hidden="true"> ↗</span>
+                  </a>
+                ) : (
+                  <small>来源地址未通过安全校验，本页不提供跳转</small>
+                )}
+              </details>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="recommendationEvidenceEmpty">此候选暂无可引用证据。</p>
+      )}
+
       <div className="recommendationControls">
-        <label>
-          <span>Eligible size</span>
-          <select
-            aria-label={`Size for ${recommendation.name}`}
-            value={selectedSkuForCard ?? ""}
-            disabled={!hasEligibleSku}
-            onChange={(event) =>
-              onSelectedSkuChange(event.target.value || null)
-            }
+        {comparisonEnabled ? (
+          <label className="compareControl">
+            <input
+              type="checkbox"
+              checked={selectedForCompare}
+              disabled={compareDisabled}
+              onChange={(event) =>
+                onCompareChange(
+                  recommendation.product_id,
+                  event.target.checked,
+                )
+              }
+              aria-label={`比较 ${recommendation.name}`}
+            />
+            加入比较
+          </label>
+        ) : null}
+        {onOpenProduct ? (
+          <button
+            type="button"
+            className="openProductButton"
+            onClick={() => onOpenProduct(recommendation.product_id, role)}
           >
-            {!hasEligibleSku ? (
-              <option value="">No eligible SKU</option>
-            ) : selectedSkuForCard === null ? (
-              <option value="">Select a size</option>
-            ) : null}
-            {recommendation.eligible_sku_ids.map((skuId) => (
-              <option value={skuId} key={skuId}>
-                {skuId}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="compareControl">
-          <input
-            type="checkbox"
-            checked={selectedForCompare}
-            disabled={compareDisabled}
-            onChange={(event) =>
-              onCompareChange(recommendation.product_id, event.target.checked)
-            }
-            aria-label={`Compare ${recommendation.name}`}
-          />
-          Compare
-        </label>
-        <span className="evidenceCount">{evidenceLabel}</span>
+            查看商品
+          </button>
+        ) : null}
       </div>
     </article>
   );

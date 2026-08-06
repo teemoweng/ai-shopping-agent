@@ -7,6 +7,7 @@ import { getFeed, getProduct } from "@/lib/api-client";
 import {
   createInitialNavigationState,
   demoNavigationReducer,
+  type ProductRole,
   type VideoSnapshot,
 } from "@/lib/demo-navigation";
 
@@ -71,6 +72,9 @@ export function DemoShell() {
     Record<string, number | null>
   >({});
   const [pdpFeedReturn, setPdpFeedReturn] = useState<PdpFeedReturn | null>(null);
+  const [guideContentContextId, setGuideContentContextId] = useState(
+    "morning-routine-uv-001",
+  );
   const feedRef = useRef<ShortVideoFeedHandle>(null);
   const guideMediaRestoreRef = useRef<GuideMediaRestore | null>(null);
   const pdpBackRef = useRef<HTMLButtonElement | null>(null);
@@ -184,6 +188,7 @@ export function DemoShell() {
         snapshot,
       });
     }
+    setGuideContentContextId(item.content_context_id);
     dispatch({ type: "OPEN_GUIDE" });
   }
 
@@ -211,6 +216,15 @@ export function DemoShell() {
       productId,
       entrySource: "feed",
       productRole: "current",
+    });
+  }
+
+  function openProductFromGuide(productId: string, role: ProductRole) {
+    dispatch({
+      type: "OPEN_PDP",
+      productId,
+      entrySource: "ai",
+      productRole: role,
     });
   }
 
@@ -301,6 +315,12 @@ export function DemoShell() {
       <GuideSheet
         open={navigation.overlay === "ai-sheet"}
         onClose={closeGuide}
+        contentContextId={guideContentContextId}
+        initialScrollTop={navigation.guideScrollTop}
+        onScrollTopChange={(scrollTop) =>
+          dispatch({ type: "SAVE_GUIDE_SCROLL", scrollTop })
+        }
+        onOpenProduct={openProductFromGuide}
       />
     </main>
   );

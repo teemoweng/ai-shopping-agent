@@ -682,10 +682,10 @@ describe("DemoShell", () => {
     Object.defineProperty(video, "play", { configurable: true, value: play });
 
     await user.click(screen.getByRole("button", { name: /问 AI：/ }));
-    expect(await screen.findByRole("dialog", { name: "AI shopping guide" })).toBeVisible();
+    expect(await screen.findByRole("dialog", { name: "AI 导购（概念）" })).toBeVisible();
     expect(pause).toHaveBeenCalledOnce();
 
-    await user.click(screen.getByRole("button", { name: "Close AI shopping guide" }));
+    await user.click(screen.getByRole("button", { name: "关闭 AI 导购" }));
     await waitFor(() => expect(play).toHaveBeenCalledOnce());
     expect(Math.abs(video.currentTime - 6.5)).toBeLessThanOrEqual(0.25);
     expect(video.muted).toBe(false);
