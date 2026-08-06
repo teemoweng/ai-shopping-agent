@@ -31,6 +31,11 @@ interface GuideMediaRestore {
   snapshot: VideoSnapshot;
 }
 
+interface PdpFeedReturn {
+  itemId: string;
+  snapshot: VideoSnapshot | null;
+}
+
 function putShoppableItemFirst(items: FeedItem[]): FeedItem[] {
   const shoppableIndex = items.findIndex(
     (item) => item.commerce_status === "available" && item.anchor_product,
@@ -62,11 +67,13 @@ export function DemoShell() {
     createInitialNavigationState,
   );
   const [loadState, setLoadState] = useState<FeedLoadState>({ status: "loading" });
-  const [priceFreshByProductId, setPriceFreshByProductId] = useState<
-    Record<string, boolean>
+  const [freshStartingPriceByProductId, setFreshStartingPriceByProductId] = useState<
+    Record<string, number | null>
   >({});
+  const [pdpFeedReturn, setPdpFeedReturn] = useState<PdpFeedReturn | null>(null);
   const feedRef = useRef<ShortVideoFeedHandle>(null);
   const guideMediaRestoreRef = useRef<GuideMediaRestore | null>(null);
+  const pdpBackRef = useRef<HTMLButtonElement | null>(null);
   const loadVersionRef = useRef(0);
 
   const loadCatalog = useCallback(async () => {
@@ -92,16 +99,20 @@ export function DemoShell() {
         return;
       }
 
-      const freshness: Record<string, boolean> = {};
+      const freshStartingPrices: Record<string, number | null> = {};
       let productFactsUnavailable = false;
       for (const result of productResults) {
         if (result.status === "fulfilled") {
-          freshness[result.value.productId] = hasFreshFacts(result.value.detail);
+          freshStartingPrices[result.value.productId] = hasFreshFacts(
+            result.value.detail,
+          )
+            ? result.value.detail.starting_price_usd
+            : null;
         } else {
           productFactsUnavailable = true;
         }
       }
-      setPriceFreshByProductId(freshness);
+      setFreshStartingPriceByProductId(freshStartingPrices);
       setLoadState({ status: "ready", feed: { ...response, items } });
       if (productFactsUnavailable) {
         dispatch({
@@ -134,6 +145,27 @@ export function DemoShell() {
     return () => window.clearTimeout(timer);
   }, [navigation.notice]);
 
+  useEffect(() => {
+    if (navigation.baseSurface === "pdp") {
+      pdpBackRef.current?.focus();
+    }
+  }, [navigation.baseSurface]);
+
+  useEffect(() => {
+    if (
+      navigation.baseSurface !== "feed" ||
+      loadState.status !== "ready" ||
+      !pdpFeedReturn
+    ) {
+      return;
+    }
+    feedRef.current?.focusProduct(pdpFeedReturn.itemId);
+    const clearReturnTimer = window.setTimeout(() => {
+      setPdpFeedReturn(null);
+    }, 0);
+    return () => window.clearTimeout(clearReturnTimer);
+  }, [loadState.status, navigation.baseSurface, pdpFeedReturn]);
+
   function showNotice(message: string) {
     dispatch({ type: "SHOW_NOTICE", message });
   }
@@ -164,7 +196,16 @@ export function DemoShell() {
     }
   }
 
-  function openProduct(productId: string) {
+  function openProduct(productId: string, item: FeedItem) {
+    const snapshot = feedRef.current?.capture(item.id) ?? null;
+    setPdpFeedReturn({ itemId: item.id, snapshot });
+    if (snapshot) {
+      dispatch({
+        type: "SAVE_VIDEO_SNAPSHOT",
+        itemId: item.id,
+        snapshot,
+      });
+    }
     dispatch({
       type: "OPEN_PDP",
       productId,
@@ -207,7 +248,15 @@ export function DemoShell() {
             feedTabs={loadState.feed.feed_tabs}
             bottomNavVariant={loadState.feed.bottom_nav_variant}
             activeIndex={navigation.feedIndex}
-            priceFreshByProductId={priceFreshByProductId}
+            freshStartingPriceByProductId={freshStartingPriceByProductId}
+            initialVideoRestore={
+              pdpFeedReturn?.snapshot
+                ? {
+                    itemId: pdpFeedReturn.itemId,
+                    snapshot: pdpFeedReturn.snapshot,
+                  }
+                : null
+            }
             onFeedIndexChange={(index) =>
               dispatch({ type: "SET_FEED_INDEX", index })
             }
@@ -225,6 +274,7 @@ export function DemoShell() {
           >
             <header>
               <button
+                ref={pdpBackRef}
                 type="button"
                 aria-label="返回内容流"
                 onClick={() => dispatch({ type: "CLOSE_PDP" })}

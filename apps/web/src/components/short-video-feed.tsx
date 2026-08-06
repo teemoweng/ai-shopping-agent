@@ -24,6 +24,7 @@ type FeedItem = components["schemas"]["CatalogFeedItemResponse"];
 export interface ShortVideoFeedHandle {
   capture(itemId: string): VideoSnapshot | null;
   restore(itemId: string, snapshot: VideoSnapshot): Promise<void>;
+  focusProduct(itemId: string): void;
 }
 
 interface ShortVideoFeedProps {
@@ -31,9 +32,13 @@ interface ShortVideoFeedProps {
   feedTabs: string[];
   bottomNavVariant: string;
   activeIndex: number;
-  priceFreshByProductId?: Record<string, boolean>;
+  freshStartingPriceByProductId?: Record<string, number | null>;
+  initialVideoRestore?: {
+    itemId: string;
+    snapshot: VideoSnapshot;
+  } | null;
   onFeedIndexChange: (index: number) => void;
-  onOpenProduct: (productId: string) => void;
+  onOpenProduct: (productId: string, item: FeedItem) => void;
   onAskAi: (item: FeedItem) => void;
   onNotice: (message: string) => void;
 }
@@ -79,7 +84,8 @@ export const ShortVideoFeed = forwardRef<
     feedTabs,
     bottomNavVariant,
     activeIndex,
-    priceFreshByProductId = {},
+    freshStartingPriceByProductId = {},
+    initialVideoRestore = null,
     onFeedIndexChange,
     onOpenProduct,
     onAskAi,
@@ -88,9 +94,22 @@ export const ShortVideoFeed = forwardRef<
   ref,
 ) {
   const videoElements = useRef<Record<string, HTMLVideoElement | null>>({});
+  const productEntryElements = useRef<
+    Record<string, HTMLButtonElement | null>
+  >({});
   const [likedIds, setLikedIds] = useState<Set<string>>(() => new Set());
   const [savedIds, setSavedIds] = useState<Set<string>>(() => new Set());
-  const [mutedById, setMutedById] = useState<Record<string, boolean>>({});
+  const initialVideoRestoreRef = useRef(initialVideoRestore);
+  const preservedPlaybackItemIdRef = useRef(
+    initialVideoRestore?.itemId ?? null,
+  );
+  const [mutedById, setMutedById] = useState<Record<string, boolean>>(() =>
+    initialVideoRestore
+      ? {
+          [initialVideoRestore.itemId]: initialVideoRestore.snapshot.muted,
+        }
+      : {},
+  );
   const [failedMediaIds, setFailedMediaIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -111,6 +130,47 @@ export const ShortVideoFeed = forwardRef<
     };
   }, [commentItem]);
 
+  useEffect(() => {
+    const pendingRestore = initialVideoRestoreRef.current;
+    const activeItemId = items[activeIndex]?.id ?? null;
+    if (
+      preservedPlaybackItemIdRef.current &&
+      preservedPlaybackItemIdRef.current !== activeItemId
+    ) {
+      preservedPlaybackItemIdRef.current = null;
+    }
+    for (const [index, item] of items.entries()) {
+      const video = videoElements.current[item.id];
+      if (!video) {
+        continue;
+      }
+      if (index === activeIndex && pendingRestore?.itemId === item.id) {
+        initialVideoRestoreRef.current = null;
+        void restoreVideoSnapshot(video, pendingRestore.snapshot);
+        continue;
+      }
+      if (
+        index === activeIndex &&
+        preservedPlaybackItemIdRef.current === item.id
+      ) {
+        continue;
+      }
+      if (index !== activeIndex) {
+        try {
+          video.pause();
+        } catch {
+          // A failed background pause must not interrupt Feed navigation.
+        }
+        continue;
+      }
+      try {
+        void Promise.resolve(video.play()).catch(() => undefined);
+      } catch {
+        // Autoplay policies and media readiness can reject active playback.
+      }
+    }
+  }, [activeIndex, items]);
+
   useImperativeHandle(ref, () => ({
     capture(itemId) {
       const video = videoElements.current[itemId];
@@ -123,6 +183,9 @@ export const ShortVideoFeed = forwardRef<
       }
       setMutedById((current) => ({ ...current, [itemId]: snapshot.muted }));
       await restoreVideoSnapshot(video, snapshot);
+    },
+    focusProduct(itemId) {
+      productEntryElements.current[itemId]?.focus();
     },
   }));
 
@@ -247,7 +310,6 @@ export const ShortVideoFeed = forwardRef<
                 playsInline
                 muted={muted}
                 loop
-                autoPlay={index === activeIndex}
                 preload="metadata"
                 onError={() => {
                   setFailedMediaIds((current) => new Set(current).add(item.id));
@@ -352,10 +414,14 @@ export const ShortVideoFeed = forwardRef<
               {shoppable ? (
                 <ProductAnchor
                   product={item.anchor_product!}
-                  priceFresh={Boolean(
-                    priceFreshByProductId[item.anchor_product!.id],
-                  )}
-                  onOpenProduct={onOpenProduct}
+                  startingPriceUsd={
+                    freshStartingPriceByProductId[item.anchor_product!.id] ??
+                    null
+                  }
+                  entryButtonRef={(button) => {
+                    productEntryElements.current[item.id] = button;
+                  }}
+                  onOpenProduct={(productId) => onOpenProduct(productId, item)}
                   onAskAi={() => onAskAi(item)}
                 />
               ) : null}

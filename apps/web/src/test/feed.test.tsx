@@ -8,6 +8,7 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DemoShell } from "@/components/demo-shell";
@@ -112,7 +113,7 @@ function renderFeed(
     feedTabs: FEED.feed_tabs,
     bottomNavVariant: FEED.bottom_nav_variant,
     activeIndex: 0,
-    priceFreshByProductId: { "seoul-shade-daily-fluid": true },
+    freshStartingPriceByProductId: { "seoul-shade-daily-fluid": 14 },
     onFeedIndexChange: vi.fn(),
     onOpenProduct: vi.fn(),
     onAskAi: vi.fn(),
@@ -122,11 +123,32 @@ function renderFeed(
   return { ...render(<ShortVideoFeed {...props} />), props };
 }
 
+function ActiveIndexHarness() {
+  const [activeIndex, setActiveIndex] = useState(0);
+  return (
+    <ShortVideoFeed
+      items={FEED.items}
+      feedTabs={FEED.feed_tabs}
+      bottomNavVariant={FEED.bottom_nav_variant}
+      activeIndex={activeIndex}
+      freshStartingPriceByProductId={{ "seoul-shade-daily-fluid": 14 }}
+      onFeedIndexChange={setActiveIndex}
+      onOpenProduct={vi.fn()}
+      onAskAi={vi.fn()}
+      onNotice={vi.fn()}
+    />
+  );
+}
+
 beforeEach(() => {
   vi.mocked(getFeed).mockResolvedValue(FEED);
   vi.mocked(getProduct).mockResolvedValue(PRODUCT_DETAIL);
   vi.mocked(createGuideSession).mockImplementation(
     () => new Promise(() => undefined),
+  );
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(
+    () => undefined,
   );
 });
 
@@ -193,14 +215,17 @@ describe("Chinese short-video Feed", () => {
     expect(askAi).toHaveStyle({ minHeight: "44px" });
 
     await user.click(product);
-    expect(onOpenProduct).toHaveBeenCalledWith("seoul-shade-daily-fluid");
+    expect(onOpenProduct).toHaveBeenCalledWith(
+      "seoul-shade-daily-fluid",
+      FEED.items[0],
+    );
     await user.click(askAi);
     expect(onAskAi).toHaveBeenCalledWith(FEED.items[0]);
   });
 
   it("truncates the original English name and renders price only when fresh", () => {
     const { rerender, props } = renderFeed({
-      priceFreshByProductId: { "seoul-shade-daily-fluid": false },
+      freshStartingPriceByProductId: { "seoul-shade-daily-fluid": null },
     });
 
     const name = screen.getByText(
@@ -212,7 +237,7 @@ describe("Chinese short-video Feed", () => {
     rerender(
       <ShortVideoFeed
         {...props}
-        priceFreshByProductId={{ "seoul-shade-daily-fluid": true }}
+        freshStartingPriceByProductId={{ "seoul-shade-daily-fluid": 14 }}
       />,
     );
     expect(
@@ -282,6 +307,39 @@ describe("Chinese short-video Feed", () => {
     await user.click(screen.getAllByRole("button", { name: "打开声音" })[0]);
     expect(firstVideo.muted).toBe(false);
     expect(screen.getAllByRole("button", { name: "静音" })[0]).toBeVisible();
+  });
+
+  it("pauses the previous video and safely plays only the newly active video after scroll", async () => {
+    render(<ActiveIndexHarness />);
+    const [firstVideo, secondVideo] = screen.getAllByTestId(
+      "feed-video",
+    ) as HTMLVideoElement[];
+    const firstPause = vi.fn();
+    const firstPlay = vi.fn().mockResolvedValue(undefined);
+    const secondPause = vi.fn();
+    const secondPlay = vi.fn().mockRejectedValue(new Error("autoplay blocked"));
+    Object.defineProperties(firstVideo, {
+      pause: { configurable: true, value: firstPause },
+      play: { configurable: true, value: firstPlay },
+    });
+    Object.defineProperties(secondVideo, {
+      pause: { configurable: true, value: secondPause },
+      play: { configurable: true, value: secondPlay },
+    });
+
+    const scroller = screen.getByTestId("feed-scroll");
+    Object.defineProperties(scroller, {
+      clientHeight: { configurable: true, value: 800 },
+      scrollTop: { configurable: true, value: 800 },
+    });
+    fireEvent.scroll(scroller);
+
+    await waitFor(() => {
+      expect(firstPause).toHaveBeenCalledOnce();
+      expect(secondPlay).toHaveBeenCalledOnce();
+    });
+    expect(firstPlay).not.toHaveBeenCalled();
+    expect(secondPause).not.toHaveBeenCalled();
   });
 
   it("uses Web Share and reports the result through the shared notice", async () => {
@@ -364,6 +422,31 @@ describe("DemoShell", () => {
     expect(getProduct).toHaveBeenCalledWith("seoul-shade-daily-fluid");
   });
 
+  it("renders a fresh Product Detail price when the Feed summary disagrees", async () => {
+    vi.mocked(getProduct).mockResolvedValue({
+      ...PRODUCT_DETAIL,
+      starting_price_usd: 17,
+    });
+    render(<DemoShell />);
+
+    expect(await screen.findByText(/\$17\.00 起/)).toBeVisible();
+    expect(screen.queryByText(/\$14\.00 起/)).toBeNull();
+  });
+
+  it("does not fall back to the Feed summary when Product Detail is expired", async () => {
+    vi.mocked(getProduct).mockResolvedValue({
+      ...PRODUCT_DETAIL,
+      freshness: {
+        ...PRODUCT_DETAIL.freshness,
+        expires_at: "2026-08-05T08:59:59Z",
+      },
+    });
+    render(<DemoShell />);
+
+    expect(await screen.findByText(/价格待核实/)).toBeVisible();
+    expect(screen.queryByText(/\$14\.00 起/)).toBeNull();
+  });
+
   it("shows a recoverable catalog error boundary", async () => {
     const user = userEvent.setup();
     vi.mocked(getFeed).mockRejectedValueOnce(new Error("offline"));
@@ -392,6 +475,118 @@ describe("DemoShell", () => {
     expect(
       await screen.findByRole("article", { name: "Routine Notes 的短视频" }),
     ).toBeVisible();
+  });
+
+  it("restores direct-PDP media state and product focus even when play is rejected", async () => {
+    const user = userEvent.setup();
+    render(<DemoShell />);
+
+    const productEntry = await screen.findByRole("button", {
+      name: /查看商品 Seoul Shade Daily Fluid/,
+    });
+    const video = (await screen.findAllByTestId(
+      "feed-video",
+    ))[0] as HTMLVideoElement;
+    video.currentTime = 5.25;
+    video.muted = false;
+    Object.defineProperty(video, "paused", {
+      configurable: true,
+      value: false,
+    });
+    const pause = vi.fn();
+    Object.defineProperty(video, "pause", {
+      configurable: true,
+      value: pause,
+    });
+
+    await user.click(productEntry);
+    const back = screen.getByRole("button", { name: "返回内容流" });
+    await waitFor(() => expect(back).toHaveFocus());
+    expect(pause).toHaveBeenCalledOnce();
+
+    const restoredPlay = vi
+      .mocked(HTMLMediaElement.prototype.play)
+      .mockRejectedValue(new Error("autoplay blocked"));
+    await user.click(back);
+
+    const restoredVideo = (await screen.findAllByTestId(
+      "feed-video",
+    ))[0] as HTMLVideoElement;
+    await waitFor(() => {
+      expect(Math.abs(restoredVideo.currentTime - 5.25)).toBeLessThanOrEqual(
+        0.25,
+      );
+      expect(restoredVideo.muted).toBe(false);
+      expect(restoredPlay).toHaveBeenCalled();
+      expect(
+        screen.getByRole("button", {
+          name: /查看商品 Seoul Shade Daily Fluid/,
+        }),
+      ).toHaveFocus();
+    });
+  });
+
+  it("restores a paused direct-PDP video after the Feed mount playback effect", async () => {
+    const user = userEvent.setup();
+    render(<DemoShell />);
+
+    const video = (await screen.findAllByTestId(
+      "feed-video",
+    ))[0] as HTMLVideoElement;
+    video.currentTime = 2.5;
+    video.muted = true;
+    Object.defineProperty(video, "paused", {
+      configurable: true,
+      value: true,
+    });
+    await user.click(
+      screen.getByRole("button", {
+        name: /查看商品 Seoul Shade Daily Fluid/,
+      }),
+    );
+
+    const restoredPlay = vi.mocked(HTMLMediaElement.prototype.play);
+    const restoredPause = vi.mocked(HTMLMediaElement.prototype.pause);
+    restoredPlay.mockClear();
+    restoredPause.mockClear();
+    restoredPlay.mockImplementation(function (this: HTMLMediaElement) {
+      return Promise.resolve().then(() => {
+        Object.defineProperty(this, "paused", {
+          configurable: true,
+          value: false,
+        });
+      });
+    });
+    restoredPause.mockImplementation(function (this: HTMLMediaElement) {
+      Object.defineProperty(this, "paused", {
+        configurable: true,
+        value: true,
+      });
+    });
+    await user.click(screen.getByRole("button", { name: "返回内容流" }));
+    const restoredVideo = (await screen.findAllByTestId(
+      "feed-video",
+    ))[0] as HTMLVideoElement;
+
+    await waitFor(() => {
+      expect(Math.abs(restoredVideo.currentTime - 2.5)).toBeLessThanOrEqual(
+        0.25,
+      );
+      expect(restoredPause.mock.contexts).toContain(restoredVideo);
+    });
+    const lastActivePlay = Math.max(
+      ...restoredPlay.mock.invocationCallOrder.filter(
+        (_, index) => restoredPlay.mock.contexts[index] === restoredVideo,
+      ),
+    );
+    const lastActivePause = Math.max(
+      ...restoredPause.mock.invocationCallOrder.filter(
+        (_, index) => restoredPause.mock.contexts[index] === restoredVideo,
+      ),
+    );
+    expect(lastActivePause).toBeGreaterThan(lastActivePlay);
+    await waitFor(() => expect(restoredVideo.paused).toBe(true));
+    expect(restoredVideo.muted).toBe(true);
   });
 
   it("captures and pauses media when AI opens, then safely restores it on close", async () => {

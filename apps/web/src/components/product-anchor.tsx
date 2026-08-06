@@ -1,24 +1,28 @@
 import type { components } from "@shopping-guide/contracts/src/api";
 import Image from "next/image";
+import type { Ref } from "react";
 
 type ProductSummary = components["schemas"]["CatalogProductSummary"];
 
 interface ProductAnchorProps {
   product: ProductSummary;
-  priceFresh: boolean;
+  startingPriceUsd: number | null;
+  entryButtonRef?: Ref<HTMLButtonElement>;
   onOpenProduct: (productId: string) => void;
   onAskAi: () => void;
 }
 
 export function ProductAnchor({
   product,
-  priceFresh,
+  startingPriceUsd,
+  entryButtonRef,
   onOpenProduct,
   onAskAi,
 }: ProductAnchorProps) {
   return (
     <section className="productAnchor" role="group" aria-label="可购物商品">
       <button
+        ref={entryButtonRef}
         className="productEntryButton"
         type="button"
         style={{ minHeight: 44 }}
@@ -31,7 +35,9 @@ export function ProductAnchor({
         <span className="productAnchorCopy">
           <strong className="productAnchorName">{product.name}</strong>
           <small>
-            {priceFresh ? `$${product.starting_price_usd.toFixed(2)} 起` : "价格待核实"}
+            {startingPriceUsd === null
+              ? "价格待核实"
+              : `$${startingPriceUsd.toFixed(2)} 起`}
             <span aria-hidden="true"> · </span>
             合成商品
           </small>
