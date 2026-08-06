@@ -62,19 +62,16 @@ function hasAction(turn: GuideTurn, action: GuideAction) {
 function isTerminalSessionError(error: unknown) {
   return (
     error instanceof ApiError &&
-    (error.status === 404 ||
-      error.code === "SESSION_NOT_FOUND" ||
-      error.code === "INVALID_API_RESPONSE")
+    (error.status === 404 || error.code === "SESSION_NOT_FOUND")
   );
 }
 
-function isCompareOutcomeUnknown(error: unknown) {
-  return (
-    !(error instanceof ApiError) ||
-    error.status >= 500 ||
-    error.status === 408 ||
-    error.code === "INVALID_API_RESPONSE"
-  );
+function isInvalidApiResponse(error: unknown) {
+  return error instanceof ApiError && error.code === "INVALID_API_RESPONSE";
+}
+
+function isDefinitiveCompareInputRejection(error: unknown) {
+  return error instanceof ApiError && error.status === 422;
 }
 
 function isMissingGuideSessionError(error: unknown) {
@@ -750,7 +747,7 @@ export function GuideSheet({
             }
             return;
           }
-          if (!isCompareOutcomeUnknown(error)) {
+          if (isDefinitiveCompareInputRejection(error)) {
             if (
               syncExpectationRef.current?.kind === "comparison" &&
               syncExpectationRef.current.sessionId === sessionId
@@ -914,11 +911,16 @@ export function GuideSheet({
           isOpenRef.current &&
           requestVersionRef.current === requestVersion
         ) {
-          if (isTerminalSessionError(error)) {
+          if (
+            isTerminalSessionError(error) ||
+            isInvalidApiResponse(error)
+          ) {
             enterTerminalState(
               "无法建立有效的导购会话，请关闭后重新打开。",
             );
           } else {
+            verifiedTurnRef.current = currentTurn;
+            sessionIdRef.current = currentTurn.session_id;
             freezeGuide(false);
             setTransientError("新会话暂时无法建立，请稍后重试恢复。");
           }

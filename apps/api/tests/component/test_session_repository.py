@@ -78,6 +78,51 @@ def test_trace_write_failure_does_not_publish_in_memory_event(
     assert not trace_path.exists()
 
 
+def test_transaction_failure_restores_session_events_and_absent_trace(tmp_path) -> None:
+    trace_path = tmp_path / "trace.jsonl"
+    repository = SessionRepository(trace_path=trace_path)
+    session = repository.create(EntryPoint.CONTENT, "morning-routine-uv-001", None)
+    before_session = session.model_dump_json()
+
+    with (
+        pytest.raises(RuntimeError, match="injected transaction failure"),
+        repository.transaction(),
+    ):
+        session.state = WorkflowState.UNDERSTAND
+        session.guide_revision += 1
+        repository.save(session)
+        repository.append_event(
+            session,
+            event_type="state_transition",
+            state=WorkflowState.UNDERSTAND,
+            payload={"from": "ENTRY_INGEST", "to": "UNDERSTAND"},
+        )
+        raise RuntimeError("injected transaction failure")
+
+    assert repository.get(session.id).model_dump_json() == before_session
+    assert repository.events_for_trace(session.trace_id) == ()
+    assert not trace_path.exists()
+
+
+def test_nested_transaction_is_reentrant_without_an_inner_savepoint(tmp_path) -> None:
+    repository = SessionRepository(trace_path=tmp_path / "trace.jsonl")
+    session = repository.create(EntryPoint.CONTENT, "morning-routine-uv-001", None)
+
+    with repository.transaction():
+        session.state = WorkflowState.UNDERSTAND
+        repository.save(session)
+        try:
+            with repository.transaction():
+                session.state = WorkflowState.CLARIFY
+                repository.save(session)
+                raise RuntimeError("caught by outer operation")
+        except RuntimeError:
+            pass
+        assert repository.get(session.id).state is WorkflowState.CLARIFY
+
+    assert repository.get(session.id).state is WorkflowState.CLARIFY
+
+
 @pytest.mark.parametrize(
     "payload",
     [

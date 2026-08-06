@@ -1,5 +1,6 @@
 import json
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from pathlib import Path
 from threading import Event
 
@@ -333,6 +334,72 @@ def test_returned_turn_cannot_mutate_stored_verified_snapshot(tmp_path) -> None:
     assert service.get(turn.session_id).text == verified_text
 
 
+def test_message_tool_failure_restores_repository_and_authoritative_snapshot(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    engine, _, sessions = build_services(tmp_path)
+    service = GuideService(engine, sessions)
+    opening = service.create(
+        CreateGuideSessionRequest(
+            entry_point=EntryPoint.CONTENT,
+            content_context_id="morning-routine-uv-001",
+            locale="zh-CN",
+        )
+    )
+    unrelated = service.create(
+        CreateGuideSessionRequest(
+            entry_point=EntryPoint.CONTENT,
+            content_context_id="morning-routine-uv-001",
+            locale="en-US",
+        )
+    )
+    session_ids = (opening.session_id, unrelated.session_id)
+    before_sessions = {
+        session_id: sessions.get(session_id).model_dump_json()
+        for session_id in session_ids
+    }
+    before_events = [event.model_dump_json() for event in sessions._events]
+    trace_path = tmp_path / "trace.jsonl"
+    before_trace_exists = trace_path.exists()
+    before_trace = trace_path.read_bytes()
+    before_trace_length = trace_path.stat().st_size
+    before_snapshot = service.get(opening.session_id)
+    original_handle_message = engine.handle_message
+
+    def mutate_then_fail_a_tool(session, request):
+        original_handle_message(session, request)
+        assert session.state != before_snapshot.state
+        assert session.guide_revision > before_snapshot.guide_revision
+        assert session.hard_constraints.max_price_usd == 30
+        assert session.soft_preferences.finish == "natural"
+        assert session.recommended_product_ids
+        assert len(sessions._events) > len(before_events)
+        assert trace_path.stat().st_size > before_trace_length
+        return engine.tools.get_product("missing-product-after-engine-mutation")
+
+    monkeypatch.setattr(engine, "handle_message", mutate_then_fail_a_tool)
+
+    with pytest.raises(KeyError, match="missing-product-after-engine-mutation"):
+        service.message(
+            opening.session_id,
+            GuideMessageRequest(
+                message_id="rollback_after_mutation",
+                text="预算30美元以内、无香精、自然妆效",
+            ),
+        )
+
+    assert {
+        session_id: sessions.get(session_id).model_dump_json()
+        for session_id in session_ids
+    } == before_sessions
+    assert [event.model_dump_json() for event in sessions._events] == before_events
+    assert trace_path.exists() is before_trace_exists
+    assert trace_path.stat().st_size == before_trace_length
+    assert trace_path.read_bytes() == before_trace
+    assert service.get(opening.session_id) == before_snapshot
+
+
 @pytest.mark.parametrize(
     "terminal_view",
     [
@@ -441,15 +508,29 @@ def test_compare_terminal_snapshot_cannot_be_overwritten_by_concurrent_message(
 
     entered_message_engine = Event()
     release_message_engine = Event()
-    compare_finished = Event()
+    compare_started = Event()
+    compare_lock_attempted = Event()
+    compare_lock_acquired = Event()
     original_handle_message = engine.handle_message
+    original_transaction = sessions.transaction
 
     def paused_handle_message(session, request):
         entered_message_engine.set()
-        assert release_message_engine.wait(timeout=2)
+        assert release_message_engine.wait(timeout=5)
         return original_handle_message(session, request)
 
+    @contextmanager
+    def observed_transaction():
+        is_compare_attempt = entered_message_engine.is_set()
+        if is_compare_attempt:
+            compare_lock_attempted.set()
+        with original_transaction():
+            if is_compare_attempt:
+                compare_lock_acquired.set()
+            yield
+
     monkeypatch.setattr(engine, "handle_message", paused_handle_message)
+    monkeypatch.setattr(sessions, "transaction", observed_transaction)
 
     with ThreadPoolExecutor(max_workers=2) as executor:
         message_future = executor.submit(
@@ -460,31 +541,129 @@ def test_compare_terminal_snapshot_cannot_be_overwritten_by_concurrent_message(
                 text="继续按这些条件推荐",
             ),
         )
-        assert entered_message_engine.wait(timeout=2)
+        assert entered_message_engine.wait(timeout=5)
 
         def run_compare():
-            try:
-                return cart.compare(
-                    opening.session_id,
-                    CompareRequest(product_ids=product_ids),
-                )
-            finally:
-                compare_finished.set()
+            compare_started.set()
+            return cart.compare(
+                opening.session_id,
+                CompareRequest(product_ids=product_ids),
+            )
 
         compare_future = executor.submit(run_compare)
-        compare_finished_before_release = compare_finished.wait(timeout=0.1)
+        assert compare_started.wait(timeout=5)
+        assert compare_lock_attempted.wait(timeout=5)
+        assert not compare_lock_acquired.is_set()
         release_message_engine.set()
-        message_future.result(timeout=2)
-        compare_future.result(timeout=2)
+        message_future.result(timeout=5)
+        compare_future.result(timeout=5)
 
     final_snapshot = sessions.get_snapshot(opening.session_id)
     final_events = sessions.events_for_trace(final_snapshot.trace_id)
-    assert compare_finished_before_release is False
+    assert compare_lock_acquired.is_set()
     assert final_snapshot.state == "COMPARE"
     assert final_snapshot.guide_view_kind == "COMPARISON_READY"
     assert final_snapshot.comparison is not None
     assert final_snapshot.comparison.product_ids == product_ids
     assert final_events[-1].event_type == "comparison_presented"
+
+
+def test_concurrent_message_waits_for_compare_then_rejects_terminal_snapshot(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    engine, cart, sessions = build_services(tmp_path)
+    service = GuideService(engine, sessions)
+    opening = service.create(
+        CreateGuideSessionRequest(
+            entry_point=EntryPoint.CONTENT,
+            content_context_id="morning-routine-uv-001",
+            locale="zh-CN",
+        )
+    )
+    decision = service.message(
+        opening.session_id,
+        GuideMessageRequest(
+            message_id="reverse_concurrent_setup",
+            text="预算30美元以内、无香精、自然妆效",
+        ),
+    )
+    product_ids = [item.product_id for item in decision.recommendations[:2]]
+    assert len(product_ids) == 2
+    before_event_count = len(sessions._events)
+
+    compare_holds_transaction = Event()
+    release_compare = Event()
+    message_lock_attempted = Event()
+    message_lock_acquired = Event()
+    events_when_message_acquired: list[list[str]] = []
+    trace_when_message_acquired: list[bytes] = []
+    trace_path = tmp_path / "trace.jsonl"
+    repository_type = type(cart.fixtures)
+    original_get_product = repository_type.get_product
+    original_transaction = sessions.transaction
+    first_product_lookup = True
+
+    def paused_get_product(repository, product_id: str):
+        nonlocal first_product_lookup
+        if first_product_lookup:
+            first_product_lookup = False
+            compare_holds_transaction.set()
+            assert release_compare.wait(timeout=5)
+        return original_get_product(repository, product_id)
+
+    @contextmanager
+    def observed_transaction():
+        is_message_attempt = compare_holds_transaction.is_set()
+        if is_message_attempt:
+            message_lock_attempted.set()
+        with original_transaction():
+            if is_message_attempt:
+                message_lock_acquired.set()
+                events_when_message_acquired.append(
+                    [event.model_dump_json() for event in sessions._events]
+                )
+                trace_when_message_acquired.append(trace_path.read_bytes())
+            yield
+
+    monkeypatch.setattr(repository_type, "get_product", paused_get_product)
+    monkeypatch.setattr(sessions, "transaction", observed_transaction)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        compare_future = executor.submit(
+            cart.compare,
+            opening.session_id,
+            CompareRequest(product_ids=product_ids),
+        )
+        assert compare_holds_transaction.wait(timeout=5)
+        message_future = executor.submit(
+            service.message,
+            opening.session_id,
+            GuideMessageRequest(
+                message_id="reverse_concurrent_message",
+                text="改成哑光妆效",
+            ),
+        )
+        assert message_lock_attempted.wait(timeout=5)
+        assert not message_lock_acquired.is_set()
+        release_compare.set()
+        compare_future.result(timeout=5)
+        with pytest.raises(GuideConflict) as exc_info:
+            message_future.result(timeout=5)
+
+    assert exc_info.value.code == "ACTION_NOT_ALLOWED"
+    assert message_lock_acquired.is_set()
+    final_snapshot = sessions.get_snapshot(opening.session_id)
+    assert final_snapshot.state == "COMPARE"
+    assert final_snapshot.guide_view_kind is GuideViewKind.COMPARISON_READY
+    assert final_snapshot.comparison is not None
+    assert final_snapshot.comparison.product_ids == product_ids
+    assert len(sessions._events) == before_event_count + 1
+    assert sessions._events[-1].event_type == "comparison_presented"
+    assert [event.model_dump_json() for event in sessions._events] == (
+        events_when_message_acquired[0]
+    )
+    assert trace_path.read_bytes() == trace_when_message_acquired[0]
 
 
 @pytest.mark.parametrize(

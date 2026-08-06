@@ -370,6 +370,21 @@ it("opens with inherited creator/product context, three Chinese starting questio
   expect(document.body).not.toHaveTextContent("seoul-shade-30");
 });
 
+it("enters a clear fatal state when the initial Guide response is invalid", async () => {
+  api.createGuideSession.mockRejectedValueOnce(
+    new ApiError(200, "INVALID_API_RESPONSE"),
+  );
+
+  render(<GuideSheet open onClose={vi.fn()} />);
+
+  expect(
+    await screen.findByRole("heading", { name: "导购暂时不可用" }),
+  ).toBeVisible();
+  expect(screen.getByText("导购暂时不可用，请返回 Feed 后重新打开。")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "重新同步" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "关闭 AI 导购" })).toBeEnabled();
+});
+
 it("reveals exactly one fixed clarification with four choices and sends skip explicitly", async () => {
   const user = userEvent.setup();
   render(<GuideSheet open onClose={vi.fn()} />);
@@ -715,10 +730,11 @@ it("renders a three-product comparison in the selected order", async () => {
   ]);
 });
 
-it("recovers a lost comparison POST response through GET without issuing a second compare", async () => {
-  api.compareProducts.mockRejectedValueOnce(
-    new ApiError(503, "UNKNOWN_POST_RESULT"),
-  );
+it.each([
+  new ApiError(503, "UNKNOWN_POST_RESULT"),
+  new ApiError(200, "INVALID_API_RESPONSE"),
+])("recovers an unknown comparison POST outcome through GET without issuing a second compare: %s", async (postError) => {
+  api.compareProducts.mockRejectedValueOnce(postError);
   api.getGuideSession.mockResolvedValueOnce(comparisonReadyTurn);
   const user = await reachRecommendations();
   await selectFirstTwoCandidates(user);
@@ -728,6 +744,85 @@ it("recovers a lost comparison POST response through GET without issuing a secon
   expect(api.compareProducts).toHaveBeenCalledOnce();
   expect(api.getGuideSession).toHaveBeenCalledOnce();
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
+it.each([
+  "ACTION_NOT_ALLOWED",
+  "PRODUCT_NOT_RECOMMENDED",
+  "STALE_GUIDE_REVISION",
+])("reconciles comparison conflict %s against the authoritative Guide snapshot", async (code) => {
+  api.compareProducts.mockRejectedValueOnce(new ApiError(409, code));
+  api.getGuideSession.mockResolvedValueOnce(comparisonReadyTurn);
+  const user = await reachRecommendations();
+  await selectFirstTwoCandidates(user);
+  await user.click(screen.getByRole("button", { name: "比较已选 2 款" }));
+
+  expect(await screen.findByRole("table", { name: "商品对比" })).toBeVisible();
+  expect(api.compareProducts).toHaveBeenCalledOnce();
+  expect(api.getGuideSession).toHaveBeenCalledWith("ses_guide_1");
+  expect(screen.queryByText("比较请求未被服务端接受")).not.toBeInTheDocument();
+});
+
+it("keeps the previous decision frozen when comparison conflict reconciliation is retryable", async () => {
+  api.compareProducts.mockRejectedValueOnce(
+    new ApiError(409, "ACTION_NOT_ALLOWED"),
+  );
+  api.getGuideSession
+    .mockRejectedValueOnce(new ApiError(503, "TEMPORARY_UNAVAILABLE"))
+    .mockResolvedValueOnce(comparisonReadyTurn);
+  const user = await reachRecommendations();
+  await selectFirstTwoCandidates(user);
+  await user.click(screen.getByRole("button", { name: "比较已选 2 款" }));
+
+  expect(
+    await screen.findByRole("heading", { name: "服务端状态尚未同步" }),
+  ).toBeVisible();
+  expect(screen.getByRole("heading", { name: "适合" })).toBeVisible();
+  expect(
+    screen.getByRole("checkbox", { name: "比较 Seoul Shade Daily Fluid" }),
+  ).toBeDisabled();
+  expect(screen.getAllByRole("button", { name: "查看商品" })[0]).toBeDisabled();
+
+  await user.click(screen.getByRole("button", { name: "重新同步" }));
+  expect(await screen.findByRole("table", { name: "商品对比" })).toBeVisible();
+  expect(api.compareProducts).toHaveBeenCalledOnce();
+  expect(api.getGuideSession).toHaveBeenCalledTimes(2);
+});
+
+it("clears the previous decision when comparison conflict reconciliation proves the session is gone", async () => {
+  api.compareProducts.mockRejectedValueOnce(
+    new ApiError(409, "PRODUCT_NOT_RECOMMENDED"),
+  );
+  api.getGuideSession.mockRejectedValueOnce(
+    new ApiError(404, "SESSION_NOT_FOUND"),
+  );
+  const user = await reachRecommendations();
+  await selectFirstTwoCandidates(user);
+  await user.click(screen.getByRole("button", { name: "比较已选 2 款" }));
+
+  expect(
+    await screen.findByRole("heading", { name: "导购暂时不可用" }),
+  ).toBeVisible();
+  expect(screen.queryByRole("heading", { name: "适合" })).not.toBeInTheDocument();
+  expect(api.getGuideSession).toHaveBeenCalledOnce();
+});
+
+it("locally unlocks the previous decision when comparison input validation rejects before execution", async () => {
+  api.compareProducts.mockRejectedValueOnce(
+    new ApiError(422, "VALIDATION_ERROR"),
+  );
+  const user = await reachRecommendations();
+  await selectFirstTwoCandidates(user);
+  await user.click(screen.getByRole("button", { name: "比较已选 2 款" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "比较请求未被服务端接受",
+  );
+  expect(screen.getByRole("heading", { name: "适合" })).toBeVisible();
+  expect(
+    screen.getByRole("checkbox", { name: "比较 Seoul Shade Daily Fluid" }),
+  ).toBeEnabled();
+  expect(api.getGuideSession).not.toHaveBeenCalled();
 });
 
 it("clears the previous decision when comparison POST proves the session is gone", async () => {
@@ -778,10 +873,8 @@ it("keeps the last decision read-only after comparison reconciliation fails and 
   expect(api.compareProducts).toHaveBeenCalledOnce();
 });
 
-it.each([
-  new ApiError(404, "SESSION_NOT_FOUND"),
-  new ApiError(200, "INVALID_API_RESPONSE"),
-])("clears the previous decision when comparison reconciliation ends terminally: %s", async (error) => {
+it("clears the previous decision when comparison reconciliation proves the session is gone", async () => {
+  const error = new ApiError(404, "SESSION_NOT_FOUND");
   api.getGuideSession.mockRejectedValueOnce(error);
   const user = await reachRecommendations();
   await selectFirstTwoCandidates(user);
@@ -793,6 +886,26 @@ it.each([
   expect(screen.queryByRole("heading", { name: "适合" })).not.toBeInTheDocument();
   expect(screen.queryByRole("table", { name: "商品对比" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "查看商品" })).not.toBeInTheDocument();
+});
+
+it("keeps a verified decision frozen after an invalid comparison GET and accepts the next authoritative GET", async () => {
+  api.getGuideSession
+    .mockRejectedValueOnce(new ApiError(200, "INVALID_API_RESPONSE"))
+    .mockResolvedValueOnce(comparisonReadyTurn);
+  const user = await reachRecommendations();
+  await selectFirstTwoCandidates(user);
+  await user.click(screen.getByRole("button", { name: "比较已选 2 款" }));
+
+  expect(
+    await screen.findByRole("heading", { name: "服务端状态尚未同步" }),
+  ).toBeVisible();
+  expect(screen.getByRole("heading", { name: "适合" })).toBeVisible();
+  expect(screen.getAllByRole("button", { name: "查看商品" })[0]).toBeDisabled();
+  await user.click(screen.getByRole("button", { name: "重新同步" }));
+
+  expect(await screen.findByRole("table", { name: "商品对比" })).toBeVisible();
+  expect(api.compareProducts).toHaveBeenCalledOnce();
+  expect(api.getGuideSession).toHaveBeenCalledTimes(2);
 });
 
 it.each([
@@ -902,6 +1015,67 @@ it("shows the last usable decision read-only in RECOVERY_REQUIRED and starts a s
   expect(api.getGuideSession).not.toHaveBeenCalled();
 });
 
+it("enters a clear fatal state when recovery creates an invalid new Guide session", async () => {
+  const user = await reachRecommendations();
+  api.sendGuideMessage.mockResolvedValueOnce(
+    turnFor("RECOVERY_REQUIRED", {
+      guide_revision: 3,
+      text: "当前会话需要恢复",
+      recommendations: [],
+      evidence: [],
+    }),
+  );
+  await user.type(screen.getByLabelText("补充你的条件"), "继续核验");
+  await user.click(screen.getByRole("button", { name: "发送" }));
+  await screen.findByRole("button", { name: "重试恢复" });
+  api.createGuideSession.mockRejectedValueOnce(
+    new ApiError(200, "INVALID_API_RESPONSE"),
+  );
+
+  await user.click(screen.getByRole("button", { name: "重试恢复" }));
+
+  expect(
+    await screen.findByRole("heading", { name: "导购暂时不可用" }),
+  ).toBeVisible();
+  expect(screen.queryByRole("button", { name: "重试恢复" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "关闭 AI 导购" })).toBeEnabled();
+});
+
+it("keeps recovery retry actionable after a temporary new-session failure", async () => {
+  const user = await reachRecommendations();
+  api.sendGuideMessage.mockResolvedValueOnce(
+    turnFor("RECOVERY_REQUIRED", {
+      guide_revision: 3,
+      text: "当前会话需要恢复",
+      recommendations: [],
+      evidence: [],
+    }),
+  );
+  await user.type(screen.getByLabelText("补充你的条件"), "继续核验");
+  await user.click(screen.getByRole("button", { name: "发送" }));
+  await screen.findByRole("button", { name: "重试恢复" });
+  api.createGuideSession
+    .mockRejectedValueOnce(new ApiError(503, "TEMPORARY_UNAVAILABLE"))
+    .mockResolvedValueOnce(
+      turnFor("DECISION_READY", {
+        session_id: "ses_guide_recovered_after_retry",
+        guide_revision: 1,
+        text: "第二次恢复已建立有效会话",
+      }),
+    );
+
+  await user.click(screen.getByRole("button", { name: "重试恢复" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "新会话暂时无法建立",
+  );
+  const retry = screen.getByRole("button", { name: "重试恢复" });
+  expect(retry).toBeEnabled();
+  await user.click(retry);
+
+  expect(await screen.findByText("第二次恢复已建立有效会话")).toBeVisible();
+  expect(api.createGuideSession).toHaveBeenCalledTimes(3);
+});
+
 it("excludes links inside closed evidence details from the focus trap while keeping summaries", async () => {
   const insufficientContext = {
     ...context,
@@ -928,10 +1102,8 @@ it("excludes links inside closed evidence details from the focus trap while keep
   expect(screen.getByRole("button", { name: "关闭 AI 导购" })).toHaveFocus();
 });
 
-it.each([
-  new ApiError(404, "SESSION_NOT_FOUND"),
-  new ApiError(200, "INVALID_API_RESPONSE"),
-])("clears the active turn after terminal reconciliation error %s", async (error) => {
+it("clears the active turn when message reconciliation proves the session is gone", async () => {
+  const error = new ApiError(404, "SESSION_NOT_FOUND");
   const user = await reachRecommendations();
   api.sendGuideMessage.mockRejectedValueOnce(
     new ApiError(503, "UNKNOWN_POST_RESULT"),
@@ -944,6 +1116,34 @@ it.each([
   expect(screen.queryByRole("heading", { name: "适合" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "查看商品" })).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "关闭 AI 导购" })).toBeEnabled();
+});
+
+it("keeps a verified turn frozen after an invalid message reconciliation GET and accepts the next valid GET", async () => {
+  const user = await reachRecommendations();
+  api.sendGuideMessage.mockRejectedValueOnce(
+    new ApiError(503, "UNKNOWN_POST_RESULT"),
+  );
+  api.getGuideSession
+    .mockRejectedValueOnce(new ApiError(200, "INVALID_API_RESPONSE"))
+    .mockResolvedValueOnce(
+      turnFor("DECISION_READY", {
+        guide_revision: 3,
+        text: "重新同步后已确认的最新结果",
+      }),
+    );
+  await user.type(screen.getByLabelText("补充你的条件"), "更新条件");
+  await user.click(screen.getByRole("button", { name: "发送" }));
+
+  expect(
+    await screen.findByRole("heading", { name: "服务端状态尚未同步" }),
+  ).toBeVisible();
+  expect(screen.getByRole("heading", { name: "适合" })).toBeVisible();
+  expect(screen.getAllByRole("button", { name: "查看商品" })[0]).toBeDisabled();
+  await user.click(screen.getByRole("button", { name: "重新同步" }));
+
+  expect(await screen.findByText("重新同步后已确认的最新结果")).toBeVisible();
+  expect(screen.getAllByRole("button", { name: "查看商品" })[0]).toBeEnabled();
+  expect(api.getGuideSession).toHaveBeenCalledTimes(2);
 });
 
 describe("sheet lifecycle and snapshot continuity", () => {
@@ -1128,10 +1328,45 @@ describe("sheet lifecycle and snapshot continuity", () => {
     expect(api.getGuideSession).toHaveBeenCalledTimes(2);
   });
 
-  it("clears a closed comparison expectation when the pending POST is definitively rejected", async () => {
+  it("clears a closed comparison expectation when input validation rejects before execution", async () => {
     const pendingComparison = deferred<CompareResponse>();
     api.compareProducts.mockReturnValueOnce(pendingComparison.promise);
     api.getGuideSession.mockResolvedValueOnce(recommendationTurn);
+    const user = userEvent.setup();
+    render(<OpenHarness />);
+
+    await user.click(screen.getByRole("button", { name: "问 AI" }));
+    await screen.findByRole("button", { name: "帮我找更合适的替代" });
+    await user.click(
+      screen.getByRole("button", { name: "帮我找更合适的替代" }),
+    );
+    await screen.findByRole("heading", { name: "适合" });
+    await selectFirstTwoCandidates(user);
+    await user.click(screen.getByRole("button", { name: "比较已选 2 款" }));
+    await user.click(screen.getByRole("button", { name: "关闭 AI 导购" }));
+
+    await act(async () =>
+      pendingComparison.reject(new ApiError(422, "VALIDATION_ERROR")),
+    );
+    await user.click(screen.getByRole("button", { name: "问 AI" }));
+
+    await screen.findByRole("heading", { name: "适合" });
+    expect(
+      screen.queryByRole("heading", { name: "服务端状态尚未同步" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: "比较 Seoul Shade Daily Fluid" }),
+    ).toBeEnabled();
+    expect(api.compareProducts).toHaveBeenCalledOnce();
+    expect(api.getGuideSession).toHaveBeenCalledOnce();
+  });
+
+  it("preserves a closed comparison expectation after a 409 conflict and requires an authoritative GET", async () => {
+    const pendingComparison = deferred<CompareResponse>();
+    api.compareProducts.mockReturnValueOnce(pendingComparison.promise);
+    api.getGuideSession
+      .mockResolvedValueOnce(recommendationTurn)
+      .mockResolvedValueOnce(comparisonReadyTurn);
     const user = userEvent.setup();
     render(<OpenHarness />);
 
@@ -1150,15 +1385,18 @@ describe("sheet lifecycle and snapshot continuity", () => {
     );
     await user.click(screen.getByRole("button", { name: "问 AI" }));
 
-    await screen.findByRole("heading", { name: "适合" });
     expect(
-      screen.queryByRole("heading", { name: "服务端状态尚未同步" }),
-    ).not.toBeInTheDocument();
+      await screen.findByRole("heading", { name: "服务端状态尚未同步" }),
+    ).toBeVisible();
+    expect(screen.getByRole("heading", { name: "适合" })).toBeVisible();
     expect(
       screen.getByRole("checkbox", { name: "比较 Seoul Shade Daily Fluid" }),
-    ).toBeEnabled();
+    ).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "重新同步" }));
+
+    expect(await screen.findByRole("table", { name: "商品对比" })).toBeVisible();
     expect(api.compareProducts).toHaveBeenCalledOnce();
-    expect(api.getGuideSession).toHaveBeenCalledOnce();
+    expect(api.getGuideSession).toHaveBeenCalledTimes(2);
   });
 
   it("preserves a failed comparison GET retry across close/reopen and rejects a stale decision snapshot", async () => {
@@ -1201,12 +1439,10 @@ describe("sheet lifecycle and snapshot continuity", () => {
     expect(api.getGuideSession).toHaveBeenCalledTimes(4);
   });
 
-  it.each([
-    new ApiError(404, "SESSION_NOT_FOUND"),
-    new ApiError(200, "INVALID_API_RESPONSE"),
-  ])(
-    "clears a comparison expectation when reopen reconciliation is terminal: %s",
-    async (error) => {
+  it(
+    "clears a comparison expectation when reopen reconciliation proves the session is gone",
+    async () => {
+      const error = new ApiError(404, "SESSION_NOT_FOUND");
       api.getGuideSession
         .mockRejectedValueOnce(new ApiError(503, "TEMPORARY_UNAVAILABLE"))
         .mockRejectedValueOnce(error);
@@ -1233,6 +1469,38 @@ describe("sheet lifecycle and snapshot continuity", () => {
       expect(api.compareProducts).toHaveBeenCalledOnce();
     },
   );
+
+  it("keeps a comparison expectation frozen when reopen GET is invalid, then accepts a valid retry", async () => {
+    api.getGuideSession
+      .mockRejectedValueOnce(new ApiError(503, "TEMPORARY_UNAVAILABLE"))
+      .mockRejectedValueOnce(new ApiError(200, "INVALID_API_RESPONSE"))
+      .mockResolvedValueOnce(comparisonReadyTurn);
+    const user = userEvent.setup();
+    render(<OpenHarness />);
+
+    await user.click(screen.getByRole("button", { name: "问 AI" }));
+    await screen.findByRole("button", { name: "帮我找更合适的替代" });
+    await user.click(
+      screen.getByRole("button", { name: "帮我找更合适的替代" }),
+    );
+    await screen.findByRole("heading", { name: "适合" });
+    await selectFirstTwoCandidates(user);
+    await user.click(screen.getByRole("button", { name: "比较已选 2 款" }));
+    await screen.findByRole("heading", { name: "服务端状态尚未同步" });
+    await user.click(screen.getByRole("button", { name: "关闭 AI 导购" }));
+    await user.click(screen.getByRole("button", { name: "问 AI" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "服务端状态尚未同步" }),
+    ).toBeVisible();
+    expect(screen.getByRole("heading", { name: "适合" })).toBeVisible();
+    expect(screen.getAllByRole("button", { name: "查看商品" })[0]).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "重新同步" }));
+
+    expect(await screen.findByRole("table", { name: "商品对比" })).toBeVisible();
+    expect(api.compareProducts).toHaveBeenCalledOnce();
+    expect(api.getGuideSession).toHaveBeenCalledTimes(3);
+  });
 
   it("ignores an old message response after close/reopen", async () => {
     const user = userEvent.setup();
