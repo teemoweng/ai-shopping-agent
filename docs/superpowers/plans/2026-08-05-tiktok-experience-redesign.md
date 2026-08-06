@@ -271,6 +271,7 @@ class CommercePreviewRequest(BaseModel):
     product_id: str
     sku_id: str
     quantity: Annotated[int, Field(ge=1, le=5)] = 1
+    previous_operation_id: str | None = None
     expected_transaction_revision: Annotated[int, Field(ge=0)] = 0
     demo_scenario: Literal["NORMAL", "PRICE_CHANGED", "OUT_OF_STOCK"] = "NORMAL"
 
@@ -282,6 +283,8 @@ class CommerceAddRequest(BaseModel):
 ```
 
 `demo_scenario` is a disclosed deterministic test/demo control, never presented as a production API feature. The desktop interview layer may link to scenario URLs; the phone UI only shows the resulting business state.
+
+`previous_operation_id` is forbidden on an initial preview and required on every follow-up preview whose `expected_transaction_revision > 0`. This exact operation-chain compare-and-swap prevents one purchase attempt from advancing an unrelated attempt that happens to have the same revision number.
 
 - [ ] Write failing contract tests for purchase-origin cross-field validation: FEED forbids Guide provenance; AI requires both Guide session and source revision.
 - [ ] Write failing service tests with an injectable `Clock` for a direct Feed preview, valid AI provenance, stale Guide revision, five-minute expiry, single-use token, and SKU/product mismatch.
