@@ -8,6 +8,10 @@ from app.domain.contracts import (
     CartPreviewResponse,
     CompareRequest,
     CompareResponse,
+    GuideAction,
+    GuideStatus,
+    GuideTurnResponse,
+    GuideViewKind,
     WorkflowState,
 )
 from app.repositories.fixture_repository import FixtureRepository
@@ -32,6 +36,13 @@ class CartService:
     def compare(self, session_id: str, request: CompareRequest) -> CompareResponse:
         session = self.sessions.get(session_id)
         with self._transaction_lock:
+            current_snapshot = session.latest_response
+            if (
+                current_snapshot is None
+                or GuideAction.REQUEST_COMPARISON
+                not in current_snapshot.allowed_actions
+            ):
+                raise CartConflict("ACTION_NOT_ALLOWED")
             if not set(request.product_ids) <= set(
                 session.recommended_product_ids
             ):
@@ -41,23 +52,9 @@ class CartService:
                 self.fixtures.get_product(product_id)
                 for product_id in request.product_ids
             ]
-            previous_state = session.state
-            session.state = WorkflowState.COMPARE
-            self.sessions.save(session)
-            try:
-                self.sessions.append_event(
-                    session,
-                    "comparison_presented",
-                    session.state,
-                    {"product_ids": request.product_ids, "simulated": True},
-                )
-            except Exception:
-                session.state = previous_state
-                self.sessions.save(session)
-                raise
-            return CompareResponse(
+            response = CompareResponse(
                 session_id=session.id,
-                state=session.state,
+                state=WorkflowState.COMPARE,
                 product_ids=request.product_ids,
                 rows={
                     "starting_price_usd": [
@@ -77,6 +74,45 @@ class CartService:
                 },
                 simulated=True,
             )
+            snapshot_text = (
+                f"已生成 {len(request.product_ids)} 款商品的结构化比较。"
+                if current_snapshot.locale == "zh-CN"
+                else (
+                    "A structured comparison of "
+                    f"{len(request.product_ids)} products is ready."
+                )
+            )
+            comparison_snapshot = GuideTurnResponse.model_validate(
+                current_snapshot.model_dump(mode="python")
+                | {
+                    "state": WorkflowState.COMPARE,
+                    "text": snapshot_text,
+                    "guide_status": GuideStatus.ACTIVE,
+                    "guide_view_kind": GuideViewKind.COMPARISON_READY,
+                    "allowed_actions": [
+                        GuideAction.OPEN_PRODUCT,
+                        GuideAction.RETURN_TO_FEED,
+                    ],
+                    "comparison": response,
+                }
+            )
+            previous_state = session.state
+            previous_snapshot = current_snapshot.model_copy(deep=True)
+            session.state = WorkflowState.COMPARE
+            try:
+                self.sessions.save_snapshot(session, comparison_snapshot)
+                self.sessions.append_event(
+                    session,
+                    "comparison_presented",
+                    session.state,
+                    {"product_ids": request.product_ids, "simulated": True},
+                )
+            except Exception:
+                session.state = previous_state
+                session.latest_response = previous_snapshot
+                self.sessions.save(session)
+                raise
+            return response
 
     def preview(
         self,

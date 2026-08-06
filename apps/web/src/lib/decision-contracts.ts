@@ -181,6 +181,11 @@ const commerceStatusByView: Record<CommerceStep, CommerceOperationStatus> = {
   CANCELLED: "CANCELLED",
 };
 
+const canonicalCommerceActions = {
+  PDP_READY: ["PREVIEW_CART", "RETURN_TO_PRODUCT"],
+  FAILED: ["RETRY_COMMERCE_OPERATION", "RETURN_TO_PRODUCT"],
+} satisfies Partial<Record<CommerceStep, readonly CommerceAction[]>>;
+
 const guideViewKinds = new Set<GuideViewKind>(Object.keys(guideActionsByView) as GuideViewKind[]);
 const commerceSteps = new Set<CommerceStep>(Object.keys(commerceActionsByView) as CommerceStep[]);
 
@@ -225,6 +230,25 @@ export function validateGuideTurnResponse(value: unknown): GuideTurnResponse | n
 
   const allowedForView = guideActionsByView[value.guide_view_kind as GuideViewKind];
   if (!value.allowed_actions.every((action) => allowedForView.includes(action))) {
+    return null;
+  }
+  const isComparisonReady = value.guide_view_kind === "COMPARISON_READY";
+  if (isComparisonReady) {
+    if (
+      value.allowed_actions.length !== 2 ||
+      value.allowed_actions[0] !== "OPEN_PRODUCT" ||
+      value.allowed_actions[1] !== "RETURN_TO_FEED" ||
+      !isRecord(value.comparison) ||
+      !Array.isArray(value.comparison.product_ids) ||
+      validateComparisonResponse(
+        value.comparison,
+        value.session_id,
+        value.comparison.product_ids as string[],
+      ) === null
+    ) {
+      return null;
+    }
+  } else if (value.comparison !== undefined && value.comparison !== null) {
     return null;
   }
   return value as GuideTurnResponse;
@@ -292,10 +316,25 @@ export function validateCommerceOperationResponse(
     }
   }
 
+  const canonicalActions = canonicalCommerceActions[
+    step as keyof typeof canonicalCommerceActions
+  ];
+  if (
+    canonicalActions &&
+    (value.allowed_actions.length !== canonicalActions.length ||
+      !canonicalActions.every((action) =>
+        (value.allowed_actions as CommerceAction[]).includes(action),
+      ))
+  ) {
+    return null;
+  }
+
   if (
     step === "SUCCEEDED" &&
-    value.confirmation_token !== undefined &&
-    value.confirmation_token !== null
+    ((value.confirmation_token !== undefined &&
+      value.confirmation_token !== null) ||
+      (value.confirmation_expires_at !== undefined &&
+        value.confirmation_expires_at !== null))
   ) {
     return null;
   }
@@ -359,18 +398,20 @@ export function validateComparisonResponse(
     !isExactArray(
       waterResistance,
       columnCount,
-      (item): item is number | null =>
-        item === null || isFiniteNonNegativeNumber(item),
+      (item): item is 40 | 80 | null =>
+        item === null || item === 40 || item === 80,
     ) ||
     !isExactArray(
       finish,
       columnCount,
-      (item): item is string => typeof item === "string",
+      (item): item is "dewy" | "natural" | "matte" =>
+        item === "dewy" || item === "natural" || item === "matte",
     ) ||
     !isExactArray(
       whiteCastRisk,
       columnCount,
-      (item): item is string => typeof item === "string",
+      (item): item is "low" | "medium" | "high" =>
+        item === "low" || item === "medium" || item === "high",
     )
   ) {
     return null;

@@ -196,6 +196,7 @@ def test_guide_revision_changes_only_for_decision_inputs(tmp_path) -> None:
     assert repeated.guide_revision == first.guide_revision
     assert changed.guide_revision == first.guide_revision + 1
 
+    sessions.save_snapshot(session, changed)
     revision_before_decision_actions = session.guide_revision
     cart.compare(
         session.id,

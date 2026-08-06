@@ -704,10 +704,7 @@ export interface components {
         CompareResponse: {
             /** Product Ids */
             product_ids: string[];
-            /** Rows */
-            rows: {
-                [key: string]: (string | number | boolean | null)[];
-            };
+            rows: components["schemas"]["ComparisonRows"];
             /** Session Id */
             session_id: string;
             /**
@@ -715,7 +712,24 @@ export interface components {
              * @constant
              */
             simulated: true;
-            state: components["schemas"]["WorkflowState"];
+            /**
+             * State
+             * @constant
+             */
+            state: "COMPARE";
+        };
+        /** ComparisonRows */
+        ComparisonRows: {
+            /** Finish */
+            finish: ("dewy" | "natural" | "matte")[];
+            /** Fragrance Free */
+            fragrance_free: boolean[];
+            /** Starting Price Usd */
+            starting_price_usd: number[];
+            /** Water Resistance Minutes */
+            water_resistance_minutes: ((40 | 80) | null)[];
+            /** White Cast Risk */
+            white_cast_risk: ("low" | "medium" | "high")[];
         };
         /** ContentContextSummary */
         ContentContextSummary: {
@@ -814,6 +828,7 @@ export interface components {
         GuideTurnResponse: {
             /** Allowed Actions */
             allowed_actions: components["schemas"]["GuideAction"][];
+            comparison?: components["schemas"]["CompareResponse"] | null;
             context: components["schemas"]["ContentContextSummary"];
             /**
              * Degraded

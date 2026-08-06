@@ -164,6 +164,94 @@ def test_guide_view_kind_values_are_complete_and_stable() -> None:
     ]
 
 
+def comparison_ready_turn(**updates: object) -> dict[str, object]:
+    turn: dict[str, object] = {
+        "session_id": "ses_comparison",
+        "trace_id": "trc_comparison",
+        "locale": "zh-CN",
+        "state": "COMPARE",
+        "kind": "recommendation",
+        "text": "已生成 2 款商品的结构化比较。",
+        "context": {
+            "id": "morning-routine-uv-001",
+            "anchor_product_id": "seoul-shade-daily-fluid",
+            "anchor_product_name": "Seoul Shade Daily Fluid",
+            "creator_handle": "@synthetic_creator",
+            "caption": "Synthetic sunscreen demo",
+            "claims": [],
+        },
+        "guide_status": "ACTIVE",
+        "guide_view_kind": "COMPARISON_READY",
+        "guide_revision": 2,
+        "facts_snapshot_at": "2026-08-05T12:00:00Z",
+        "allowed_actions": ["OPEN_PRODUCT", "RETURN_TO_FEED"],
+        "recommendations": [],
+        "evidence": [],
+        "quick_replies": [],
+    }
+    turn.update(updates)
+    return turn
+
+
+@pytest.mark.parametrize(
+    "comparison",
+    [
+        None,
+        {
+            "session_id": "ses_comparison",
+            "state": "COMPARE",
+            "product_ids": [
+                "seoul-shade-daily-fluid",
+                "cloud-veil-mineral",
+            ],
+            "rows": {
+                "starting_price_usd": [14.0],
+                "fragrance_free": [True, True],
+                "water_resistance_minutes": [None, 40],
+                "finish": ["natural", "matte"],
+                "white_cast_risk": ["low", "medium"],
+            },
+            "simulated": True,
+        },
+    ],
+    ids=["missing", "row-count-mismatch"],
+)
+def test_comparison_ready_turn_rejects_missing_or_malformed_comparison(
+    comparison: object,
+) -> None:
+    payload = comparison_ready_turn()
+    if comparison is not None:
+        payload["comparison"] = comparison
+
+    with pytest.raises(ValidationError):
+        contracts.GuideTurnResponse.model_validate(payload)
+
+
+def test_comparison_ready_turn_requires_exact_terminal_actions() -> None:
+    with pytest.raises(ValidationError):
+        contracts.GuideTurnResponse.model_validate(
+            comparison_ready_turn(
+                allowed_actions=["OPEN_PRODUCT"],
+                comparison={
+                    "session_id": "ses_comparison",
+                    "state": "COMPARE",
+                    "product_ids": [
+                        "seoul-shade-daily-fluid",
+                        "cloud-veil-mineral",
+                    ],
+                    "rows": {
+                        "starting_price_usd": [14.0, 17.0],
+                        "fragrance_free": [True, True],
+                        "water_resistance_minutes": [None, 40],
+                        "finish": ["natural", "matte"],
+                        "white_cast_risk": ["low", "medium"],
+                    },
+                    "simulated": True,
+                },
+            )
+        )
+
+
 def test_feed_commerce_preview_forbids_guide_provenance() -> None:
     with pytest.raises(ValidationError):
         contracts.CommercePreviewRequest(

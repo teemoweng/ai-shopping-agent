@@ -40,6 +40,7 @@ export function RecommendationCard({
   role,
   evidence,
   comparisonEnabled,
+  disabled = false,
   selectedForCompare,
   compareDisabled = false,
   onCompareChange,
@@ -50,6 +51,7 @@ export function RecommendationCard({
   role: ProductRole;
   evidence: EvidenceReference[];
   comparisonEnabled: boolean;
+  disabled?: boolean;
   selectedForCompare: boolean;
   compareDisabled?: boolean;
   onCompareChange: (productId: string, selected: boolean) => void;
@@ -135,14 +137,19 @@ export function RecommendationCard({
           <label className="compareControl">
             <input
               type="checkbox"
+              name="comparison-products"
+              value={recommendation.product_id}
               checked={selectedForCompare}
-              disabled={compareDisabled}
-              onChange={(event) =>
+              disabled={disabled || compareDisabled}
+              onChange={(event) => {
+                if (disabled) {
+                  return;
+                }
                 onCompareChange(
                   recommendation.product_id,
                   event.target.checked,
-                )
-              }
+                );
+              }}
               aria-label={`比较 ${recommendation.name}`}
             />
             加入比较
@@ -152,7 +159,12 @@ export function RecommendationCard({
           <button
             type="button"
             className="openProductButton"
-            onClick={() => onOpenProduct(recommendation.product_id, role)}
+            disabled={disabled}
+            onClick={() => {
+              if (!disabled) {
+                onOpenProduct(recommendation.product_id, role);
+              }
+            }}
           >
             查看商品
           </button>

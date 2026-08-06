@@ -17,6 +17,7 @@ import type {
 import { ComparisonTable } from "@/components/comparison-table";
 import { RecommendationCard } from "@/components/recommendation-card";
 import {
+  ApiError,
   compareProducts,
   createGuideSession,
   getGuideSession,
@@ -56,6 +57,25 @@ export function claimStatusLabel(status: EvidenceStatus) {
 
 function hasAction(turn: GuideTurn, action: GuideAction) {
   return turn.allowed_actions.includes(action);
+}
+
+function isTerminalSessionError(error: unknown) {
+  return (
+    error instanceof ApiError &&
+    (error.status === 404 ||
+      error.code === "SESSION_NOT_FOUND" ||
+      error.code === "INVALID_API_RESPONSE")
+  );
+}
+
+function isUsableResult(turn: GuideTurn) {
+  return [
+    "DECISION_READY",
+    "NO_MATCH",
+    "INSUFFICIENT_EVIDENCE",
+    "COMPARISON_READY",
+    "SAFE_BOUNDARY",
+  ].includes(turn.guide_view_kind);
 }
 
 function safePublicSourceUrl(evidence: EvidenceReference) {
@@ -200,6 +220,10 @@ export function GuideSheet({
   const [comparison, setComparison] = useState<CompareResponse | null>(null);
   const [comparisonPending, setComparisonPending] = useState(false);
   const [comparisonError, setComparisonError] = useState<string | null>(null);
+  const [guideFrozen, setGuideFrozen] = useState(false);
+  const [syncRequired, setSyncRequired] = useState(false);
+  const [activeContextId, setActiveContextId] = useState(contentContextId);
+  const [lastUsableTurn, setLastUsableTurn] = useState<GuideTurn | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -212,6 +236,8 @@ export function GuideSheet({
   const requestVersionRef = useRef(0);
   const messageSequenceRef = useRef(0);
   const submittingRef = useRef(false);
+  const guideFrozenRef = useRef(false);
+  const syncRequiredRef = useRef(false);
   const comparisonPendingRef = useRef(false);
   const comparisonVersionRef = useRef(0);
   const lastContextIdRef = useRef(contentContextId);
@@ -225,9 +251,40 @@ export function GuideSheet({
     setComparisonError(null);
   }, []);
 
+  const freezeGuide = useCallback((frozen: boolean) => {
+    guideFrozenRef.current = frozen;
+    setGuideFrozen(frozen);
+  }, []);
+
+  const requireSync = useCallback((required: boolean) => {
+    syncRequiredRef.current = required;
+    setSyncRequired(required);
+  }, []);
+
+  const enterTerminalState = useCallback(
+    (message: string, terminalTurn?: GuideTurn) => {
+      verifiedTurnRef.current = null;
+      setLastUsableTurn(null);
+      sessionIdRef.current = null;
+      submittingRef.current = false;
+      requireSync(false);
+      freezeGuide(false);
+      resetComparison();
+      setTurn(terminalTurn ?? null);
+      setPendingLabel(null);
+      setTransientError(null);
+      setFatalError(terminalTurn ? null : message);
+    },
+    [freezeGuide, requireSync, resetComparison],
+  );
+
   const applyVerifiedTurn = useCallback(
     (nextTurn: GuideTurn, fromNewSession = false) => {
       const previous = verifiedTurnRef.current;
+      if (nextTurn.guide_view_kind === "FATAL_ERROR") {
+        enterTerminalState(nextTurn.text, nextTurn);
+        return;
+      }
       if (
         previous &&
         (previous.session_id !== nextTurn.session_id ||
@@ -235,11 +292,16 @@ export function GuideSheet({
       ) {
         resetComparison();
       }
+      if (isUsableResult(nextTurn)) {
+        setLastUsableTurn(nextTurn);
+      }
       verifiedTurnRef.current = nextTurn;
       sessionIdRef.current = nextTurn.session_id;
       comparisonPendingRef.current = false;
       setTurn(nextTurn);
       setComparisonPending(false);
+      freezeGuide(false);
+      requireSync(false);
       setFatalError(null);
       setTransientError(null);
       if (fromNewSession) {
@@ -250,7 +312,7 @@ export function GuideSheet({
         setShowStartingQuestions(false);
       }
     },
-    [resetComparison],
+    [enterTerminalState, freezeGuide, requireSync, resetComparison],
   );
 
   const saveScrollPosition = useCallback(() => {
@@ -265,8 +327,10 @@ export function GuideSheet({
     comparisonVersionRef.current += 1;
     submittingRef.current = false;
     comparisonPendingRef.current = false;
+    guideFrozenRef.current = true;
     setPendingLabel(null);
     setComparisonPending(false);
+    setGuideFrozen(true);
   }, []);
 
   const handleClose = useCallback(() => {
@@ -289,13 +353,22 @@ export function GuideSheet({
       return;
     }
     lastContextIdRef.current = contentContextId;
+    setActiveContextId(contentContextId);
     verifiedTurnRef.current = null;
+    setLastUsableTurn(null);
     sessionIdRef.current = null;
     setTurn(null);
     setShowStartingQuestions(true);
     setInput("");
+    openCycleRef.current = false;
+    requestVersionRef.current += 1;
+    submittingRef.current = false;
+    freezeGuide(false);
+    requireSync(false);
+    setTransientError(null);
+    setFatalError(null);
     resetComparison();
-  }, [contentContextId, resetComparison]);
+  }, [contentContextId, freezeGuide, requireSync, resetComparison]);
 
   useEffect(() => {
     if (!open) {
@@ -313,11 +386,13 @@ export function GuideSheet({
 
     openCycleRef.current = true;
     isOpenRef.current = true;
+    freezeGuide(true);
     setTransientError(null);
     setFatalError(null);
     const requestVersion = ++requestVersionRef.current;
     const existingSessionId = sessionIdRef.current;
     if (!verifiedTurnRef.current) {
+      setTurn(null);
       setPendingLabel("正在读取当前视频和商品…");
     } else {
       setPendingLabel("正在恢复上次已核验结果…");
@@ -336,18 +411,25 @@ export function GuideSheet({
           applyVerifiedTurn(nextTurn, !existingSessionId);
         }
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (
           mountedRef.current &&
           isOpenRef.current &&
           requestVersionRef.current === requestVersion
         ) {
-          if (verifiedTurnRef.current) {
+          if (isTerminalSessionError(error)) {
+            enterTerminalState(
+              "导购会话已失效，请关闭后重新打开以建立新会话。",
+            );
+          } else if (verifiedTurnRef.current) {
+            requireSync(true);
             setTransientError(
-              "暂时无法刷新，继续显示上次已核验结果。",
+              "尚未确认服务端最终状态；上次已核验结果仅供查看，请重新同步。",
             );
           } else {
-            setFatalError("导购暂时不可用，请返回 Feed 后重新打开。 ");
+            enterTerminalState(
+              "导购暂时不可用，请返回 Feed 后重新打开。",
+            );
           }
         }
       })
@@ -359,7 +441,14 @@ export function GuideSheet({
           setPendingLabel(null);
         }
       });
-  }, [applyVerifiedTurn, contentContextId, open]);
+  }, [
+    applyVerifiedTurn,
+    contentContextId,
+    enterTerminalState,
+    freezeGuide,
+    open,
+    requireSync,
+  ]);
 
   useEffect(() => {
     if (!open) {
@@ -402,44 +491,69 @@ export function GuideSheet({
     (rawText: string) => {
       const currentTurn = verifiedTurnRef.current;
       const text = rawText.trim();
-      if (!currentTurn || !text || submittingRef.current) {
+      if (
+        !currentTurn ||
+        !text ||
+        submittingRef.current ||
+        guideFrozenRef.current ||
+        !openCycleRef.current ||
+        lastContextIdRef.current !== contentContextId
+      ) {
         return;
       }
 
       submittingRef.current = true;
-      comparisonVersionRef.current += 1;
-      comparisonPendingRef.current = false;
-      setComparisonPending(false);
-      setComparison(null);
-      setComparisonError(null);
+      freezeGuide(true);
+      resetComparison();
       setShowStartingQuestions(false);
       setTransientError(null);
+      requireSync(false);
       setPendingLabel("正在核验商品事实与视频说法…");
       const requestVersion = ++requestVersionRef.current;
       const messageId = `msg_${currentTurn.session_id}_${++messageSequenceRef.current}`;
-      void sendGuideMessage(currentTurn.session_id, messageId, text)
-        .then((nextTurn) => {
-          if (
-            mountedRef.current &&
-            isOpenRef.current &&
-            requestVersionRef.current === requestVersion
-          ) {
+      const isCurrentRequest = () =>
+        mountedRef.current &&
+        isOpenRef.current &&
+        requestVersionRef.current === requestVersion;
+
+      void (async () => {
+        try {
+          const nextTurn = await sendGuideMessage(
+            currentTurn.session_id,
+            messageId,
+            text,
+          );
+          if (isCurrentRequest()) {
             setInput("");
             applyVerifiedTurn(nextTurn);
           }
-        })
-        .catch(() => {
-          if (
-            mountedRef.current &&
-            isOpenRef.current &&
-            requestVersionRef.current === requestVersion
-          ) {
-            setTransientError(
-              "暂时无法完成核验，继续显示上次已核验结果。",
-            );
+        } catch {
+          if (!isCurrentRequest()) {
+            return;
           }
-        })
-        .finally(() => {
+          setPendingLabel("正在同步服务端最终状态…");
+          try {
+            const snapshot = await getGuideSession(currentTurn.session_id);
+            if (isCurrentRequest()) {
+              setInput("");
+              applyVerifiedTurn(snapshot);
+            }
+          } catch (error: unknown) {
+            if (!isCurrentRequest()) {
+              return;
+            }
+            if (isTerminalSessionError(error)) {
+              enterTerminalState(
+                "导购会话已失效，请关闭后重新打开以建立新会话。",
+              );
+            } else {
+              requireSync(true);
+              setTransientError(
+                "尚未确认服务端最终状态；上次已核验结果仅供查看，请重新同步。",
+              );
+            }
+          }
+        } finally {
           if (
             mountedRef.current &&
             requestVersionRef.current === requestVersion
@@ -447,9 +561,17 @@ export function GuideSheet({
             submittingRef.current = false;
             setPendingLabel(null);
           }
-        });
+        }
+      })();
     },
-    [applyVerifiedTurn],
+    [
+      applyVerifiedTurn,
+      enterTerminalState,
+      freezeGuide,
+      requireSync,
+      resetComparison,
+      contentContextId,
+    ],
   );
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -458,6 +580,13 @@ export function GuideSheet({
   }
 
   function handleStartingQuestionClick(event: MouseEvent<HTMLButtonElement>) {
+    if (
+      guideFrozenRef.current ||
+      !openCycleRef.current ||
+      lastContextIdRef.current !== contentContextId
+    ) {
+      return;
+    }
     if (event.currentTarget.dataset.firstQuestion === "true") {
       setShowStartingQuestions(false);
       return;
@@ -483,7 +612,16 @@ export function GuideSheet({
       dialogRef.current?.querySelectorAll<HTMLElement>(
         'button:not([disabled]), input:not([disabled]), a[href], summary, [tabindex]:not([tabindex="-1"])',
       ) ?? [],
-    ).filter((element) => element.getAttribute("aria-hidden") !== "true");
+    ).filter((element) => {
+      if (element.getAttribute("aria-hidden") === "true") {
+        return false;
+      }
+      const closedDetails = element.closest("details:not([open])");
+      return (
+        !closedDetails ||
+        (element.tagName === "SUMMARY" && element.parentElement === closedDetails)
+      );
+    });
     if (focusable.length === 0) {
       event.preventDefault();
       return;
@@ -500,6 +638,14 @@ export function GuideSheet({
   }
 
   function handleCompareChange(productId: string, selected: boolean) {
+    if (
+      guideFrozenRef.current ||
+      !openCycleRef.current ||
+      lastContextIdRef.current !== contentContextId ||
+      comparisonPendingRef.current
+    ) {
+      return;
+    }
     setSelectedProductIds((current) => {
       if (selected) {
         return current.includes(productId) || current.length >= 3
@@ -518,6 +664,9 @@ export function GuideSheet({
       !hasAction(currentTurn, "REQUEST_COMPARISON") ||
       selectedProductIds.length < 2 ||
       selectedProductIds.length > 3 ||
+      guideFrozenRef.current ||
+      !openCycleRef.current ||
+      lastContextIdRef.current !== contentContextId ||
       comparisonPendingRef.current
     ) {
       return;
@@ -560,25 +709,38 @@ export function GuideSheet({
   }
 
   function openProduct(productId: string, role: ProductRole) {
+    const currentTurn = verifiedTurnRef.current;
+    if (
+      !currentTurn ||
+      !hasAction(currentTurn, "OPEN_PRODUCT") ||
+      guideFrozenRef.current ||
+      !openCycleRef.current ||
+      lastContextIdRef.current !== contentContextId ||
+      comparisonPendingRef.current
+    ) {
+      return;
+    }
     saveScrollPosition();
     invalidatePendingRequests();
     onOpenProduct?.(productId, role);
   }
 
   function retryGuideSnapshot() {
-    const currentTurn = verifiedTurnRef.current;
+    const currentSessionId = sessionIdRef.current;
     if (
-      !currentTurn ||
-      !hasAction(currentTurn, "RETRY_GUIDE_OPERATION") ||
+      !currentSessionId ||
+      !syncRequiredRef.current ||
       submittingRef.current
     ) {
       return;
     }
     submittingRef.current = true;
+    freezeGuide(true);
+    requireSync(false);
     setPendingLabel("正在恢复上次已核验结果…");
     setTransientError(null);
     const requestVersion = ++requestVersionRef.current;
-    void getGuideSession(currentTurn.session_id)
+    void getGuideSession(currentSessionId)
       .then((nextTurn) => {
         if (
           mountedRef.current &&
@@ -588,15 +750,79 @@ export function GuideSheet({
           applyVerifiedTurn(nextTurn);
         }
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (
           mountedRef.current &&
           isOpenRef.current &&
           requestVersionRef.current === requestVersion
         ) {
-          setTransientError(
-            "暂时无法恢复，继续显示上次已核验结果。",
-          );
+          if (isTerminalSessionError(error)) {
+            enterTerminalState(
+              "导购会话已失效，请关闭后重新打开以建立新会话。",
+            );
+          } else {
+            requireSync(true);
+            setTransientError(
+              "尚未确认服务端最终状态；上次已核验结果仍为只读，请再次同步。",
+            );
+          }
+        }
+      })
+      .finally(() => {
+        if (
+          mountedRef.current &&
+          requestVersionRef.current === requestVersion
+        ) {
+          submittingRef.current = false;
+          setPendingLabel(null);
+        }
+      });
+  }
+
+  function retryRecoverySession() {
+    const currentTurn = verifiedTurnRef.current;
+    if (
+      !currentTurn ||
+      currentTurn.guide_view_kind !== "RECOVERY_REQUIRED" ||
+      !hasAction(currentTurn, "RETRY_GUIDE_OPERATION") ||
+      submittingRef.current
+    ) {
+      return;
+    }
+
+    submittingRef.current = true;
+    freezeGuide(true);
+    requireSync(false);
+    resetComparison();
+    sessionIdRef.current = null;
+    verifiedTurnRef.current = null;
+    setPendingLabel("正在建立新的安全导购会话…");
+    setTransientError(null);
+    const requestVersion = ++requestVersionRef.current;
+    void createGuideSession(contentContextId, "zh-CN")
+      .then((nextTurn) => {
+        if (
+          mountedRef.current &&
+          isOpenRef.current &&
+          requestVersionRef.current === requestVersion
+        ) {
+          applyVerifiedTurn(nextTurn, true);
+        }
+      })
+      .catch((error: unknown) => {
+        if (
+          mountedRef.current &&
+          isOpenRef.current &&
+          requestVersionRef.current === requestVersion
+        ) {
+          if (isTerminalSessionError(error)) {
+            enterTerminalState(
+              "无法建立有效的导购会话，请关闭后重新打开。",
+            );
+          } else {
+            freezeGuide(false);
+            setTransientError("新会话暂时无法建立，请稍后重试恢复。");
+          }
         }
       })
       .finally(() => {
@@ -615,6 +841,8 @@ export function GuideSheet({
   }
 
   const isSubmitting = Boolean(pendingLabel);
+  const businessFrozen =
+    guideFrozen || activeContextId !== contentContextId;
   const recommendations = (turn?.recommendations ?? []).slice(0, 3);
   const evidenceById = new Map(
     (turn?.evidence ?? []).map((item) => [item.evidence_id, item]),
@@ -632,50 +860,81 @@ export function GuideSheet({
         <label>
           <span>补充你的条件</span>
           <input
+            id="guide-constraints"
+            name="guide-constraints"
             type="text"
             value={input}
-            disabled={isSubmitting}
+            disabled={businessFrozen}
             placeholder="例如：油敏皮、深肤色、去夏威夷，预算 30 美元以内"
             onChange={(event) => setInput(event.target.value)}
           />
         </label>
-        <button type="submit" disabled={isSubmitting || !input.trim()}>
+        <button type="submit" disabled={businessFrozen || !input.trim()}>
           {isSubmitting ? "正在核验" : "发送"}
         </button>
       </form>
     );
   }
 
-  function renderDecision(currentTurn: GuideTurn) {
+  function renderDecision(
+    currentTurn: GuideTurn,
+    { readOnly = false }: { readOnly?: boolean } = {},
+  ) {
     const verdict = currentTurn.verdict ?? "INSUFFICIENT_EVIDENCE";
-    const comparisonEnabled = hasAction(
-      currentTurn,
-      "REQUEST_COMPARISON",
+    const currentRecommendations = (currentTurn.recommendations ?? []).slice(
+      0,
+      3,
     );
+    const currentEvidenceById = new Map(
+      (currentTurn.evidence ?? []).map((item) => [item.evidence_id, item]),
+    );
+    const currentProductNames = Object.fromEntries(
+      currentRecommendations.map((item) => [item.product_id, item.name]),
+    );
+    const controlsDisabled = readOnly || businessFrozen || comparisonPending;
+    const comparisonEnabled =
+      !readOnly && hasAction(currentTurn, "REQUEST_COMPARISON");
     const productOpeningEnabled = hasAction(currentTurn, "OPEN_PRODUCT");
+    const activeComparison = readOnly
+      ? (currentTurn.comparison ?? null)
+      : comparison;
 
-    if (comparison) {
+    if (activeComparison) {
       return (
         <section className="guideComparisonView">
+          {readOnly ? (
+            <strong className="readOnlyResultLabel">上次可用结果（只读）</strong>
+          ) : null}
           <ComparisonTable
-            comparison={comparison}
-            productNames={productNames}
+            comparison={activeComparison}
+            productNames={currentProductNames}
             anchorProductId={currentTurn.context.anchor_product_id}
             onOpenProduct={productOpeningEnabled ? openProduct : undefined}
+            disabled={controlsDisabled}
           />
-          <button
-            type="button"
-            className="secondaryDecisionButton"
-            onClick={() => setComparison(null)}
-          >
-            返回推荐
-          </button>
+          {!readOnly ? (
+            <button
+              type="button"
+              className="secondaryDecisionButton"
+              disabled={controlsDisabled}
+              onClick={() => {
+                if (!controlsDisabled) {
+                  setComparison(null);
+                }
+              }}
+            >
+              返回推荐
+            </button>
+          ) : null}
         </section>
       );
     }
 
     return (
       <>
+        {readOnly ? (
+          <strong className="readOnlyResultLabel">上次可用结果（只读）</strong>
+        ) : null}
         <section className="decisionVerdict" data-verdict={verdict}>
           <span>AI 决策 · 基于已验证资料</span>
           <h2>{verdictLabels[verdict]}</h2>
@@ -690,7 +949,7 @@ export function GuideSheet({
             <h2 id="recommendations-heading">商品建议</h2>
           </div>
           <div className="recommendationGrid">
-            {recommendations.map((recommendation, index) => {
+            {currentRecommendations.map((recommendation, index) => {
               const role: ProductRole =
                 recommendation.product_id ===
                 currentTurn.context.anchor_product_id
@@ -703,7 +962,7 @@ export function GuideSheet({
                   index={index}
                   role={role}
                   evidence={recommendation.evidence_ids.flatMap((evidenceId) => {
-                    const item = evidenceById.get(evidenceId);
+                    const item = currentEvidenceById.get(evidenceId);
                     return item ? [item] : [];
                   })}
                   comparisonEnabled={comparisonEnabled}
@@ -711,13 +970,13 @@ export function GuideSheet({
                     recommendation.product_id,
                   )}
                   compareDisabled={
-                    selectedProductIds.length >= 3 &&
-                    !selectedProductIds.includes(recommendation.product_id)
+                    controlsDisabled ||
+                    (selectedProductIds.length >= 3 &&
+                      !selectedProductIds.includes(recommendation.product_id))
                   }
+                  disabled={controlsDisabled}
                   onCompareChange={handleCompareChange}
-                  onOpenProduct={
-                    productOpeningEnabled ? openProduct : undefined
-                  }
+                  onOpenProduct={productOpeningEnabled ? openProduct : undefined}
                 />
               );
             })}
@@ -729,7 +988,7 @@ export function GuideSheet({
                 disabled={
                   selectedProductIds.length < 2 ||
                   selectedProductIds.length > 3 ||
-                  comparisonPending
+                  comparisonPending || businessFrozen
                 }
                 onClick={handleCompareProducts}
               >
@@ -746,7 +1005,7 @@ export function GuideSheet({
           ) : null}
         </section>
         <ClaimEvidence turn={currentTurn} />
-        {renderComposer(currentTurn)}
+        {!readOnly ? renderComposer(currentTurn) : null}
       </>
     );
   }
@@ -769,7 +1028,7 @@ export function GuideSheet({
                   key={question}
                   value={question}
                   data-first-question={index === 0 ? "true" : "false"}
-                  disabled={isSubmitting || !canAnswer}
+                  disabled={businessFrozen || !canAnswer}
                   onClick={handleStartingQuestionClick}
                 >
                   <span aria-hidden="true">{index + 1}</span>
@@ -803,7 +1062,7 @@ export function GuideSheet({
                 type="button"
                 className="primaryDecisionButton"
                 value="确认是视频里的商品"
-                disabled={isSubmitting}
+                disabled={businessFrozen}
                 onClick={handleMessageButtonClick}
               >
                 确认是这款商品
@@ -830,7 +1089,7 @@ export function GuideSheet({
                       key={reply}
                       type="button"
                       value={reply}
-                      disabled={isSubmitting}
+                      disabled={businessFrozen}
                       onClick={handleMessageButtonClick}
                     >
                       {reply}
@@ -869,7 +1128,7 @@ export function GuideSheet({
                 type="button"
                 className="primaryDecisionButton"
                 value="防水不限"
-                disabled={isSubmitting}
+                disabled={businessFrozen}
                 onClick={handleMessageButtonClick}
               >
                 放宽防水要求
@@ -891,7 +1150,7 @@ export function GuideSheet({
                   type="button"
                   className="primaryDecisionButton"
                   value="继续使用已知信息"
-                  disabled={isSubmitting}
+                  disabled={businessFrozen}
                   onClick={handleMessageButtonClick}
                 >
                   仅基于已知信息继续
@@ -917,6 +1176,7 @@ export function GuideSheet({
                     })}
                     comparisonEnabled={false}
                     selectedForCompare={false}
+                    disabled={businessFrozen || comparisonPending}
                     onCompareChange={handleCompareChange}
                     onOpenProduct={openProduct}
                   />
@@ -927,14 +1187,27 @@ export function GuideSheet({
           </>
         );
       case "COMPARISON_READY":
-        return (
+        return currentTurn.comparison ? (
+          <section className="guideComparisonView">
+            <ComparisonTable
+              comparison={currentTurn.comparison}
+              productNames={productNames}
+              anchorProductId={currentTurn.context.anchor_product_id}
+              disabled={businessFrozen}
+              onOpenProduct={
+                hasAction(currentTurn, "OPEN_PRODUCT")
+                  ? openProduct
+                  : undefined
+              }
+            />
+          </section>
+        ) : (
           <StatePanel
-            tone="neutral"
-            eyebrow="候选列表已替换"
+            tone="warning"
+            eyebrow="比较快照不可用"
             title="比较结果"
           >
-            <p>{currentTurn.text}</p>
-            <small>比较数据若不可用，不回退显示未经核验的候选事实。</small>
+            <p>服务端没有返回可验证的比较结构，请退出后重新进入。</p>
           </StatePanel>
         );
       case "SAFE_BOUNDARY":
@@ -949,23 +1222,28 @@ export function GuideSheet({
         );
       case "RECOVERY_REQUIRED":
         return (
-          <StatePanel
-            tone="warning"
-            eyebrow="保留上次已验证结果"
-            title="需要恢复导购"
-          >
-            <p>{currentTurn.text}</p>
-            {hasAction(currentTurn, "RETRY_GUIDE_OPERATION") ? (
-              <button
-                type="button"
-                className="primaryDecisionButton"
-                disabled={isSubmitting}
-                onClick={retryGuideSnapshot}
-              >
-                重试恢复
-              </button>
-            ) : null}
-          </StatePanel>
+          <>
+            <StatePanel
+              tone="warning"
+              eyebrow="保留上次已验证结果"
+              title="需要恢复导购"
+            >
+              <p>{currentTurn.text}</p>
+              {hasAction(currentTurn, "RETRY_GUIDE_OPERATION") ? (
+                <button
+                  type="button"
+                  className="primaryDecisionButton"
+                  disabled={isSubmitting}
+                  onClick={retryRecoverySession}
+                >
+                  重试恢复
+                </button>
+              ) : null}
+            </StatePanel>
+            {lastUsableTurn
+              ? renderDecision(lastUsableTurn, { readOnly: true })
+              : null}
+          </>
         );
       case "FATAL_ERROR":
         return (
@@ -988,6 +1266,7 @@ export function GuideSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby="guide-title"
+        aria-busy={Boolean(pendingLabel) || comparisonPending}
         onKeyDown={handleDialogKeyDown}
       >
         <header className="guideHeader">
@@ -1036,6 +1315,23 @@ export function GuideSheet({
             <div className="guideInlineError" role="alert">
               {transientError}
             </div>
+          ) : null}
+          {syncRequired ? (
+            <StatePanel
+              tone="warning"
+              eyebrow="操作结果待对账"
+              title="服务端状态尚未同步"
+            >
+              <p>上次已核验内容会继续显示，但所有商品动作保持冻结。</p>
+              <button
+                type="button"
+                className="primaryDecisionButton"
+                disabled={isSubmitting}
+                onClick={retryGuideSnapshot}
+              >
+                重新同步
+              </button>
+            </StatePanel>
           ) : null}
 
           {fatalError ? (

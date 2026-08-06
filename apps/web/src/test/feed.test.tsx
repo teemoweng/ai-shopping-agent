@@ -17,6 +17,7 @@ import { ShortVideoFeed } from "@/components/short-video-feed";
 import {
   createGuideSession,
   getFeed,
+  getGuideSession,
   getProduct,
 } from "@/lib/api-client";
 
@@ -26,6 +27,7 @@ vi.mock("@/lib/api-client", async (importOriginal) => {
     ...actual,
     createGuideSession: vi.fn(),
     getFeed: vi.fn(),
+    getGuideSession: vi.fn(),
     getProduct: vi.fn(),
   };
 });
@@ -113,6 +115,45 @@ const PRODUCT_DETAIL = {
   product: {},
 } as ProductDetailResponse;
 
+const GUIDE_DECISION: components["schemas"]["GuideTurnResponse"] = {
+  session_id: "ses_feed_lifecycle",
+  trace_id: "trace_feed_lifecycle",
+  state: "PRESENT_RECOMMENDATION",
+  kind: "recommendation",
+  text: "当前商品适合日常通勤，进入 PDP 前请复核商品事实。",
+  context: {
+    id: "morning-routine-uv-001",
+    anchor_product_id: "seoul-shade-daily-fluid",
+    anchor_product_name: "Seoul Shade Daily Fluid",
+    creator_handle: "@routine.notes",
+    caption: "A lightweight SPF step for a humid commute",
+    claims: [],
+  },
+  quick_replies: [],
+  locale: "zh-CN",
+  guide_status: "ACTIVE",
+  guide_view_kind: "DECISION_READY",
+  guide_revision: 1,
+  facts_snapshot_at: "2026-08-05T00:00:00Z",
+  allowed_actions: ["OPEN_PRODUCT", "RETURN_TO_FEED"],
+  degraded: false,
+  verdict: "SUITABLE",
+  recommendations: [
+    {
+      product_id: "seoul-shade-daily-fluid",
+      brand: "Mirae Lab",
+      name: "Seoul Shade Daily Fluid",
+      verdict: "SUITABLE",
+      starting_price_usd: 14,
+      fit_reasons: ["适合日常通勤"],
+      tradeoffs: ["没有标注防水时长"],
+      evidence_ids: [],
+      eligible_sku_ids: ["seoul-shade-30"],
+    },
+  ],
+  evidence: [],
+};
+
 function renderFeed(
   overrides: Partial<React.ComponentProps<typeof ShortVideoFeed>> = {},
 ) {
@@ -172,6 +213,9 @@ beforeEach(() => {
   vi.mocked(getFeed).mockResolvedValue(FEED);
   vi.mocked(getProduct).mockResolvedValue(PRODUCT_DETAIL);
   vi.mocked(createGuideSession).mockImplementation(
+    () => new Promise(() => undefined),
+  );
+  vi.mocked(getGuideSession).mockImplementation(
     () => new Promise(() => undefined),
   );
   vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
@@ -690,4 +734,107 @@ describe("DemoShell", () => {
     expect(Math.abs(video.currentTime - 6.5)).toBeLessThanOrEqual(0.25);
     expect(video.muted).toBe(false);
   });
+
+  it.each([
+    ["playing", false],
+    ["paused", true],
+  ] as const)(
+    "keeps the Feed paused through AI PDP return, then restores an originally %s video and Ask AI focus",
+    async (_intent, originallyPaused) => {
+      const user = userEvent.setup();
+      const play = vi
+        .mocked(HTMLMediaElement.prototype.play)
+        .mockImplementation(function (this: HTMLMediaElement) {
+          Object.defineProperty(this, "paused", {
+            configurable: true,
+            value: false,
+          });
+          return Promise.resolve();
+        });
+      vi.mocked(HTMLMediaElement.prototype.pause).mockImplementation(function (
+        this: HTMLMediaElement,
+      ) {
+        Object.defineProperty(this, "paused", {
+          configurable: true,
+          value: true,
+        });
+      });
+      vi.mocked(createGuideSession).mockReset().mockResolvedValue(GUIDE_DECISION);
+      vi.mocked(getGuideSession).mockReset().mockResolvedValue(GUIDE_DECISION);
+      const { container } = render(<DemoShell />);
+
+      const originalAskAi = await screen.findByRole("button", {
+        name: /问 AI：Seoul Shade Daily Fluid/,
+      });
+      const originalVideo = (await screen.findAllByTestId(
+        "feed-video",
+      ))[0] as HTMLVideoElement;
+      await waitFor(() => expect(originalVideo.paused).toBe(false));
+      originalVideo.currentTime = 8.75;
+      originalVideo.muted = false;
+      Object.defineProperty(originalVideo, "paused", {
+        configurable: true,
+        value: originallyPaused,
+      });
+
+      await user.click(originalAskAi);
+      expect(
+        await screen.findByRole("dialog", { name: "AI 导购（概念）" }),
+      ).toBeVisible();
+      const phoneFrame = container.querySelector(".phoneFrame");
+      expect(phoneFrame).toHaveAttribute("inert");
+      expect(phoneFrame).toHaveAttribute("aria-hidden", "true");
+      await waitFor(() => expect(originalVideo.paused).toBe(true));
+
+      const recommendation = await screen.findByRole("article", {
+        name: "Seoul Shade Daily Fluid 商品建议",
+      });
+      await user.click(
+        within(recommendation).getByRole("button", { name: "查看商品" }),
+      );
+      const pdp = screen.getByRole("region", { name: "商品详情" });
+      await user.click(within(pdp).getByRole("button", { name: "返回内容流" }));
+
+      expect(
+        await screen.findByRole("dialog", { name: "AI 导购（概念）" }),
+      ).toBeVisible();
+      const backgroundVideo = (await screen.findAllByTestId(
+        "feed-video",
+      ))[0] as HTMLVideoElement;
+      await waitFor(() => {
+        expect(backgroundVideo.paused).toBe(true);
+        expect(Math.abs(backgroundVideo.currentTime - 8.75)).toBeLessThanOrEqual(
+          0.25,
+        );
+        expect(backgroundVideo.muted).toBe(false);
+      });
+      expect(
+        play.mock.contexts.filter((video) => video === backgroundVideo),
+      ).toHaveLength(0);
+
+      await user.click(screen.getByRole("button", { name: "关闭 AI 导购" }));
+      await waitFor(() => {
+        expect(
+          screen.queryByRole("dialog", { name: "AI 导购（概念）" }),
+        ).not.toBeInTheDocument();
+        expect(backgroundVideo.paused).toBe(originallyPaused);
+        expect(Math.abs(backgroundVideo.currentTime - 8.75)).toBeLessThanOrEqual(
+          0.25,
+        );
+        expect(backgroundVideo.muted).toBe(false);
+        expect(
+          screen.getByRole("button", {
+            name: /问 AI：Seoul Shade Daily Fluid/,
+          }),
+        ).toHaveFocus();
+        expect(phoneFrame).not.toHaveAttribute("inert");
+        expect(phoneFrame).not.toHaveAttribute("aria-hidden");
+      });
+      expect(
+        play.mock.contexts.filter((video) => video === backgroundVideo),
+      ).toHaveLength(originallyPaused ? 0 : 1);
+      expect(createGuideSession).toHaveBeenCalledTimes(1);
+      expect(getGuideSession).toHaveBeenCalledWith("ses_feed_lifecycle");
+    },
+  );
 });

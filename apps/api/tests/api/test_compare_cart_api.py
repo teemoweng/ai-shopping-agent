@@ -59,6 +59,67 @@ def test_compare_returns_structured_decision_rows() -> None:
     assert response.json()["rows"]["water_resistance_minutes"] == [None, 40]
 
 
+def test_compare_saves_reopenable_comparison_ready_snapshot_without_revision_change() -> None:
+    session_id = recommended_session()
+    before = client.get(f"/api/v1/guide/sessions/{session_id}").json()
+    payload = {
+        "product_ids": [
+            "seoul-shade-daily-fluid",
+            "cloud-veil-mineral",
+        ]
+    }
+
+    compared = client.post(
+        f"/api/v1/guide/sessions/{session_id}/compare",
+        json=payload,
+    )
+    reopened = client.get(f"/api/v1/guide/sessions/{session_id}")
+
+    assert compared.status_code == 200
+    assert reopened.status_code == 200
+    snapshot = reopened.json()
+    assert snapshot["guide_view_kind"] == "COMPARISON_READY"
+    assert snapshot["guide_status"] == "ACTIVE"
+    assert snapshot["state"] == "COMPARE"
+    assert snapshot["guide_revision"] == before["guide_revision"]
+    assert snapshot["text"].strip()
+    assert snapshot["allowed_actions"] == ["OPEN_PRODUCT", "RETURN_TO_FEED"]
+    assert snapshot["comparison"] == compared.json()
+    assert snapshot["comparison"]["product_ids"] == payload["product_ids"]
+    assert snapshot["comparison"]["rows"] == {
+        "starting_price_usd": [14.0, 17.0],
+        "fragrance_free": [True, True],
+        "water_resistance_minutes": [None, 40],
+        "finish": ["natural", "matte"],
+        "white_cast_risk": ["low", "medium"],
+    }
+
+
+def test_compare_requires_request_comparison_from_current_guide_snapshot() -> None:
+    session_id = recommended_session()
+    safety = client.post(
+        f"/api/v1/guide/sessions/{session_id}/messages",
+        json={"message_id": "compare_safety", "text": "脸部肿胀并且呼吸困难"},
+    )
+    assert safety.status_code == 200
+    assert safety.json()["guide_view_kind"] == "SAFE_BOUNDARY"
+    assert safety.json()["allowed_actions"] == ["RETURN_TO_FEED"]
+
+    compared = client.post(
+        f"/api/v1/guide/sessions/{session_id}/compare",
+        json={
+            "product_ids": [
+                "seoul-shade-daily-fluid",
+                "cloud-veil-mineral",
+            ]
+        },
+    )
+
+    assert compared.status_code == 409
+    assert compared.json()["detail"]["code"] == "ACTION_NOT_ALLOWED"
+    assert client.get(f"/api/v1/guide/sessions/{session_id}").json() == safety.json()
+
+
 def test_compare_rejects_duplicate_product_ids() -> None:
     session_id = recommended_session()
     response = client.post(

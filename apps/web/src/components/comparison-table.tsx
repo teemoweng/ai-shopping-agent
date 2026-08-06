@@ -1,13 +1,10 @@
 import type { components } from "@shopping-guide/contracts/src/api";
 
-import { formatUsd } from "@/lib/formatters";
-
 type CompareResponse = components["schemas"]["CompareResponse"];
 type CompareValue = string | number | boolean | null;
 type ProductRole = "current" | "alternative";
 
 const comparisonRows = [
-  { key: "starting_price_usd", label: "起售价快照" },
   { key: "fragrance_free", label: "无香精" },
   { key: "water_resistance_minutes", label: "防水标注" },
   { key: "finish", label: "妆效" },
@@ -18,9 +15,6 @@ function formatComparisonValue(
   key: (typeof comparisonRows)[number]["key"],
   value: CompareValue | undefined,
 ) {
-  if (key === "starting_price_usd") {
-    return typeof value === "number" ? formatUsd(value) : "暂无数据";
-  }
   if (key === "fragrance_free") {
     return typeof value === "boolean" ? (value ? "是" : "否") : "暂无数据";
   }
@@ -37,11 +31,13 @@ export function ComparisonTable({
   comparison,
   productNames = {},
   anchorProductId,
+  disabled = false,
   onOpenProduct,
 }: {
   comparison: CompareResponse;
   productNames?: Record<string, string>;
   anchorProductId?: string;
+  disabled?: boolean;
   onOpenProduct?: (productId: string, role: ProductRole) => void;
 }) {
   return (
@@ -88,12 +84,16 @@ export function ComparisonTable({
                 type="button"
                 key={productId}
                 aria-label={`查看 ${name}`}
-                onClick={() =>
+                disabled={disabled}
+                onClick={() => {
+                  if (disabled) {
+                    return;
+                  }
                   onOpenProduct(
                     productId,
                     productId === anchorProductId ? "current" : "alternative",
-                  )
-                }
+                  );
+                }}
               >
                 查看 {name}
               </button>
@@ -102,7 +102,7 @@ export function ComparisonTable({
         </div>
       ) : null}
       <small className="comparisonFreshnessNote">
-        价格仅为比较快照，进入商品页后会重新核验库存与交易事实。
+        价格与库存请进入商品页重新核验；当前比较不展示这些交易事实。
       </small>
     </section>
   );

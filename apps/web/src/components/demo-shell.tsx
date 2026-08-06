@@ -29,7 +29,7 @@ type FeedLoadState =
 
 interface GuideMediaRestore {
   itemId: string;
-  snapshot: VideoSnapshot;
+  snapshot: VideoSnapshot | null;
 }
 
 interface PdpFeedReturn {
@@ -75,8 +75,10 @@ export function DemoShell() {
   const [guideContentContextId, setGuideContentContextId] = useState(
     "morning-routine-uv-001",
   );
+  const [guideMediaRestore, setGuideMediaRestore] =
+    useState<GuideMediaRestore | null>(null);
   const feedRef = useRef<ShortVideoFeedHandle>(null);
-  const guideMediaRestoreRef = useRef<GuideMediaRestore | null>(null);
+  const guideFocusTimerRef = useRef<number | null>(null);
   const pdpBackRef = useRef<HTMLButtonElement | null>(null);
   const loadVersionRef = useRef(0);
 
@@ -136,6 +138,9 @@ export function DemoShell() {
     return () => {
       window.clearTimeout(startTimer);
       loadVersionRef.current += 1;
+      if (guideFocusTimerRef.current !== null) {
+        window.clearTimeout(guideFocusTimerRef.current);
+      }
     };
   }, [loadCatalog]);
 
@@ -180,8 +185,8 @@ export function DemoShell() {
       return;
     }
     const snapshot = feedRef.current?.capture(item.id) ?? null;
+    setGuideMediaRestore({ itemId: item.id, snapshot });
     if (snapshot) {
-      guideMediaRestoreRef.current = { itemId: item.id, snapshot };
       dispatch({
         type: "SAVE_VIDEO_SNAPSHOT",
         itemId: item.id,
@@ -194,10 +199,19 @@ export function DemoShell() {
 
   function closeGuide() {
     dispatch({ type: "CLOSE_GUIDE" });
-    const restore = guideMediaRestoreRef.current;
-    guideMediaRestoreRef.current = null;
-    if (restore) {
+    const restore = guideMediaRestore;
+    setGuideMediaRestore(null);
+    if (restore?.snapshot) {
       void feedRef.current?.restore(restore.itemId, restore.snapshot);
+    }
+    if (restore) {
+      if (guideFocusTimerRef.current !== null) {
+        window.clearTimeout(guideFocusTimerRef.current);
+      }
+      guideFocusTimerRef.current = window.setTimeout(() => {
+        feedRef.current?.focusAskAi(restore.itemId);
+        guideFocusTimerRef.current = null;
+      }, 0);
     }
   }
 
@@ -233,8 +247,10 @@ export function DemoShell() {
       <section
         className="phoneFrame"
         aria-label="TikTok Shop-inspired Concept Prototype"
+        aria-hidden={navigation.overlay === "ai-sheet" ? true : undefined}
         data-base-surface={navigation.baseSurface}
         data-overlay={navigation.overlay}
+        inert={navigation.overlay === "ai-sheet"}
       >
         {loadState.status === "loading" ? (
           <div className="feedLoadState" role="status">
@@ -264,7 +280,16 @@ export function DemoShell() {
             activeIndex={navigation.feedIndex}
             freshStartingPriceByProductId={freshStartingPriceByProductId}
             initialVideoRestore={
-              pdpFeedReturn?.snapshot
+              navigation.overlay === "ai-sheet" &&
+              guideMediaRestore?.snapshot
+                ? {
+                    itemId: guideMediaRestore.itemId,
+                    snapshot: {
+                      ...guideMediaRestore.snapshot,
+                      paused: true,
+                    },
+                  }
+                : pdpFeedReturn?.snapshot
                 ? {
                     itemId: pdpFeedReturn.itemId,
                     snapshot: pdpFeedReturn.snapshot,

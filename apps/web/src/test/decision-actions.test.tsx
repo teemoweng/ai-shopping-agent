@@ -1,5 +1,5 @@
 import type { components } from "@shopping-guide/contracts/src/api";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -166,9 +166,71 @@ describe("server semantic guards", () => {
       }),
     ).toBeNull();
   });
+
+  it("rejects unknown Commerce actions and post-success secret material", () => {
+    expect(
+      validateCommerceOperationResponse({
+        ...awaitingCommerceOperation,
+        allowed_actions: ["CONFIRM_ADD_TO_CART", "UNKNOWN_COMMERCE_ACTION"],
+      }),
+    ).toBeNull();
+    expect(
+      validateCommerceOperationResponse({
+        ...awaitingCommerceOperation,
+        commerce_view_kind: "SUCCEEDED",
+        operation_status: "SUCCEEDED",
+        allowed_actions: ["RETURN_TO_PRODUCT", "CONTINUE_BROWSING"],
+        confirmation_token: null,
+        confirmation_expires_at: "2026-08-05T00:05:00Z",
+      }),
+    ).toBeNull();
+  });
+
+  it("requires the canonical PDP_READY and FAILED action pairs", () => {
+    for (const valid of [
+      {
+        ...awaitingCommerceOperation,
+        commerce_view_kind: "PDP_READY",
+        operation_status: "ACTIVE",
+        allowed_actions: ["PREVIEW_CART", "RETURN_TO_PRODUCT"],
+        confirmation_token: null,
+        confirmation_expires_at: null,
+      },
+      {
+        ...awaitingCommerceOperation,
+        commerce_view_kind: "FAILED",
+        operation_status: "FAILED",
+        allowed_actions: ["RETRY_COMMERCE_OPERATION", "RETURN_TO_PRODUCT"],
+        confirmation_token: null,
+        confirmation_expires_at: null,
+      },
+    ]) {
+      expect(validateCommerceOperationResponse(valid)).not.toBeNull();
+    }
+    expect(
+      validateCommerceOperationResponse({
+        ...awaitingCommerceOperation,
+        commerce_view_kind: "PDP_READY",
+        operation_status: "ACTIVE",
+        allowed_actions: ["RETURN_TO_PRODUCT"],
+        confirmation_token: null,
+        confirmation_expires_at: null,
+      }),
+    ).toBeNull();
+    expect(
+      validateCommerceOperationResponse({
+        ...awaitingCommerceOperation,
+        commerce_view_kind: "FAILED",
+        operation_status: "FAILED",
+        allowed_actions: ["RETURN_TO_PRODUCT"],
+        confirmation_token: null,
+        confirmation_expires_at: null,
+      }),
+    ).toBeNull();
+  });
 });
 
-it("renders the five fixed comparison dimensions in Chinese and opens the chosen product", async () => {
+it("hides unverified comparison price while rendering the four verified dimensions", async () => {
   const user = userEvent.setup();
   const onOpenProduct = vi.fn();
   render(
@@ -185,24 +247,76 @@ it("renders the five fixed comparison dimensions in Chinese and opens the chosen
 
   const table = screen.getByRole("table", { name: "商品对比" });
   const rows = within(table).getAllByRole("row");
-  expect(rows).toHaveLength(6);
+  expect(rows).toHaveLength(5);
   expect(
     within(rows[0])
       .getAllByRole("columnheader")
       .map((cell) => cell.textContent),
   ).toEqual(["对比维度", "Seoul Shade Daily Fluid", "Cloud Veil Mineral SPF"]);
-  expect(within(rows[1]).getByRole("rowheader")).toHaveTextContent("起售价快照");
-  expect(within(rows[2]).getAllByRole("cell").map((cell) => cell.textContent)).toEqual([
+  expect(within(table).queryByText(/起售价|\$14|\$17/)).not.toBeInTheDocument();
+  expect(within(rows[1]).getAllByRole("cell").map((cell) => cell.textContent)).toEqual([
     "是",
     "否",
   ]);
-  expect(within(rows[3]).getAllByRole("cell").map((cell) => cell.textContent)).toEqual([
+  expect(within(rows[2]).getAllByRole("cell").map((cell) => cell.textContent)).toEqual([
     "未标注防水",
     "40 分钟",
   ]);
+  expect(screen.getByText(/价格与库存请进入商品页重新核验/)).toBeVisible();
 
   await user.click(screen.getByRole("button", { name: "查看 Cloud Veil Mineral SPF" }));
   expect(onOpenProduct).toHaveBeenCalledWith("cloud-veil-mineral", "alternative");
+});
+
+it("keeps disabled recommendation and comparison actions inert even if the DOM is tampered with", () => {
+  const onOpenProduct = vi.fn();
+  const onCompareChange = vi.fn();
+  const { rerender } = render(
+    <RecommendationCard
+      recommendation={recommendation}
+      index={0}
+      role="current"
+      evidence={[publicEvidence]}
+      comparisonEnabled
+      selectedForCompare={false}
+      disabled
+      onCompareChange={onCompareChange}
+      onOpenProduct={onOpenProduct}
+    />,
+  );
+
+  const checkbox = screen.getByRole("checkbox", {
+    name: "比较 Seoul Shade Daily Fluid",
+  });
+  const open = screen.getByRole("button", { name: "查看商品" });
+  expect(checkbox).toBeDisabled();
+  expect(open).toBeDisabled();
+  checkbox.removeAttribute("disabled");
+  open.removeAttribute("disabled");
+  fireEvent.click(checkbox);
+  fireEvent.click(open);
+  expect(onCompareChange).not.toHaveBeenCalled();
+  expect(onOpenProduct).not.toHaveBeenCalled();
+
+  rerender(
+    <ComparisonTable
+      comparison={comparison}
+      productNames={{
+        "seoul-shade-daily-fluid": "Seoul Shade Daily Fluid",
+        "cloud-veil-mineral": "Cloud Veil Mineral SPF",
+      }}
+      anchorProductId="seoul-shade-daily-fluid"
+      disabled
+      onOpenProduct={onOpenProduct}
+    />,
+  );
+  const comparisonOpen = screen.getByRole("button", {
+    name: "查看 Cloud Veil Mineral SPF",
+  });
+  expect(comparisonOpen).toBeDisabled();
+  comparisonOpen.removeAttribute("disabled");
+  fireEvent.click(comparisonOpen);
+  expect(onOpenProduct).not.toHaveBeenCalled();
 });
 
 it("keeps RecommendationCard decision-only and routes current product to PDP", async () => {

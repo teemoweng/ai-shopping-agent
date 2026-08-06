@@ -266,6 +266,38 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
+async function reachRecommendations({
+  onOpenProduct = vi.fn(),
+}: {
+  onOpenProduct?: (productId: string, role: "current" | "alternative") => void;
+} = {}) {
+  const user = userEvent.setup();
+  render(
+    <GuideSheet
+      open
+      onClose={vi.fn()}
+      onOpenProduct={onOpenProduct}
+    />,
+  );
+  await screen.findByRole("button", { name: "帮我找更合适的替代" });
+  await user.click(
+    screen.getByRole("button", { name: "帮我找更合适的替代" }),
+  );
+  await screen.findByRole("heading", { name: "适合" });
+  return user;
+}
+
+async function selectFirstTwoCandidates(
+  user: ReturnType<typeof userEvent.setup>,
+) {
+  await user.click(
+    screen.getByRole("checkbox", { name: "比较 Seoul Shade Daily Fluid" }),
+  );
+  await user.click(
+    screen.getByRole("checkbox", { name: "比较 Cloud Veil Mineral SPF" }),
+  );
+}
+
 beforeEach(() => {
   for (const client of [
     api.compareProducts,
@@ -379,21 +411,77 @@ it("submits free Chinese constraints, shows verified progress, and blocks duplic
   expect(await screen.findByRole("heading", { name: "适合" })).toBeVisible();
 });
 
-it("preserves the last verified response when a retryable message request fails", async () => {
+it("reconciles a failed message POST before re-enabling the previous business actions", async () => {
   const user = userEvent.setup();
+  const snapshot = deferred<GuideTurn>();
+  api.getGuideSession.mockReturnValueOnce(snapshot.promise);
+  render(<GuideSheet open onClose={vi.fn()} />);
+  await screen.findByRole("button", { name: "这款适合我吗？" });
+  await user.click(screen.getByRole("button", { name: "视频里的说法可信吗？" }));
+  await screen.findByRole("heading", { name: "适合" });
+
   api.sendGuideMessage.mockRejectedValueOnce(
     new ApiError(503, "TEMPORARY_UNAVAILABLE"),
   );
-  render(<GuideSheet open onClose={vi.fn()} />);
-  await screen.findByRole("button", { name: "这款适合我吗？" });
-  await user.click(screen.getByRole("button", { name: "这款适合我吗？" }));
-  await user.click(screen.getByRole("button", { name: "日常通勤" }));
+  await user.type(screen.getByLabelText("补充你的条件"), "改成优先哑光");
+  await user.click(screen.getByRole("button", { name: "发送" }));
 
-  expect(await screen.findByRole("alert")).toHaveTextContent(
-    "暂时无法完成核验",
+  await waitFor(() =>
+    expect(api.getGuideSession).toHaveBeenCalledWith("ses_guide_1"),
   );
-  expect(screen.getByText(clarificationTurn.text)).toBeVisible();
-  expect(screen.getByRole("button", { name: "日常通勤" })).toBeEnabled();
+  expect(screen.getByRole("dialog", { name: "AI 导购（概念）" })).toHaveAttribute(
+    "aria-busy",
+    "true",
+  );
+  expect(screen.getAllByRole("button", { name: "查看商品" })[0]).toBeDisabled();
+  expect(
+    screen.getByRole("checkbox", { name: "比较 Seoul Shade Daily Fluid" }),
+  ).toBeDisabled();
+
+  await act(async () =>
+    snapshot.resolve(
+      turnFor("DECISION_READY", {
+        guide_revision: 3,
+        text: "已从服务端恢复最新的哑光优先结果",
+      }),
+    ),
+  );
+  expect(
+    await screen.findByText("已从服务端恢复最新的哑光优先结果"),
+  ).toBeVisible();
+  expect(screen.getByRole("dialog", { name: "AI 导购（概念）" })).toHaveAttribute(
+    "aria-busy",
+    "false",
+  );
+  expect(screen.getAllByRole("button", { name: "查看商品" })[0]).toBeEnabled();
+});
+
+it("keeps the last verified result read-only when reconciliation fails and retries the snapshot", async () => {
+  const user = await reachRecommendations();
+  api.sendGuideMessage.mockRejectedValueOnce(
+    new ApiError(503, "TEMPORARY_UNAVAILABLE"),
+  );
+  api.getGuideSession.mockRejectedValueOnce(
+    new ApiError(503, "TEMPORARY_UNAVAILABLE"),
+  );
+  await user.type(screen.getByLabelText("补充你的条件"), "改成优先哑光");
+  await user.click(screen.getByRole("button", { name: "发送" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("尚未确认服务端最终状态");
+  expect(screen.getByRole("heading", { name: "适合" })).toBeVisible();
+  expect(screen.getAllByRole("button", { name: "查看商品" })[0]).toBeDisabled();
+  const retry = screen.getByRole("button", { name: "重新同步" });
+  expect(retry).toBeEnabled();
+
+  api.getGuideSession.mockResolvedValueOnce(
+    turnFor("DECISION_READY", {
+      guide_revision: 3,
+      text: "重新同步后的最新结果",
+    }),
+  );
+  await user.click(retry);
+  expect(await screen.findByText("重新同步后的最新结果")).toBeVisible();
+  expect(screen.getAllByRole("button", { name: "查看商品" })[0]).toBeEnabled();
 });
 
 it("shows at most three candidates, three fit reasons, four evidence states, and only safe source links", async () => {
@@ -474,6 +562,172 @@ it("replaces candidate cards with the comparison and can return locally to recom
   expect(screen.getAllByRole("article", { name: /商品建议/ })).toHaveLength(3);
 });
 
+it("locks candidate selection and product opening while comparison A+B is pending", async () => {
+  const pending = deferred<CompareResponse>();
+  const onOpenProduct = vi.fn();
+  api.compareProducts.mockReturnValueOnce(pending.promise);
+  const user = await reachRecommendations({ onOpenProduct });
+  await selectFirstTwoCandidates(user);
+  await user.click(screen.getByRole("button", { name: "比较已选 2 款" }));
+
+  const dialog = screen.getByRole("dialog", { name: "AI 导购（概念）" });
+  const second = screen.getByRole("checkbox", {
+    name: "比较 Cloud Veil Mineral SPF",
+  });
+  const third = screen.getByRole("checkbox", {
+    name: "比较 Jeju Sport Sun Gel",
+  });
+  const open = within(
+    screen.getByRole("heading", { name: "Seoul Shade Daily Fluid" }).closest(
+      "article",
+    )!,
+  ).getByRole("button", { name: "查看商品" });
+  expect(dialog).toHaveAttribute("aria-busy", "true");
+  expect(second).toBeDisabled();
+  expect(third).toBeDisabled();
+  expect(open).toBeDisabled();
+
+  for (const control of [second, third, open]) {
+    control.removeAttribute("disabled");
+    fireEvent.click(control);
+  }
+  expect(second).toBeChecked();
+  expect(third).not.toBeChecked();
+  expect(onOpenProduct).not.toHaveBeenCalled();
+
+  await act(async () => pending.resolve(comparison));
+  const table = await screen.findByRole("table", { name: "商品对比" });
+  expect(
+    within(table)
+      .getAllByRole("columnheader")
+      .map((cell) => cell.textContent),
+  ).toEqual([
+    "对比维度",
+    "Seoul Shade Daily Fluid",
+    "Cloud Veil Mineral SPF",
+  ]);
+});
+
+it("keeps all old business actions inert while a newer Guide turn is pending", async () => {
+  const pending = deferred<GuideTurn>();
+  const onOpenProduct = vi.fn();
+  const user = await reachRecommendations({ onOpenProduct });
+  api.sendGuideMessage.mockReturnValueOnce(pending.promise);
+  await user.type(screen.getByLabelText("补充你的条件"), "现在优先哑光");
+  await user.click(screen.getByRole("button", { name: "发送" }));
+
+  const dialog = screen.getByRole("dialog", { name: "AI 导购（概念）" });
+  const compare = screen.getByRole("checkbox", {
+    name: "比较 Seoul Shade Daily Fluid",
+  });
+  const open = within(
+    screen.getByRole("heading", { name: "Seoul Shade Daily Fluid" }).closest(
+      "article",
+    )!,
+  ).getByRole("button", { name: "查看商品" });
+  expect(dialog).toHaveAttribute("aria-busy", "true");
+  expect(compare).toBeDisabled();
+  expect(open).toBeDisabled();
+  compare.removeAttribute("disabled");
+  open.removeAttribute("disabled");
+  fireEvent.click(compare);
+  fireEvent.click(open);
+  expect(compare).not.toBeChecked();
+  expect(onOpenProduct).not.toHaveBeenCalled();
+  expect(api.compareProducts).not.toHaveBeenCalled();
+
+  await act(async () =>
+    pending.resolve(
+      turnFor("SAFE_BOUNDARY", {
+        guide_revision: 3,
+        text: "已切换到安全边界",
+      }),
+    ),
+  );
+  expect(await screen.findByRole("heading", { name: "安全边界" })).toBeVisible();
+});
+
+it("renders a three-product comparison in the selected order", async () => {
+  const threeProductComparison: CompareResponse = {
+    ...comparison,
+    product_ids: [
+      "seoul-shade-daily-fluid",
+      "cloud-veil-mineral",
+      "jeju-sport-sun-gel",
+    ],
+    rows: {
+      starting_price_usd: [14, 17, 22],
+      fragrance_free: [true, true, false],
+      water_resistance_minutes: [null, 40, 80],
+      finish: ["natural", "matte", "dewy"],
+      white_cast_risk: ["low", "medium", "low"],
+    },
+  };
+  api.compareProducts.mockResolvedValueOnce(threeProductComparison);
+  const user = await reachRecommendations();
+  await selectFirstTwoCandidates(user);
+  await user.click(
+    screen.getByRole("checkbox", { name: "比较 Jeju Sport Sun Gel" }),
+  );
+  await user.click(screen.getByRole("button", { name: "比较已选 3 款" }));
+
+  const table = await screen.findByRole("table", { name: "商品对比" });
+  expect(
+    within(table)
+      .getAllByRole("columnheader")
+      .map((cell) => cell.textContent),
+  ).toEqual([
+    "对比维度",
+    "Seoul Shade Daily Fluid",
+    "Cloud Veil Mineral SPF",
+    "Jeju Sport Sun Gel",
+  ]);
+});
+
+it.each([
+  new ApiError(503, "TEMPORARY_UNAVAILABLE"),
+  new ApiError(200, "INVALID_API_RESPONSE"),
+])("preserves comparison selections after %s and permits a retry", async (error) => {
+  api.compareProducts
+    .mockRejectedValueOnce(error)
+    .mockResolvedValueOnce(comparison);
+  const user = await reachRecommendations();
+  await selectFirstTwoCandidates(user);
+  await user.click(screen.getByRole("button", { name: "比较已选 2 款" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "比较暂时无法加载",
+  );
+  expect(
+    screen.getByRole("checkbox", { name: "比较 Seoul Shade Daily Fluid" }),
+  ).toBeChecked();
+  expect(
+    screen.getByRole("checkbox", { name: "比较 Cloud Veil Mineral SPF" }),
+  ).toBeChecked();
+  const retry = screen.getByRole("button", { name: "比较已选 2 款" });
+  expect(retry).toBeEnabled();
+  await user.click(retry);
+  expect(await screen.findByRole("table", { name: "商品对比" })).toBeVisible();
+});
+
+it("ignores a stale comparison after a new Guide turn replaces the decision", async () => {
+  const pendingComparison = deferred<CompareResponse>();
+  api.compareProducts.mockReturnValueOnce(pendingComparison.promise);
+  const user = await reachRecommendations();
+  await selectFirstTwoCandidates(user);
+  await user.click(screen.getByRole("button", { name: "比较已选 2 款" }));
+
+  await user.type(screen.getByLabelText("补充你的条件"), "现在优先哑光");
+  await user.click(screen.getByRole("button", { name: "发送" }));
+  await screen.findByRole("heading", { name: "适合" });
+  await act(async () => pendingComparison.resolve(comparison));
+
+  expect(screen.queryByRole("table", { name: "商品对比" })).not.toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "比较已选 0 款" }),
+  ).toBeDisabled();
+});
+
 it.each([
   ["OPENING_CONTEXT", "正在读取当前视频和商品"],
   ["CONTEXT_CONFIRMATION", "请确认视频中的商品"],
@@ -508,6 +762,121 @@ it("does not render business actions omitted by the server", async () => {
   expect(screen.queryByLabelText("补充你的条件")).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /继续|重试|放宽/ })).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "关闭 AI 导购" })).toBeVisible();
+});
+
+it("renders a server-owned COMPARISON_READY snapshot instead of a placeholder", async () => {
+  const onOpenProduct = vi.fn();
+  api.createGuideSession.mockResolvedValueOnce(
+    turnFor("COMPARISON_READY", {
+      guide_revision: 3,
+      comparison,
+    }),
+  );
+  const user = userEvent.setup();
+  render(
+    <GuideSheet
+      open
+      onClose={vi.fn()}
+      onOpenProduct={onOpenProduct}
+    />,
+  );
+
+  const table = await screen.findByRole("table", { name: "商品对比" });
+  expect(
+    within(table)
+      .getAllByRole("columnheader")
+      .map((cell) => cell.textContent),
+  ).toEqual([
+    "对比维度",
+    "Seoul Shade Daily Fluid",
+    "Cloud Veil Mineral SPF",
+  ]);
+  expect(screen.queryByRole("article", { name: /商品建议/ })).not.toBeInTheDocument();
+  await user.click(
+    screen.getByRole("button", { name: "查看 Cloud Veil Mineral SPF" }),
+  );
+  expect(onOpenProduct).toHaveBeenCalledWith(
+    "cloud-veil-mineral",
+    "alternative",
+  );
+});
+
+it("shows the last usable decision read-only in RECOVERY_REQUIRED and starts a safe new session", async () => {
+  const user = await reachRecommendations();
+  api.sendGuideMessage.mockResolvedValueOnce(
+    turnFor("RECOVERY_REQUIRED", {
+      guide_revision: 3,
+      text: "当前会话需要恢复",
+      recommendations: [],
+      evidence: [],
+    }),
+  );
+  await user.type(screen.getByLabelText("补充你的条件"), "继续核验");
+  await user.click(screen.getByRole("button", { name: "发送" }));
+
+  expect(await screen.findByRole("heading", { name: "需要恢复导购" })).toBeVisible();
+  expect(screen.getByText("上次可用结果（只读）")).toBeVisible();
+  expect(screen.getByRole("heading", { name: "Seoul Shade Daily Fluid" })).toBeVisible();
+  expect(screen.getAllByRole("button", { name: "查看商品" })[0]).toBeDisabled();
+
+  api.createGuideSession.mockResolvedValueOnce(
+    turnFor("DECISION_READY", {
+      session_id: "ses_guide_recovered",
+      guide_revision: 1,
+      text: "新会话已安全恢复",
+    }),
+  );
+  await user.click(screen.getByRole("button", { name: "重试恢复" }));
+  expect(await screen.findByText("新会话已安全恢复")).toBeVisible();
+  expect(api.createGuideSession).toHaveBeenLastCalledWith(
+    "morning-routine-uv-001",
+    "zh-CN",
+  );
+  expect(api.getGuideSession).not.toHaveBeenCalled();
+});
+
+it("excludes links inside closed evidence details from the focus trap while keeping summaries", async () => {
+  const insufficientContext = {
+    ...context,
+    claims: [context.claims[2]],
+  };
+  api.createGuideSession.mockResolvedValueOnce(
+    turnFor("INSUFFICIENT_EVIDENCE", {
+      context: insufficientContext,
+      recommendations: [],
+      evidence: [evidence[2]],
+    }),
+  );
+  render(<GuideSheet open onClose={vi.fn()} />);
+  await screen.findByRole("heading", { name: "当前证据不足" });
+
+  const dialog = screen.getByRole("dialog", { name: "AI 导购（概念）" });
+  const summaries = Array.from(dialog.querySelectorAll("details > summary"));
+  expect(summaries).toHaveLength(1);
+  const lastSummary = summaries[0] as HTMLElement;
+  expect(lastSummary.parentElement?.querySelector("a[href]")).not.toBeNull();
+  lastSummary.focus();
+  expect(lastSummary).toHaveFocus();
+  fireEvent.keyDown(dialog, { key: "Tab" });
+  expect(screen.getByRole("button", { name: "关闭 AI 导购" })).toHaveFocus();
+});
+
+it.each([
+  new ApiError(404, "SESSION_NOT_FOUND"),
+  new ApiError(200, "INVALID_API_RESPONSE"),
+])("clears the active turn after terminal reconciliation error %s", async (error) => {
+  const user = await reachRecommendations();
+  api.sendGuideMessage.mockRejectedValueOnce(
+    new ApiError(503, "UNKNOWN_POST_RESULT"),
+  );
+  api.getGuideSession.mockRejectedValueOnce(error);
+  await user.type(screen.getByLabelText("补充你的条件"), "更新条件");
+  await user.click(screen.getByRole("button", { name: "发送" }));
+
+  expect(await screen.findByRole("heading", { name: "导购暂时不可用" })).toBeVisible();
+  expect(screen.queryByRole("heading", { name: "适合" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "查看商品" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "关闭 AI 导购" })).toBeEnabled();
 });
 
 describe("sheet lifecycle and snapshot continuity", () => {
@@ -593,6 +962,37 @@ describe("sheet lifecycle and snapshot continuity", () => {
     });
   });
 
+  it("keeps a visible prior snapshot frozen while a reopen refresh is pending", async () => {
+    const user = userEvent.setup();
+    const refresh = deferred<GuideTurn>();
+    render(<OpenHarness />);
+    await user.click(screen.getByRole("button", { name: "问 AI" }));
+    await screen.findByRole("button", { name: "视频里的说法可信吗？" });
+    await user.click(screen.getByRole("button", { name: "视频里的说法可信吗？" }));
+    await screen.findByRole("heading", { name: "适合" });
+    await user.click(screen.getByRole("button", { name: "关闭 AI 导购" }));
+
+    api.getGuideSession.mockReturnValueOnce(refresh.promise);
+    await user.click(screen.getByRole("button", { name: "问 AI" }));
+    expect(screen.getByRole("heading", { name: "适合" })).toBeVisible();
+    expect(screen.getByRole("dialog", { name: "AI 导购（概念）" })).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+    const checkbox = screen.getByRole("checkbox", {
+      name: "比较 Seoul Shade Daily Fluid",
+    });
+    const openProduct = screen.getAllByRole("button", { name: "查看商品" })[0];
+    expect(checkbox).toBeDisabled();
+    expect(openProduct).toBeDisabled();
+    checkbox.removeAttribute("disabled");
+    fireEvent.click(checkbox);
+    expect(checkbox).not.toBeChecked();
+
+    await act(async () => refresh.resolve(recommendationTurn));
+    await waitFor(() => expect(openProduct).toBeEnabled());
+  });
+
   it("ignores an old message response after close/reopen", async () => {
     const user = userEvent.setup();
     const stale = deferred<GuideTurn>();
@@ -614,6 +1014,96 @@ describe("sheet lifecycle and snapshot continuity", () => {
     );
     expect(screen.queryByText("旧响应不能覆盖当前快照")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "适合" })).toBeVisible();
+  });
+
+  it("invalidates the old session and response when contentContextId changes while open", async () => {
+    const oldSession = deferred<GuideTurn>();
+    const newSession = deferred<GuideTurn>();
+    api.createGuideSession
+      .mockReturnValueOnce(oldSession.promise)
+      .mockReturnValueOnce(newSession.promise);
+    const contextB = {
+      ...context,
+      id: "night-routine-uv-002",
+      anchor_product_id: "cloud-veil-mineral",
+      anchor_product_name: "Cloud Veil Mineral SPF",
+      caption: "A mineral sunscreen for the next video",
+    };
+    const { rerender } = render(
+      <GuideSheet
+        open
+        onClose={vi.fn()}
+        contentContextId="morning-routine-uv-001"
+      />,
+    );
+    await waitFor(() =>
+      expect(api.createGuideSession).toHaveBeenCalledWith(
+        "morning-routine-uv-001",
+        "zh-CN",
+      ),
+    );
+
+    rerender(
+      <GuideSheet
+        open
+        onClose={vi.fn()}
+        contentContextId="night-routine-uv-002"
+      />,
+    );
+    await waitFor(() =>
+      expect(api.createGuideSession).toHaveBeenCalledWith(
+        "night-routine-uv-002",
+        "zh-CN",
+      ),
+    );
+    await act(async () =>
+      newSession.resolve(
+        turnFor("WAITING_CLARIFICATION", {
+          session_id: "ses_context_b",
+          context: contextB,
+          text: "这是新视频的导购会话",
+        }),
+      ),
+    );
+    expect(await screen.findByText("Cloud Veil Mineral SPF")).toBeVisible();
+
+    await act(async () =>
+      oldSession.resolve(
+        turnFor("NO_MATCH", {
+          text: "旧视频响应不得复活",
+        }),
+      ),
+    );
+    expect(screen.queryByText("旧视频响应不得复活")).not.toBeInTheDocument();
+    expect(screen.getByText("Cloud Veil Mineral SPF")).toBeVisible();
+  });
+
+  it("clears a FATAL_ERROR session so reopening creates a fresh session", async () => {
+    const user = userEvent.setup();
+    api.createGuideSession
+      .mockResolvedValueOnce(
+        turnFor("FATAL_ERROR", {
+          text: "当前会话不可恢复",
+        }),
+      )
+      .mockResolvedValueOnce(
+        turnFor("DECISION_READY", {
+          session_id: "ses_after_fatal",
+          text: "新会话已建立",
+        }),
+      );
+    render(<OpenHarness />);
+    await user.click(screen.getByRole("button", { name: "问 AI" }));
+    expect(
+      await screen.findByRole("heading", { name: "导购暂时不可用" }),
+    ).toBeVisible();
+    expect(api.createGuideSession).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole("button", { name: "关闭 AI 导购" }));
+    await user.click(screen.getByRole("button", { name: "问 AI" }));
+
+    expect(await screen.findByText("新会话已建立")).toBeVisible();
+    expect(api.createGuideSession).toHaveBeenCalledTimes(2);
+    expect(api.getGuideSession).not.toHaveBeenCalled();
   });
 
   it("returns from an AI-origin PDP without creating another Guide session", async () => {

@@ -1181,41 +1181,22 @@
         "type": "object"
       },
       "CompareResponse": {
+        "additionalProperties": false,
         "properties": {
           "product_ids": {
             "items": {
               "type": "string"
             },
+            "maxItems": 3,
+            "minItems": 2,
             "title": "Product Ids",
             "type": "array"
           },
           "rows": {
-            "additionalProperties": {
-              "items": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "boolean"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "type": "array"
-            },
-            "title": "Rows",
-            "type": "object"
+            "$ref": "#/components/schemas/ComparisonRows"
           },
           "session_id": {
+            "minLength": 1,
             "title": "Session Id",
             "type": "string"
           },
@@ -1225,7 +1206,9 @@
             "type": "boolean"
           },
           "state": {
-            "$ref": "#/components/schemas/WorkflowState"
+            "const": "COMPARE",
+            "title": "State",
+            "type": "string"
           }
         },
         "required": [
@@ -1236,6 +1219,77 @@
           "simulated"
         ],
         "title": "CompareResponse",
+        "type": "object"
+      },
+      "ComparisonRows": {
+        "additionalProperties": false,
+        "properties": {
+          "finish": {
+            "items": {
+              "enum": [
+                "dewy",
+                "natural",
+                "matte"
+              ],
+              "type": "string"
+            },
+            "title": "Finish",
+            "type": "array"
+          },
+          "fragrance_free": {
+            "items": {
+              "type": "boolean"
+            },
+            "title": "Fragrance Free",
+            "type": "array"
+          },
+          "starting_price_usd": {
+            "items": {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            "title": "Starting Price Usd",
+            "type": "array"
+          },
+          "water_resistance_minutes": {
+            "items": {
+              "anyOf": [
+                {
+                  "enum": [
+                    40,
+                    80
+                  ],
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Water Resistance Minutes",
+            "type": "array"
+          },
+          "white_cast_risk": {
+            "items": {
+              "enum": [
+                "low",
+                "medium",
+                "high"
+              ],
+              "type": "string"
+            },
+            "title": "White Cast Risk",
+            "type": "array"
+          }
+        },
+        "required": [
+          "starting_price_usd",
+          "fragrance_free",
+          "water_resistance_minutes",
+          "finish",
+          "white_cast_risk"
+        ],
+        "title": "ComparisonRows",
         "type": "object"
       },
       "ContentContextSummary": {
@@ -1489,6 +1543,16 @@
             },
             "title": "Allowed Actions",
             "type": "array"
+          },
+          "comparison": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CompareResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "context": {
             "$ref": "#/components/schemas/ContentContextSummary"

@@ -121,6 +121,7 @@ function restoreVideoPlayback(
 export interface ShortVideoFeedHandle {
   capture(itemId: string): VideoSnapshot | null;
   restore(itemId: string, snapshot: VideoSnapshot): Promise<void>;
+  focusAskAi(itemId: string): void;
   focusProduct(itemId: string): void;
 }
 
@@ -288,6 +289,11 @@ export const ShortVideoFeed = forwardRef<
         video,
         snapshot,
       );
+    },
+    focusAskAi(itemId) {
+      productEntryElements.current[itemId]?.parentElement
+        ?.querySelector<HTMLButtonElement>(".askAiTextButton")
+        ?.focus();
     },
     focusProduct(itemId) {
       productEntryElements.current[itemId]?.focus();

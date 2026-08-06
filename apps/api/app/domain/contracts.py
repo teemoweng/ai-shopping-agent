@@ -323,12 +323,42 @@ class CommerceOperationResponse(BaseModel):
     simulated: Literal[True]
 
 
+class ComparisonRows(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    starting_price_usd: list[Annotated[float, Field(ge=0)]]
+    fragrance_free: list[bool]
+    water_resistance_minutes: list[Literal[40, 80] | None]
+    finish: list[Literal["dewy", "natural", "matte"]]
+    white_cast_risk: list[Literal["low", "medium", "high"]]
+
+
 class CompareResponse(BaseModel):
-    session_id: str
-    state: WorkflowState
-    product_ids: list[str]
-    rows: dict[str, list[str | int | float | bool | None]]
+    model_config = ConfigDict(extra="forbid")
+
+    session_id: Annotated[str, Field(min_length=1)]
+    state: Literal[WorkflowState.COMPARE]
+    product_ids: Annotated[list[str], Field(min_length=2, max_length=3)]
+    rows: ComparisonRows
     simulated: Literal[True]
+
+    @model_validator(mode="after")
+    def validate_comparison_shape(self) -> CompareResponse:
+        if len(set(self.product_ids)) != len(self.product_ids):
+            raise ValueError("comparison product_ids must be distinct")
+        column_count = len(self.product_ids)
+        if any(
+            len(row) != column_count
+            for row in (
+                self.rows.starting_price_usd,
+                self.rows.fragrance_free,
+                self.rows.water_resistance_minutes,
+                self.rows.finish,
+                self.rows.white_cast_risk,
+            )
+        ):
+            raise ValueError("comparison rows must match product_ids")
+        return self
 
 
 class CartPreviewResponse(BaseModel):
@@ -531,3 +561,24 @@ class GuideTurnResponse(BaseModel):
     recommendations: list[RecommendationCard] = Field(default_factory=list)
     evidence: list[EvidenceReference] = Field(default_factory=list)
     quick_replies: list[str] = Field(default_factory=list)
+    comparison: CompareResponse | None = None
+
+    @model_validator(mode="after")
+    def validate_comparison_view(self) -> GuideTurnResponse:
+        is_comparison = self.guide_view_kind is GuideViewKind.COMPARISON_READY
+        if is_comparison and self.comparison is None:
+            raise ValueError("COMPARISON_READY requires comparison")
+        if not is_comparison and self.comparison is not None:
+            raise ValueError("comparison is only valid for COMPARISON_READY")
+        if not is_comparison:
+            return self
+        if self.state is not WorkflowState.COMPARE:
+            raise ValueError("COMPARISON_READY requires COMPARE state")
+        if self.comparison is None or self.comparison.session_id != self.session_id:
+            raise ValueError("comparison must belong to the Guide session")
+        if self.allowed_actions != [
+            GuideAction.OPEN_PRODUCT,
+            GuideAction.RETURN_TO_FEED,
+        ]:
+            raise ValueError("COMPARISON_READY requires exact terminal actions")
+        return self
