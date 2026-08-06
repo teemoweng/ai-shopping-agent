@@ -1,5 +1,4 @@
 from datetime import UTC, datetime
-from threading import Lock
 from uuid import uuid4
 
 from app.domain.contracts import (
@@ -31,11 +30,10 @@ class CartService:
         self.fixtures = fixtures
         self.sessions = sessions
         self.previews: dict[str, CartPreviewResponse] = {}
-        self._transaction_lock = Lock()
 
     def compare(self, session_id: str, request: CompareRequest) -> CompareResponse:
-        session = self.sessions.get(session_id)
-        with self._transaction_lock:
+        with self.sessions.transaction():
+            session = self.sessions.get(session_id)
             current_snapshot = session.latest_response
             if (
                 current_snapshot is None
@@ -119,8 +117,8 @@ class CartService:
         session_id: str,
         request: CartPreviewRequest,
     ) -> CartPreviewResponse:
-        session = self.sessions.get(session_id)
-        with self._transaction_lock:
+        with self.sessions.transaction():
+            session = self.sessions.get(session_id)
             eligible_sku_ids = {
                 sku_id
                 for sku_ids in session.eligible_sku_ids_by_product.values()
@@ -169,8 +167,8 @@ class CartService:
             return response
 
     def add(self, session_id: str, token: str) -> CartItemResponse:
-        session = self.sessions.get(session_id)
-        with self._transaction_lock:
+        with self.sessions.transaction():
+            session = self.sessions.get(session_id)
             if token in session.consumed_confirmation_tokens:
                 raise CartConflict("TOKEN_ALREADY_USED")
 

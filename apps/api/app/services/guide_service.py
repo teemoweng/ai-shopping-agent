@@ -1,11 +1,29 @@
 from app.domain.contracts import (
     CreateGuideSessionRequest,
     EntryPoint,
+    GuideAction,
     GuideMessageRequest,
     GuideTurnResponse,
 )
 from app.repositories.session_repository import SessionRepository
 from app.workflow.engine import WorkflowEngine
+
+_MESSAGE_CAPABLE_ACTIONS = frozenset(
+    {
+        GuideAction.CONFIRM_CONTEXT,
+        GuideAction.ANSWER_CLARIFICATION,
+        GuideAction.SKIP_CLARIFICATION,
+        GuideAction.UPDATE_CONSTRAINTS,
+        GuideAction.RELAX_CONSTRAINT,
+        GuideAction.CONTINUE_WITH_KNOWN,
+    }
+)
+
+
+class GuideConflict(Exception):
+    def __init__(self, code: str) -> None:
+        self.code = code
+        super().__init__(code)
 
 
 class GuideService:
@@ -31,9 +49,15 @@ class GuideService:
         session_id: str,
         request: GuideMessageRequest,
     ) -> GuideTurnResponse:
-        session = self.sessions.get(session_id)
-        response = self.engine.handle_message(session, request)
-        return self.sessions.save_snapshot(session, response)
+        with self.sessions.transaction():
+            session = self.sessions.get(session_id)
+            snapshot = session.latest_response
+            if snapshot is None or _MESSAGE_CAPABLE_ACTIONS.isdisjoint(
+                snapshot.allowed_actions
+            ):
+                raise GuideConflict("ACTION_NOT_ALLOWED")
+            response = self.engine.handle_message(session, request)
+            return self.sessions.save_snapshot(session, response)
 
     def get(self, session_id: str) -> GuideTurnResponse:
         return self.sessions.get_snapshot(session_id)

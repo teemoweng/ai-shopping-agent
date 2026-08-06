@@ -182,3 +182,45 @@ def test_unknown_snapshot_session_has_stable_not_found() -> None:
     response = client.get("/api/v1/guide/sessions/ses_missing")
     assert response.status_code == 404
     assert response.json()["detail"]["code"] == "SESSION_NOT_FOUND"
+
+
+def test_message_rejects_comparison_ready_without_mutating_snapshot_or_trace() -> None:
+    created = create_content_session(locale="zh-CN")
+    session_id = created["session_id"]
+    recommended = client.post(
+        f"/api/v1/guide/sessions/{session_id}/messages",
+        json={
+            "message_id": "terminal_api_setup",
+            "text": "预算30美元以内、无香精、自然妆效",
+        },
+    )
+    assert recommended.status_code == 200
+    compared = client.post(
+        f"/api/v1/guide/sessions/{session_id}/compare",
+        json={
+            "product_ids": [
+                "seoul-shade-daily-fluid",
+                "cloud-veil-mineral",
+            ]
+        },
+    )
+    assert compared.status_code == 200
+
+    before_snapshot = client.get(f"/api/v1/guide/sessions/{session_id}").json()
+    session = service.sessions.get(session_id)
+    before_session = session.model_copy(deep=True)
+    before_events = service.sessions.events_for_trace(session.trace_id)
+    trace_path = service.sessions._trace_path
+    before_trace = trace_path.read_bytes()
+
+    rejected = client.post(
+        f"/api/v1/guide/sessions/{session_id}/messages",
+        json={"message_id": "terminal_api_blocked", "text": "改成哑光妆效"},
+    )
+
+    assert rejected.status_code == 409
+    assert rejected.json()["detail"]["code"] == "ACTION_NOT_ALLOWED"
+    assert client.get(f"/api/v1/guide/sessions/{session_id}").json() == before_snapshot
+    assert service.sessions.get(session_id) == before_session
+    assert service.sessions.events_for_trace(session.trace_id) == before_events
+    assert trace_path.read_bytes() == before_trace

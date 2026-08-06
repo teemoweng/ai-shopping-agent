@@ -28,8 +28,8 @@ type GuideTurn = components["schemas"]["GuideTurnResponse"];
 type GuideAction = components["schemas"]["GuideAction"];
 type EvidenceStatus = components["schemas"]["EvidenceStatus"];
 type EvidenceReference = components["schemas"]["EvidenceReference"];
-type CompareResponse = components["schemas"]["CompareResponse"];
 type ProductRole = "current" | "alternative";
+type SyncExpectation = { kind: "comparison"; sessionId: string } | null;
 
 const STARTING_QUESTIONS = [
   "这款适合我吗？",
@@ -65,6 +65,31 @@ function isTerminalSessionError(error: unknown) {
     (error.status === 404 ||
       error.code === "SESSION_NOT_FOUND" ||
       error.code === "INVALID_API_RESPONSE")
+  );
+}
+
+function isCompareOutcomeUnknown(error: unknown) {
+  return (
+    !(error instanceof ApiError) ||
+    error.status >= 500 ||
+    error.status === 408 ||
+    error.code === "INVALID_API_RESPONSE"
+  );
+}
+
+function isMissingGuideSessionError(error: unknown) {
+  return (
+    error instanceof ApiError &&
+    (error.status === 404 || error.code === "SESSION_NOT_FOUND")
+  );
+}
+
+function isAuthoritativeComparisonTurn(turn: GuideTurn, sessionId: string) {
+  return (
+    turn.session_id === sessionId &&
+    turn.state === "COMPARE" &&
+    turn.guide_view_kind === "COMPARISON_READY" &&
+    turn.comparison?.session_id === sessionId
   );
 }
 
@@ -217,7 +242,6 @@ export function GuideSheet({
   const [transientError, setTransientError] = useState<string | null>(null);
   const [fatalError, setFatalError] = useState<string | null>(null);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
-  const [comparison, setComparison] = useState<CompareResponse | null>(null);
   const [comparisonPending, setComparisonPending] = useState(false);
   const [comparisonError, setComparisonError] = useState<string | null>(null);
   const [guideFrozen, setGuideFrozen] = useState(false);
@@ -238,6 +262,7 @@ export function GuideSheet({
   const submittingRef = useRef(false);
   const guideFrozenRef = useRef(false);
   const syncRequiredRef = useRef(false);
+  const syncExpectationRef = useRef<SyncExpectation>(null);
   const comparisonPendingRef = useRef(false);
   const comparisonVersionRef = useRef(0);
   const lastContextIdRef = useRef(contentContextId);
@@ -246,7 +271,6 @@ export function GuideSheet({
     comparisonVersionRef.current += 1;
     comparisonPendingRef.current = false;
     setSelectedProductIds([]);
-    setComparison(null);
     setComparisonPending(false);
     setComparisonError(null);
   }, []);
@@ -256,10 +280,16 @@ export function GuideSheet({
     setGuideFrozen(frozen);
   }, []);
 
-  const requireSync = useCallback((required: boolean) => {
-    syncRequiredRef.current = required;
-    setSyncRequired(required);
-  }, []);
+  const requireSync = useCallback(
+    (required: boolean, expectation?: SyncExpectation) => {
+      syncRequiredRef.current = required;
+      if (expectation !== undefined) {
+        syncExpectationRef.current = expectation;
+      }
+      setSyncRequired(required);
+    },
+    [],
+  );
 
   const enterTerminalState = useCallback(
     (message: string, terminalTurn?: GuideTurn) => {
@@ -267,7 +297,7 @@ export function GuideSheet({
       setLastUsableTurn(null);
       sessionIdRef.current = null;
       submittingRef.current = false;
-      requireSync(false);
+      requireSync(false, null);
       freezeGuide(false);
       resetComparison();
       setTurn(terminalTurn ?? null);
@@ -285,6 +315,23 @@ export function GuideSheet({
         enterTerminalState(nextTurn.text, nextTurn);
         return;
       }
+      const expectation = syncExpectationRef.current;
+      if (expectation?.kind === "comparison") {
+        if (nextTurn.session_id !== expectation.sessionId) {
+          enterTerminalState(
+            "服务端返回了无法验证的比较状态，请关闭后重新打开导购。",
+          );
+          return;
+        }
+        if (!isAuthoritativeComparisonTurn(nextTurn, expectation.sessionId)) {
+          freezeGuide(true);
+          requireSync(true, expectation);
+          setTransientError(
+            "尚未确认服务端最终比较状态；上次已核验结果仅供查看，请重新同步。",
+          );
+          return;
+        }
+      }
       if (
         previous &&
         (previous.session_id !== nextTurn.session_id ||
@@ -301,7 +348,7 @@ export function GuideSheet({
       setTurn(nextTurn);
       setComparisonPending(false);
       freezeGuide(false);
-      requireSync(false);
+      requireSync(false, null);
       setFatalError(null);
       setTransientError(null);
       if (fromNewSession) {
@@ -364,7 +411,7 @@ export function GuideSheet({
     requestVersionRef.current += 1;
     submittingRef.current = false;
     freezeGuide(false);
-    requireSync(false);
+    requireSync(false, null);
     setTransientError(null);
     setFatalError(null);
     resetComparison();
@@ -507,7 +554,7 @@ export function GuideSheet({
       resetComparison();
       setShowStartingQuestions(false);
       setTransientError(null);
-      requireSync(false);
+      requireSync(false, null);
       setPendingLabel("正在核验商品事实与视频说法…");
       const requestVersion = ++requestVersionRef.current;
       const messageId = `msg_${currentTurn.session_id}_${++messageSequenceRef.current}`;
@@ -674,30 +721,80 @@ export function GuideSheet({
     comparisonPendingRef.current = true;
     setComparisonPending(true);
     setComparisonError(null);
+    freezeGuide(true);
+    const sessionId = currentTurn.session_id;
+    requireSync(false, { kind: "comparison", sessionId });
     const version = ++comparisonVersionRef.current;
     const productIds = [...selectedProductIds];
-    void compareProducts(currentTurn.session_id, productIds)
-      .then((response) => {
-        if (
-          mountedRef.current &&
-          isOpenRef.current &&
-          comparisonVersionRef.current === version
-        ) {
-          setComparison(response);
+    const isCurrentComparison = () =>
+      mountedRef.current &&
+      isOpenRef.current &&
+      lastContextIdRef.current === contentContextId &&
+      comparisonVersionRef.current === version;
+
+    void (async () => {
+      try {
+        try {
+          await compareProducts(sessionId, productIds);
+        } catch (error: unknown) {
+          if (isMissingGuideSessionError(error)) {
+            if (
+              syncExpectationRef.current?.kind === "comparison" &&
+              syncExpectationRef.current.sessionId === sessionId &&
+              sessionIdRef.current === sessionId &&
+              lastContextIdRef.current === contentContextId
+            ) {
+              enterTerminalState(
+                "导购会话已失效，请关闭后重新打开以建立新会话。",
+              );
+            }
+            return;
+          }
+          if (!isCompareOutcomeUnknown(error)) {
+            if (
+              syncExpectationRef.current?.kind === "comparison" &&
+              syncExpectationRef.current.sessionId === sessionId
+            ) {
+              syncExpectationRef.current = null;
+            }
+            if (!isCurrentComparison()) {
+              return;
+            }
+            requireSync(false, null);
+            freezeGuide(false);
+            setComparisonError(
+              "比较请求未被服务端接受，请检查候选后重试。",
+            );
+            return;
+          }
+          if (!isCurrentComparison()) {
+            return;
+          }
         }
-      })
-      .catch(() => {
-        if (
-          mountedRef.current &&
-          isOpenRef.current &&
-          comparisonVersionRef.current === version
-        ) {
-          setComparisonError(
-            "比较暂时无法加载，已保留你的候选和上次已核验建议。",
+
+        if (!isCurrentComparison()) {
+          return;
+        }
+        const snapshot = await getGuideSession(sessionId);
+        if (!isCurrentComparison()) {
+          return;
+        }
+        applyVerifiedTurn(snapshot);
+      } catch (error: unknown) {
+        if (!isCurrentComparison()) {
+          return;
+        }
+        if (isTerminalSessionError(error)) {
+          enterTerminalState(
+            "导购会话已失效，请关闭后重新打开以建立新会话。",
+          );
+        } else {
+          requireSync(true, { kind: "comparison", sessionId });
+          setTransientError(
+            "尚未确认服务端最终比较状态；上次已核验结果仅供查看，请重新同步。",
           );
         }
-      })
-      .finally(() => {
+      } finally {
         if (
           mountedRef.current &&
           comparisonVersionRef.current === version
@@ -705,7 +802,8 @@ export function GuideSheet({
           comparisonPendingRef.current = false;
           setComparisonPending(false);
         }
-      });
+      }
+    })();
   }
 
   function openProduct(productId: string, role: ProductRole) {
@@ -727,6 +825,7 @@ export function GuideSheet({
 
   function retryGuideSnapshot() {
     const currentSessionId = sessionIdRef.current;
+    const expectation = syncExpectationRef.current;
     if (
       !currentSessionId ||
       !syncRequiredRef.current ||
@@ -761,7 +860,7 @@ export function GuideSheet({
               "导购会话已失效，请关闭后重新打开以建立新会话。",
             );
           } else {
-            requireSync(true);
+            requireSync(true, expectation);
             setTransientError(
               "尚未确认服务端最终状态；上次已核验结果仍为只读，请再次同步。",
             );
@@ -792,7 +891,7 @@ export function GuideSheet({
 
     submittingRef.current = true;
     freezeGuide(true);
-    requireSync(false);
+    requireSync(false, null);
     resetComparison();
     sessionIdRef.current = null;
     verifiedTurnRef.current = null;
@@ -888,44 +987,27 @@ export function GuideSheet({
     const currentEvidenceById = new Map(
       (currentTurn.evidence ?? []).map((item) => [item.evidence_id, item]),
     );
-    const currentProductNames = Object.fromEntries(
-      currentRecommendations.map((item) => [item.product_id, item.name]),
-    );
     const controlsDisabled = readOnly || businessFrozen || comparisonPending;
     const comparisonEnabled =
       !readOnly && hasAction(currentTurn, "REQUEST_COMPARISON");
     const productOpeningEnabled = hasAction(currentTurn, "OPEN_PRODUCT");
-    const activeComparison = readOnly
-      ? (currentTurn.comparison ?? null)
-      : comparison;
 
-    if (activeComparison) {
+    if (readOnly && currentTurn.comparison) {
+      const currentProductNames = Object.fromEntries(
+        currentRecommendations.map((item) => [item.product_id, item.name]),
+      );
       return (
         <section className="guideComparisonView">
-          {readOnly ? (
-            <strong className="readOnlyResultLabel">上次可用结果（只读）</strong>
-          ) : null}
+          <strong className="readOnlyResultLabel">
+            上次可用结果（只读）
+          </strong>
           <ComparisonTable
-            comparison={activeComparison}
+            comparison={currentTurn.comparison}
             productNames={currentProductNames}
             anchorProductId={currentTurn.context.anchor_product_id}
             onOpenProduct={productOpeningEnabled ? openProduct : undefined}
-            disabled={controlsDisabled}
+            disabled
           />
-          {!readOnly ? (
-            <button
-              type="button"
-              className="secondaryDecisionButton"
-              disabled={controlsDisabled}
-              onClick={() => {
-                if (!controlsDisabled) {
-                  setComparison(null);
-                }
-              }}
-            >
-              返回推荐
-            </button>
-          ) : null}
         </section>
       );
     }

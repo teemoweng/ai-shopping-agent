@@ -235,6 +235,7 @@ export function validateGuideTurnResponse(value: unknown): GuideTurnResponse | n
   const isComparisonReady = value.guide_view_kind === "COMPARISON_READY";
   if (isComparisonReady) {
     if (
+      value.state !== "COMPARE" ||
       value.allowed_actions.length !== 2 ||
       value.allowed_actions[0] !== "OPEN_PRODUCT" ||
       value.allowed_actions[1] !== "RETURN_TO_FEED" ||

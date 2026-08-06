@@ -1,5 +1,7 @@
 import json
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Event
 
 import pytest
 
@@ -8,13 +10,15 @@ from app.domain.contracts import (
     CompareRequest,
     CreateGuideSessionRequest,
     EntryPoint,
+    GuideAction,
     GuideMessageRequest,
+    GuideStatus,
     GuideViewKind,
 )
 from app.repositories.fixture_repository import FixtureRepository
 from app.repositories.session_repository import SessionRepository
 from app.services.cart_service import CartService
-from app.services.guide_service import GuideService
+from app.services.guide_service import GuideConflict, GuideService
 from app.workflow import agent
 from app.workflow import engine as engine_module
 from app.workflow.engine import WorkflowEngine
@@ -327,3 +331,202 @@ def test_returned_turn_cannot_mutate_stored_verified_snapshot(tmp_path) -> None:
     turn.text = "被调用方篡改"
 
     assert service.get(turn.session_id).text == verified_text
+
+
+@pytest.mark.parametrize(
+    "terminal_view",
+    [
+        GuideViewKind.COMPARISON_READY,
+        GuideViewKind.SAFE_BOUNDARY,
+        GuideViewKind.FATAL_ERROR,
+    ],
+)
+def test_message_rejects_terminal_snapshot_without_mutating_session_or_trace(
+    tmp_path,
+    terminal_view: GuideViewKind,
+) -> None:
+    engine, cart, sessions = build_services(tmp_path)
+    service = GuideService(engine, sessions)
+    opening = service.create(
+        CreateGuideSessionRequest(
+            entry_point=EntryPoint.CONTENT,
+            content_context_id="morning-routine-uv-001",
+            locale="zh-CN",
+        )
+    )
+    session = sessions.get(opening.session_id)
+
+    if terminal_view is GuideViewKind.COMPARISON_READY:
+        service.message(
+            session.id,
+            GuideMessageRequest(
+                message_id="terminal_setup_recommendation",
+                text="预算30美元以内、无香精、自然妆效",
+            ),
+        )
+        cart.compare(
+            session.id,
+            CompareRequest(
+                product_ids=[
+                    "seoul-shade-daily-fluid",
+                    "cloud-veil-mineral",
+                ]
+            ),
+        )
+    elif terminal_view is GuideViewKind.SAFE_BOUNDARY:
+        service.message(
+            session.id,
+            GuideMessageRequest(
+                message_id="terminal_setup_safety",
+                text="脸部肿胀并且呼吸困难",
+            ),
+        )
+    else:
+        fatal_snapshot = sessions.get_snapshot(session.id).model_copy(
+            update={
+                "guide_status": GuideStatus.FAILED,
+                "guide_view_kind": GuideViewKind.FATAL_ERROR,
+                "allowed_actions": [GuideAction.RETURN_TO_FEED],
+                "text": "导购当前无法恢复，请返回 Feed。",
+                "quick_replies": [],
+            },
+            deep=True,
+        )
+        sessions.save_snapshot(session, fatal_snapshot)
+
+    assert sessions.get_snapshot(session.id).guide_view_kind is terminal_view
+    before_session = session.model_copy(deep=True)
+    before_events = sessions.events_for_trace(session.trace_id)
+    trace_path = tmp_path / "trace.jsonl"
+    before_trace = trace_path.read_bytes()
+
+    with pytest.raises(GuideConflict) as exc_info:
+        service.message(
+            session.id,
+            GuideMessageRequest(
+                message_id=f"blocked_after_{terminal_view.value.lower()}",
+                text="改成哑光妆效",
+            ),
+        )
+
+    assert exc_info.value.code == "ACTION_NOT_ALLOWED"
+    assert sessions.get(session.id) == before_session
+    assert sessions.get_snapshot(session.id) == before_session.latest_response
+    assert sessions.events_for_trace(session.trace_id) == before_events
+    assert trace_path.read_bytes() == before_trace
+
+
+def test_compare_terminal_snapshot_cannot_be_overwritten_by_concurrent_message(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    engine, cart, sessions = build_services(tmp_path)
+    service = GuideService(engine, sessions)
+    opening = service.create(
+        CreateGuideSessionRequest(
+            entry_point=EntryPoint.CONTENT,
+            content_context_id="morning-routine-uv-001",
+            locale="zh-CN",
+        )
+    )
+    decision = service.message(
+        opening.session_id,
+        GuideMessageRequest(
+            message_id="concurrent_setup_recommendation",
+            text="预算30美元以内、无香精、自然妆效",
+        ),
+    )
+    product_ids = [item.product_id for item in decision.recommendations[:2]]
+    assert len(product_ids) == 2
+
+    entered_message_engine = Event()
+    release_message_engine = Event()
+    compare_finished = Event()
+    original_handle_message = engine.handle_message
+
+    def paused_handle_message(session, request):
+        entered_message_engine.set()
+        assert release_message_engine.wait(timeout=2)
+        return original_handle_message(session, request)
+
+    monkeypatch.setattr(engine, "handle_message", paused_handle_message)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        message_future = executor.submit(
+            service.message,
+            opening.session_id,
+            GuideMessageRequest(
+                message_id="concurrent_message",
+                text="继续按这些条件推荐",
+            ),
+        )
+        assert entered_message_engine.wait(timeout=2)
+
+        def run_compare():
+            try:
+                return cart.compare(
+                    opening.session_id,
+                    CompareRequest(product_ids=product_ids),
+                )
+            finally:
+                compare_finished.set()
+
+        compare_future = executor.submit(run_compare)
+        compare_finished_before_release = compare_finished.wait(timeout=0.1)
+        release_message_engine.set()
+        message_future.result(timeout=2)
+        compare_future.result(timeout=2)
+
+    final_snapshot = sessions.get_snapshot(opening.session_id)
+    final_events = sessions.events_for_trace(final_snapshot.trace_id)
+    assert compare_finished_before_release is False
+    assert final_snapshot.state == "COMPARE"
+    assert final_snapshot.guide_view_kind == "COMPARISON_READY"
+    assert final_snapshot.comparison is not None
+    assert final_snapshot.comparison.product_ids == product_ids
+    assert final_events[-1].event_type == "comparison_presented"
+
+
+@pytest.mark.parametrize(
+    "message_action",
+    [
+        GuideAction.CONFIRM_CONTEXT,
+        GuideAction.ANSWER_CLARIFICATION,
+        GuideAction.SKIP_CLARIFICATION,
+        GuideAction.UPDATE_CONSTRAINTS,
+        GuideAction.RELAX_CONSTRAINT,
+        GuideAction.CONTINUE_WITH_KNOWN,
+    ],
+)
+def test_message_allows_each_message_capable_action(
+    tmp_path,
+    message_action: GuideAction,
+) -> None:
+    engine, _, sessions = build_services(tmp_path)
+    service = GuideService(engine, sessions)
+    opening = service.create(
+        CreateGuideSessionRequest(
+            entry_point=EntryPoint.CONTENT,
+            content_context_id="morning-routine-uv-001",
+            locale="zh-CN",
+        )
+    )
+    session = sessions.get(opening.session_id)
+    sessions.save_snapshot(
+        session,
+        sessions.get_snapshot(session.id).model_copy(
+            update={"allowed_actions": [message_action]},
+            deep=True,
+        ),
+    )
+
+    turn = service.message(
+        session.id,
+        GuideMessageRequest(
+            message_id=f"allowed_{message_action.value.lower()}",
+            text="日常通勤、预算30美元以内",
+        ),
+    )
+
+    assert turn.guide_view_kind is GuideViewKind.DECISION_READY
+    assert turn.guide_revision > opening.guide_revision

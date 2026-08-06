@@ -8,7 +8,7 @@ from app.domain.contracts import (
     GuideMessageRequest,
     GuideTurnResponse,
 )
-from app.services.guide_service import GuideService
+from app.services.guide_service import GuideConflict, GuideService
 
 router = APIRouter(prefix="/guide", tags=["guide"])
 service = GuideService(engine, sessions)
@@ -27,6 +27,16 @@ def session_not_found(error: KeyError) -> HTTPException:
         detail={
             "code": "SESSION_NOT_FOUND",
             "message": "Guide session does not exist.",
+        },
+    )
+
+
+def guide_conflict(error: GuideConflict) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail={
+            "code": error.code,
+            "message": "The requested Guide action is not valid for this session.",
         },
     )
 
@@ -68,6 +78,8 @@ def post_message(
 ) -> GuideTurnResponse:
     try:
         return guide_service.message(session_id, request)
+    except GuideConflict as error:
+        raise guide_conflict(error) from error
     except KeyError as error:
         raise session_not_found(error) from error
 

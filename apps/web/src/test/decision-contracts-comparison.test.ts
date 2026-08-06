@@ -83,4 +83,13 @@ describe("Guide comparison snapshot validation", () => {
       }),
     ).toBeNull();
   });
+
+  it("rejects a COMPARISON_READY payload whose parent workflow is still CLARIFY", () => {
+    expect(
+      validateGuideTurnResponse({
+        ...comparisonReadyTurn,
+        state: "CLARIFY",
+      }),
+    ).toBeNull();
+  });
 });
