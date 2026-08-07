@@ -1,6 +1,6 @@
 # AI Shopping Agent 总路线图
 
-> 状态：Foundation Baseline 已验证，Phase 1 仍在纵向切片扩展中。本文管理“先验证什么、每阶段交付什么、何时可以进入下一阶段”，不代替实施级任务拆解和测试步骤。
+> 状态：Foundation Baseline 与 TikTok 真实体验重设计切片均已验证，Phase 1 的真实 LLM、Hybrid Retrieval 与数据扩展仍未完成。本文管理“先验证什么、每阶段交付什么、何时可以进入下一阶段”，不代替实施级任务拆解和测试步骤。
 
 ## 1. 项目目标与成功定义
 
@@ -60,6 +60,20 @@
 
 因此当前可以声称“Foundation 子切片已实现并在冻结合成集上评测”，不能声称 Phase 1 的 12 SPU / 36 SKU 纵向切片、Agent 模型能力或整体 MVP 已完成。
 
+### 2026-08-07 已验证的 TikTok 体验纠偏切片
+
+这次切片不是扩大业务范围，而是纠正 Foundation “链路能跑、产品不像真实内容电商”的体验缺口。它保留 3 SPU / 6 SKU 的确定性事实底座，把页面和交易边界重构为可购物 Feed、AI Commerce Sheet、PDP 与模拟加购，并以生产构建的 Chromium 回归验证。
+
+| 已验证子范围 | 产品结论 | 证据 |
+|---|---|---|
+| 普通 / 可购物 Feed 与轻量双入口 | 商业和 AI 是条件式能力；没有可信商品上下文时不展示商品或“问 AI” | [可购物 Feed](./artifacts/screenshots/tiktok-redesign-mobile.png) · [普通 Feed](./artifacts/screenshots/tiktok-redesign-normal-feed.png) |
+| `NavigationState` / 可选 `GuideSession` / `CommerceOperation` | 页面返回、AI 决策、交易写入必须是三个独立控制面；Feed 直达 PDP 不依赖 AI | [产品规格](../../AI产品经理/项目实战/AI导购Agent/07-TikTok真实体验重设计规格.md) · [E2E](./apps/web/e2e/tiktok-demo.spec.ts) |
+| AI → 推荐 / 替代 PDP → 返回 AI | AI 负责决策支持，PDP 负责 SKU 与当前交易事实；返回不丢已验证决策 | [桌面 AI Sheet](./artifacts/screenshots/tiktok-redesign-desktop.png) · [验证记录](./artifacts/evidence/tiktok-redesign-verification.md) |
+| 价格变化与未知提交结果 | 旧事实必须失效并重新确认；写结果未知时按同一幂等键对账，禁止盲重试 | [八条旅程](./apps/web/e2e/tiktok-demo.spec.ts) · [逐旅程网络证据](./artifacts/evidence/tiktok-redesign-verification.md#eight-required-journeys) |
+| 生产态响应式 Demo | 8/8 必需旅程；production E2E 28 passed / 10 intentional skips / 0 failed；PDP focus 双 project 6/6；正式图为 390×844、1440×1000、390×844 | [重设计验证记录](./artifacts/evidence/tiktok-redesign-verification.md) |
+
+成熟度只升级为“冻结合成 fixture 上已实现并完成浏览器评测”。浏览器脚本和视觉检查不等于真人可用性研究；入口发现率、理解度、决策负担、转化增量与真实业务价值仍待验证。真实 LLM Shopping Agent、Hybrid RAG、TikTok API、支付和生产可观测也不因 UI 完成而提前升级。
+
 ### 要验证的产品假设
 
 当系统继承短视频与商品上下文，并只追问一个最能改变决策的问题时，用户可以更快理解当前商品是否适合自己；当不适合时，系统能够在不违反硬约束的前提下给出有证据的替代方案并完成模拟加购。
@@ -91,7 +105,7 @@
 - 300–400 条单轮任务、约 160 条多轮任务、约 120 条安全 / 注入 / 陈旧事实 / 异常任务；
 - 约束修改、引用回指、候选比较、用户主动追问、偏好查看 / 修改 / 删除；
 - 词法 + 向量 + RRF 的混合检索，可选 reranker、证据充分度与候选多样性；
-- 高保真内容电商视觉与完整空态、加载态、错误态、降级态；
+- 复用已验证的高保真内容电商容器，补齐更大数据集、真实模型下的完整空态、加载态、错误态与降级态；
 - 可替换的模型适配层、缓存、并行安全工具和成本 / 延迟预算。
 
 ### 设计目标（需经首轮基线校准）
@@ -165,7 +179,7 @@
 | 护肤建议越过医疗边界 | 用户安全和合规风险 | 明确非诊断边界、风险词路由、规则拒答、公开规则证据与安全回归集 |
 | LLM 编造价格或库存 | 直接损害交易信任 | 结构化事实唯一源、schema 校验、Verifier、超时拒答和加购前二次确认 |
 | Agent 自由度过高 | 难复现、难评测、延迟失控 | 单 Agent + 状态机 + 白名单工具 + 调用预算 + 结构化 trace |
-| UI 只像聊天机器人 | 无法体现内容电商场景价值 | 继承视频上下文、底部抽屉、决策卡、商品锚点和交易反馈的纵向切片验收 |
+| UI 只像聊天机器人 | 无法体现内容电商场景价值 | 已完成真实体验纠偏与 8 条浏览器旅程；下一步用真人任务继续验证入口发现、理解和摩擦 |
 | 过度模仿 TikTok | 品牌混淆或资产侵权 | 只借鉴交互范式，使用自有视觉资产与概念原型声明 |
 | 只追求离线分数 | 产品价值与体验脱节 | 质量门槛后的有效完成率、任务漏斗和可用性研究共同判断 |
 | 评测 Judge 偏差 | 错误优化方向 | 规则评分优先；LLM Judge 先与人工标注校准并持续抽检 |
@@ -188,5 +202,6 @@
 - “为什么、为谁、取舍、指标与面试表达”由 [知识控制室](../../AI产品经理/项目实战/AI导购Agent/00-项目总控.md) 维护；
 - “代码实际行为、schema、合成数据、prompt、trace 与原始评测结果”由本仓库和 Git 历史维护；
 - 当前执行状态由 [TASKS.md](./TASKS.md) 维护；
+- TikTok 体验纠偏的当前运行事实以 [重设计验证记录](./artifacts/evidence/tiktok-redesign-verification.md) 为准；Foundation 的历史基线仍以 [Foundation verification](./artifacts/evidence/foundation-verification.md) 与 source commit `cd18147f7eb1e309aa6043a1262a28f0c4349b4d` 为准，二者不互相覆盖；
 - 大体积原始运行产物可留在本地或外部制品存储，但仓库必须提交可复现 manifest、版本/配置指针、校验和、汇总结果和脱敏代表样本；
 - 任何决策只有在实现、测试或评测证据存在后，才可以从“已设计”升级为“已实现”或“已评测”。

@@ -3,7 +3,10 @@
 一个面向美国市场的跨境 K-Beauty 防晒 AI 导购概念原型：用户在 TikTok 风格的可购物短视频中被商品种草后，通过 `Ask AI` 进入对话，由系统核实内容主张、识别购买约束、解释适配性，并完成商品比较、SKU 选择与模拟加购。
 
 > [!IMPORTANT]
-> 当前仓库已完成一个可复跑的 **Foundation Baseline**：真实本地 Next.js + FastAPI 链路、3 个合成 SPU / 6 个 SKU、1 个离线 `ContentContext`、3 份证据、确定性 Workflow、词法证据检索、硬过滤、比较与用户确认后的模拟加购。它不是 TikTok 官方产品，也没有接入真实 LLM、PostgreSQL、向量检索、支付或真实用户流量。
+> 当前仓库已交付一个可运行的 **TikTok Shop-inspired 中文体验重设计 Demo**：普通 / 可购物 Feed、轻量商品与“问 AI”双入口、AI Commerce Sheet、独立 PDP、SKU 选择、事实复核、显式确认和模拟加购已在生产构建的 Chromium 中验证。8 条必需旅程全部通过，并保存 390×844 移动端、1440×1000 桌面面试态和 390×844 普通 Feed 三张正式截图。它仍是基于小型合成 fixture 的确定性原型，不是 TikTok 官方产品，也没有接入真实 LLM、Hybrid RAG、真实用户、支付或业务流量。
+
+> [!NOTE] Foundation 历史基线不被重设计覆盖
+> 2026-08-05 的冻结基线仍独立保留：source commit `cd18147f7eb1e309aa6043a1262a28f0c4349b4d`，3 SPU / 6 SKU、1 个 `ContentContext`、3 份证据、6 个规则案例 6/6、119 个 API 测试、68 个 Web 测试、2 条旅程 × 2 个 Chromium viewport = 4/4、1 条 Trace / 11 条脱敏事件。其固定 SKU 价格为 `$14/$19`、`$17/$24`、`$16/$22`，历史截图与 manifest 均未被当前正式截图替换。该基线是 deterministic workflow + lexical retrieval，不含真实 LLM、Hybrid RAG、用户研究或业务结果。
 
 ## 为什么做这个产品
 
@@ -38,18 +41,19 @@ MVP 不包含真实 TikTok 接入、真实支付履约、实时直播理解、�
 
 ```mermaid
 flowchart LR
-    A["可购物短视频"] --> B["Ask AI"]
-    B --> C["继承内容与商品上下文"]
-    C --> D["识别约束，必要时一次追问一个问题"]
-    D --> E["核实创作者主张"]
-    E --> F["给出适合 / 有条件适合 / 不建议 / 信息不足"]
-    F --> G["最多 3 个替代与证据"]
-    G --> H["比较 2–3 个商品"]
-    H --> I["SKU 与购物车确认"]
-    I --> J["模拟加购与反馈"]
+    A["中文短视频 Feed"] --> B{"是否有可信商品上下文"}
+    B -->|"否"| C["普通内容：只保留内容互动"]
+    B -->|"是"| D["轻量双入口商品锚点"]
+    D -->|"商品主体"| E["PDP：SKU / 当前价格 / 库存"]
+    D -->|"问 AI"| F["AI Commerce Sheet"]
+    F --> G["澄清 / 核验 / 推荐 / 比较"]
+    G --> E
+    E --> H["重查交易事实"]
+    H --> I["用户显式确认"]
+    I --> J["模拟加购回执"]
 ```
 
-界面将复现内容电商的关键交互结构，例如竖屏视频、创作者信息、商品锚点、右侧操作栏、AI 底部抽屉、结构化决策卡片和购物车反馈；但会清楚标注为求职作品集概念原型，不冒充 TikTok 官方产品，也不复制受保护的品牌资产。
+当前实现有两条等价交易入口：用户可以从 Feed 直接进入 PDP，不依赖 AI；也可以先在 Sheet 中形成决策，再查看当前或替代商品并返回原 AI 状态。普通 Feed 不显示商品锚点或 AI。界面使用自有图标、合成商品与有许可的竖屏视频，清楚标注为求职作品集概念原型，不冒充 TikTok 官方产品。
 
 ## 产品架构与真实能力边界
 
@@ -59,14 +63,29 @@ flowchart LR
 - **Foundation Tools** 从版本化 JSON fixtures 读取内容、商品和证据，以词法匹配检索证据，先做结构化硬过滤再做确定性软偏好排序，并生成比较/模拟购物车事实；
 - **Schema 与测试充当当前 verifier 边界**，校验 API、比较和购物车响应；完整生成式输出 Verifier 随真实 LLM 一起进入后续阶段。
 
+重设计把“用户现在看到什么”“AI 决策到哪一步”“交易是否有权写入”拆成三个控制面，避免一个聊天 session 同时承担导航、推荐和购物车权限：
+
+| 控制面 | 唯一职责 | 关键边界 |
+|---|---|---|
+| `NavigationState` | 前端维护 Feed / PDP、Overlay、入口来源与返回栈 | 只控制呈现，不授权任何业务动作 |
+| `GuideSession`（可选） | 点击“问 AI”后维护约束、决策、比较和 `guide_revision` | Feed 直达 PDP 时不存在；AI 只能提出决策建议 |
+| `CommerceOperation` | 维护 SKU、交易事实、`transaction_revision`、确认和幂等对账 | 独立于 Guide；只有用户动作 + Commerce Workflow 可以写模拟购物车 |
+
+因此 AI 推荐不会直接加购：AI 只把经验证的商品与来源带入 PDP，Commerce Workflow 再校验商品/SKU 授权、事实指纹、revision、单次 confirmation token 和幂等键。价格变化必须展示 diff 并重新确认；网络结果未知必须用同一幂等键查询，而不是盲目重试写入。
+
 ```mermaid
 flowchart TB
-    UI["TikTok-style Web UI"] --> WF["Deterministic Workflow"]
+    UI["NavigationState<br/>Feed / Sheet / PDP"] --> GW["Optional GuideSession"]
+    UI --> CW["CommerceOperation"]
+    GW --> WF["Deterministic Guide Workflow"]
+    CW --> CF["Commerce Workflow"]
     WF --> TL["Whitelisted Tools"]
+    CF --> TL
     TL --> DB["Versioned JSON fixtures"]
     TL --> RET["Lexical evidence retrieval"]
     TL --> FIL["Hard filter before deterministic rank"]
-    WF --> UI
+    GW --> UI
+    CW --> UI
     WF --> OBS["Redacted Trace + rule-scored eval"]
 ```
 
@@ -87,6 +106,15 @@ flowchart TB
 - 真实浏览器覆盖 golden 与 zero-match 两条旅程，分别在 390×844 移动 Chromium 和 1440×1000 桌面 Chromium 运行，共 4 个用例；
 - clean-source release gate 实测 119 个 API 测试与 68 个 Web 单元测试通过；这些是工程回归计数，不是产品质量分数；
 - 仓库只提交 1 条代表性黄金 Trace，共 11 条允许的状态、Tool 和模拟购物车脱敏事件记录，不含原始用户消息、确认 token 或隐藏推理。
+
+在这条历史基线之上，2026-08-07 又新增了一个**浏览器产品回归层**：
+
+- 8/8 必需旅程实跑：Feed 直达 PDP、AI 替代品往返、AI 推荐加购、普通 Feed、零候选单项放宽、安全边界、价格变化重确认、未知提交结果幂等对账；
+- 普通 E2E 共收集 38 项，26 passed、12 intentional skips、0 failed；production capture 运行是 28 passed、10 intentional skips、0 failed。8 条重设计旅程只在一个 fresh mobile API 进程中执行，避免桌面项目重复完整交易矩阵；既有 PDP focus 三条回归仍在 mobile/desktop 双 project 运行，共 6/6；桌面同时使用同一页面/API 完成响应式回归与正式 AI Sheet 截图；
+- 当前 release gate 为 234 个 API 测试、193 个 Web 测试、Foundation eval pytest 14/14、规则 runner 6/6，并通过 contracts、layout、ESLint、Ruff 和 production build；这些数字是工程回归，不是用户或模型质量得分；
+- Playwright trace 与本地证据进程 access log 明确关闭；本次 production E2E 运行时生成的 confirmation token / idempotency key 未进入 retained trace、matcher failure、截图、access log 或提交。这个窄结论不表示仓库没有显式合成测试常量；幂等键当前位于 reconciliation URL，生产化前仍需避免被 proxy/access log 持久化。
+
+完整命令、逐旅程网络状态、正式截图 checksum、fixture/media inventory 和局限见 [TikTok 重设计验证记录](./artifacts/evidence/tiktok-redesign-verification.md)。
 
 后续完整评测仍按以下层次扩展：
 
@@ -109,6 +137,17 @@ flowchart TB
 - [1 条黄金 Trace（11 条脱敏事件记录）](./artifacts/traces/samples/foundation-golden.jsonl)
 - [移动端终态截图](./artifacts/screenshots/foundation-mobile.png)
 
+## TikTok 重设计证据快照
+
+| 证据 | 能证明什么 | 不能证明什么 |
+|---|---|---|
+| [重设计验证记录](./artifacts/evidence/tiktok-redesign-verification.md) | 生产构建、8 条产品旅程、当前测试门和媒体来源可复跑 | 真实 LLM、真实用户、业务增量或生产可靠性 |
+| [可购物 Feed · 390×844](./artifacts/screenshots/tiktok-redesign-mobile.png) | 商品锚点、右侧轨、中文平台壳和安全区布局 | “问 AI”发现率或用户理解 |
+| [桌面面试态 · 1440×1000](./artifacts/screenshots/tiktok-redesign-desktop.png) | 同一 390×844 手机路径与 AI 决策 Sheet，没有第二套假页面 | 桌面交易旅程重复跑了 8 次 |
+| [普通 Feed · 390×844](./artifacts/screenshots/tiktok-redesign-normal-feed.png) | 没有商品上下文时不展示商业/AI 能力 | TikTok 全量内容分布 |
+
+![TikTok-inspired mobile shoppable feed](./artifacts/screenshots/tiktok-redesign-mobile.png)
+
 ## 本地安装、启动与验证
 
 要求：Node.js、pnpm 11、Python 3.12+、uv，以及 Playwright Chromium。以下命令已在 Node.js 24.14.0、pnpm 11.20.0、Python 3.14.5 与 uv 0.11.14 的本地 Foundation 基线上实际运行；这些是本次验证环境，不代表全部可兼容版本。
@@ -129,7 +168,7 @@ uv --directory apps/api run uvicorn app.main:app --host 127.0.0.1 --port 8000
 NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api/v1 pnpm --dir apps/web dev --hostname 127.0.0.1 --port 3000
 ```
 
-打开 `http://127.0.0.1:3000`，从商品锚点进入 `Ask AI`。常用验证命令：
+打开 `http://127.0.0.1:3000`。点击商品锚点主体可直接进入 PDP；点击“问 AI”进入决策 Sheet；滑到第二条内容可查看无商业入口的普通 Feed。可复现的演示场景仅允许：`?scenario=normal`、`?scenario=price-changed`、`?scenario=out-of-stock`、`?scenario=commit-status-unknown`。常用验证命令：
 
 ```bash
 pnpm check:layout
@@ -138,26 +177,28 @@ uv --directory apps/api run pytest tests -q
 uv --directory apps/api run python -m scripts.export_openapi
 pnpm --dir packages/contracts generate
 git diff --exit-code -- packages/contracts/openapi.json packages/contracts/src/api.ts
-pnpm --dir apps/web test
-pnpm --dir apps/web lint
-pnpm --dir apps/web exec tsc --noEmit
+pnpm test:web
+pnpm lint:web
+pnpm --dir apps/web build
 uv --directory apps/api run python ../../evals/run_foundation.py
-pnpm --dir apps/web test:e2e
+pnpm test:e2e
 ```
 
-完整 release gate、命令时间、真实计数、secret scan 与证据校验见[验证记录](./artifacts/evidence/foundation-verification.md)。
+Foundation 历史 release gate 见 [Foundation 验证记录](./artifacts/evidence/foundation-verification.md)；当前重设计 release gate、命令时间、真实计数、secret scan 与制品校验见 [TikTok 重设计验证记录](./artifacts/evidence/tiktok-redesign-verification.md)。
 
 ## 当前状态
 
 | 能力 | 状态 |
 |---|---|
 | 产品范围与关键原则 | 已确认 |
-| 可运行前后端 | Foundation 本地链路已验证 |
+| 可运行前后端 | TikTok-inspired 重设计本地链路已实现并在 production Chromium 验证 |
 | 合成商品与场景数据 | 3 SPU / 6 SKU、1 ContentContext、3 evidence documents |
 | Workflow / Tools | 确定性基线已实现并评测；真实 LLM Agent 未实现 |
 | RAG | 词法证据检索基线已评测；向量/Hybrid/Reranker 未实现 |
 | 自动评测 | 6 个冻结案例规则评分 6/6；不代表广泛模型/产品质量 |
-| 浏览器旅程 | 2 条旅程 × 2 个 Chromium viewport = 4/4 |
+| Foundation 历史浏览器基线 | 2 条旅程 × 2 个 Chromium viewport = 4/4；source commit `cd18147…` |
+| 重设计浏览器旅程 | 8/8 必需旅程；production E2E 28 passed / 10 intentional skips / 0 failed；PDP focus 双 project 6/6 |
+| 三控制面 | `NavigationState` / 可选 `GuideSession` / `CommerceOperation` 已实现并回归；AI 无购物车写权限 |
 | 用户/业务结果 | 未研究、未上线、未测转化 |
 | 部署地址 | 无 |
 

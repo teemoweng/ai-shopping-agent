@@ -1,8 +1,8 @@
 # AI Shopping Agent 任务台
 
-> 当前阶段：Phase 1 — Foundation 子切片已验证；Vertical Slice 扩展未完成
+> 当前阶段：Phase 1 — Foundation 与 TikTok 真实体验纠偏切片已验证；真实 LLM / Hybrid / 数据扩展未完成
 >
-> 最后更新：2026-08-05
+> 最后更新：2026-08-07
 > 本文件只反映可核验的真实状态；规划目标不等于已实现结果。
 
 ## 状态图例
@@ -39,13 +39,13 @@
 | ✅ DONE | SKU 预览、显式确认与模拟加购 | 价格/库存二次确认、单次 token、终态 decision receipt 与 API/UI/E2E 回归 |
 | ✅ DONE | 脱敏 Trace 与 Foundation eval | [1 条黄金 Trace，共 11 条脱敏事件记录](./artifacts/traces/samples/foundation-golden.jsonl)；6 个冻结案例规则评分 6/6 |
 
-## 正在执行 — TikTok 真实体验重设计 Demo
+## 已验证 — TikTok 真实体验重设计 Demo
 
-| 状态 | 工作包 | 负责人 / 会话 | 预期证据 |
+| 状态 | 工作包 | 用户结果 | 已验证证据 |
 |---|---|---|---|
-| 🚧 IN PROGRESS | 中文 TikTok Shop-inspired Feed、AI Commerce Sheet、PDP 与模拟加购重设计 | Codex · 当前任务 · 2026-08-05 | [实施计划](./docs/superpowers/plans/2026-08-05-tiktok-experience-redesign.md)、API/组件/E2E 回归、390×844 与 1440×1000 浏览器截图、媒体许可台账、验证报告、同步后的 README/ADR/产品日志 |
+| ✅ DONE | 中文 TikTok Shop-inspired Feed、AI Commerce Sheet、PDP 与模拟加购重设计 | 普通内容不出现商业/AI 入口；可购物内容可直接看商品或问 AI；AI 推荐可进入 PDP 并返回原决策；价格变化和未知提交均有可恢复闭环 | [实施计划](./docs/superpowers/plans/2026-08-05-tiktok-experience-redesign.md) · [重设计验证记录](./artifacts/evidence/tiktok-redesign-verification.md) · [8 条 E2E](./apps/web/e2e/tiktok-demo.spec.ts) · [移动截图](./artifacts/screenshots/tiktok-redesign-mobile.png) · [桌面截图](./artifacts/screenshots/tiktok-redesign-desktop.png) · [普通 Feed](./artifacts/screenshots/tiktok-redesign-normal-feed.png) |
 
-本工作包是 Foundation 的高保真纠偏切片，不等于 Phase 2 完整 MVP。搜索、LIVE、真实 LLM、TikTok API、真实支付、店铺/客服/完整购物车页面仍不在当前范围。
+本工作包是 Foundation 的高保真纠偏切片，不等于 Phase 2 完整 MVP。当前结论是“冻结合成 fixture 上已实现并在 production Chromium 验证”：8/8 必需旅程通过，production E2E 为 28 passed / 10 intentional skips / 0 failed，PDP focus 双 project 6/6，API 234、Web 193、Foundation eval pytest 14/14、规则 runner 6/6。搜索、LIVE、真实 LLM、Hybrid RAG、TikTok API、真实支付、店铺/客服/完整购物车页面仍不在当前范围；浏览器自动化也不是用户研究或业务效果。
 
 ## Next — Phase 1 扩展（均未开始）
 
@@ -94,6 +94,8 @@
 | 实施级代码 / 测试计划 | [Foundation 实施计划](./docs/superpowers/plans/2026-08-04-mvp-foundation.md) | Foundation 子切片已执行；后续阶段未执行 |
 | 代码、schema、数据、trace | [README](./README.md) · [脱敏 Trace](./artifacts/traces/samples/foundation-golden.jsonl) | Foundation 子切片已评测 |
 | 自动评测结果 | [Foundation verification](./artifacts/evidence/foundation-verification.md) · [六案例](./evals/cases/foundation-cases.jsonl) | 6 个确定性 fixture 案例已评测 |
+| TikTok 体验纠偏与三控制面 | [重设计验证记录](./artifacts/evidence/tiktok-redesign-verification.md) · [产品 E2E](./apps/web/e2e/tiktok-demo.spec.ts) | 8 条必需旅程在冻结合成 fixture 上已评测；真实 LLM / 用户价值未评测 |
+| 正式浏览器画面 | [移动可购物 Feed](./artifacts/screenshots/tiktok-redesign-mobile.png) · [桌面 AI Sheet](./artifacts/screenshots/tiktok-redesign-desktop.png) · [普通 Feed](./artifacts/screenshots/tiktok-redesign-normal-feed.png) | Production Chromium 已视觉检查；不是跨浏览器认证或真人研究 |
 | 部署与用户研究 | 尚无 | 未开始 |
 
 ## 更新规则
