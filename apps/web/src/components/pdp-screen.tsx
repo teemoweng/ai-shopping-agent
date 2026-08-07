@@ -23,6 +23,7 @@ import { formatUsd } from "@/lib/formatters";
 
 import { CartConfirmationDrawer } from "./cart-confirmation-drawer";
 import { ReceiptDrawer } from "./receipt-drawer";
+import { DemoIcon, type DemoIconName } from "./demo-icon";
 
 type ProductDetail = components["schemas"]["ProductDetailResponse"];
 type CommerceOperation = components["schemas"]["CommerceOperationResponse"];
@@ -99,6 +100,8 @@ export interface PdpScreenProps {
   onCloseOverlay: () => void;
   onContinueBrowsing: () => void;
   cartCount: number;
+  previewScenario?: "NORMAL" | "PRICE_CHANGED" | "OUT_OF_STOCK";
+  confirmScenario?: "NORMAL" | "COMMIT_STATUS_UNKNOWN";
 }
 
 export function PdpScreen({
@@ -117,6 +120,8 @@ export function PdpScreen({
   onCloseOverlay,
   onContinueBrowsing,
   cartCount,
+  previewScenario = "NORMAL",
+  confirmScenario = "NORMAL",
 }: PdpScreenProps) {
   const [detail, setDetail] = useState<ProductDetail | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -345,7 +350,7 @@ export function PdpScreen({
         : {}),
       expected_transaction_revision:
         previousOperation?.transaction_revision ?? 0,
-      demo_scenario: "NORMAL",
+      demo_scenario: previewScenario,
     };
     try {
       const operation = await previewCommerce(request);
@@ -419,7 +424,7 @@ export function PdpScreen({
           confirmation_token: commerceOperation.confirmation_token,
           idempotency_key: idempotencyKey,
           expected_transaction_revision: commerceOperation.transaction_revision,
-          demo_scenario: "NORMAL",
+          demo_scenario: confirmScenario,
         },
         confirmedFingerprint,
       );
@@ -649,7 +654,7 @@ export function PdpScreen({
     return (
       <section className="pdpScreen pdpLoadState" role="region" aria-label="商品详情">
         <button ref={setBackButton} type="button" aria-label="返回内容流" onClick={onBack}>
-          ‹
+          <DemoIcon name="back" />
         </button>
         <div role="alert">
           <strong>商品事实暂时无法加载</strong>
@@ -663,7 +668,7 @@ export function PdpScreen({
     return (
       <section className="pdpScreen pdpLoadState" role="region" aria-label="商品详情">
         <button ref={setBackButton} type="button" aria-label="返回内容流" onClick={onBack}>
-          ‹
+          <DemoIcon name="back" />
         </button>
         <div role="status">正在核实商品详情…</div>
       </section>
@@ -675,7 +680,7 @@ export function PdpScreen({
       <section className="pdpScreen pdpUnavailableState" role="region" aria-label="商品详情">
         <header className="pdpHeader">
           <button ref={setBackButton} type="button" aria-label="返回内容流" onClick={onBack}>
-            <span aria-hidden="true">‹</span>
+            <DemoIcon name="back" />
           </button>
           <span>商品详情</span>
         </header>
@@ -705,23 +710,23 @@ export function PdpScreen({
     >
       <header className="pdpHeader">
         <button ref={setBackButton} type="button" aria-label="返回内容流" onClick={onBack}>
-          <span aria-hidden="true">‹</span>
+          <DemoIcon name="back" />
         </button>
         <span>商品详情</span>
         <div>
-          {[
-            ["搜索", "搜索功能不在本次概念原型范围内"],
-            ["分享", "分享功能不在本次概念原型范围内"],
-            ["购物车", "购物车列表不在本次概念原型范围内"],
-            ["更多", "更多功能不在本次概念原型范围内"],
-          ].map(([label, message]) => (
+          {([
+            ["搜索", "搜索功能不在本次概念原型范围内", "search"],
+            ["分享", "分享功能不在本次概念原型范围内", "share"],
+            ["购物车", "购物车列表不在本次概念原型范围内", "cart"],
+            ["更多", "更多功能不在本次概念原型范围内", "more"],
+          ] as Array<[string, string, DemoIconName]>).map(([label, message, icon]) => (
             <button
               key={label}
               type="button"
               aria-label={label === "购物车" ? `购物车，${cartCount} 件` : label}
               onClick={() => onNotice(message)}
             >
-              {label === "搜索" ? "⌕" : label === "分享" ? "↗" : label === "购物车" ? "▱" : "•••"}
+              <DemoIcon name={icon} />
               {label === "购物车" && cartCount > 0 ? (
                 <span className="pdpCartBadge" aria-hidden="true">{cartCount}</span>
               ) : null}
@@ -739,7 +744,7 @@ export function PdpScreen({
         </figure>
 
         <div className="pdpFactsRibbon">
-          <span aria-hidden="true">✓</span>
+          <span aria-hidden="true"><DemoIcon name="check" /></span>
           <p>
             <strong>价格与库存将在加购前复核</strong>
             <small>只使用结构化商品事实，不由 AI 编写</small>
@@ -865,10 +870,10 @@ export function PdpScreen({
 
       <footer className="pdpStickyFooter">
         <button type="button" onClick={() => onNotice("店铺页面不在本次概念原型范围内")}>
-          <span aria-hidden="true">⌂</span>店铺
+          <span aria-hidden="true"><DemoIcon name="store" /></span>店铺
         </button>
         <button type="button" onClick={() => onNotice("商家聊天不在本次概念原型范围内")}>
-          <span aria-hidden="true">○</span>聊天
+          <span aria-hidden="true"><DemoIcon name="chat" /></span>聊天
         </button>
         <button
           ref={pdpCtaRef}

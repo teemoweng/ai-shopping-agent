@@ -406,6 +406,47 @@ describe("PDP transaction flow", () => {
     });
   });
 
+  it("keeps preview and confirm demo controls on their exact disclosed request boundaries", async () => {
+    const user = userEvent.setup();
+    api.confirmCommerce.mockResolvedValue(unknownOperation());
+    const renderPdp = (overlay: "none" | "cart-confirm") => (
+      <PdpScreen
+        productId={PRODUCT.product.id}
+        entrySource="feed"
+        productRole="current"
+        onBack={vi.fn()}
+        onNotice={vi.fn()}
+        onOpenCommerceOverlay={vi.fn()}
+        onCommerceReceipt={vi.fn()}
+        overlay={overlay}
+        onCloseOverlay={vi.fn()}
+        onContinueBrowsing={vi.fn()}
+        cartCount={0}
+        previewScenario="PRICE_CHANGED"
+        confirmScenario="COMMIT_STATUS_UNKNOWN"
+      />
+    );
+    const view = render(renderPdp("none"));
+
+    await user.click(await screen.findByRole("button", { name: "模拟加入购物车" }));
+    expect(api.previewCommerce).toHaveBeenCalledWith(
+      expect.objectContaining({ demo_scenario: "PRICE_CHANGED" }),
+    );
+
+    view.rerender(renderPdp("cart-confirm"));
+    await user.click(
+      within(await screen.findByRole("dialog", { name: "复核模拟加购" })).getByRole(
+        "button",
+        { name: "确认模拟加购" },
+      ),
+    );
+    expect(api.confirmCommerce).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ demo_scenario: "COMMIT_STATUS_UNKNOWN" }),
+      expect.any(Object),
+    );
+  });
+
   it("revalidates an exact live Guide revision before showing and sending AI provenance", async () => {
     const user = userEvent.setup();
     api.createGuideSession.mockResolvedValue(GUIDE_DECISION);

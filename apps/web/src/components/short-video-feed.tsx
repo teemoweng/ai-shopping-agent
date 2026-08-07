@@ -17,6 +17,7 @@ import {
 } from "@/lib/demo-navigation";
 
 import { ProductAnchor } from "./product-anchor";
+import { DemoIcon, type DemoIconName } from "./demo-icon";
 
 type FeedItem = components["schemas"]["CatalogFeedItemResponse"];
 
@@ -85,6 +86,13 @@ function requestVideoPlayback(
   itemId: string,
   video: HTMLVideoElement,
 ): Promise<void> {
+  if (
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+  ) {
+    pauseVideoPlayback(intents, itemId, video);
+    return Promise.resolve();
+  }
   const { generation } = setPlaybackIntent(intents, itemId, video, true);
   let playResult: Promise<void> | undefined;
   try {
@@ -147,11 +155,11 @@ const tabTranslations: Record<string, string> = {
 };
 
 const bottomNavigation = [
-  { label: "首页", icon: "⌂" },
-  { label: "商城", icon: "▱" },
-  { label: "发布", icon: "+" },
-  { label: "消息", icon: "◇" },
-  { label: "我的", icon: "○" },
+  { label: "首页", icon: "home" },
+  { label: "商城", icon: "bag" },
+  { label: "发布", icon: "plus" },
+  { label: "消息", icon: "inbox" },
+  { label: "我的", icon: "user" },
 ] as const;
 
 const boundaryMessage = (feature: string) =>
@@ -364,7 +372,15 @@ export const ShortVideoFeed = forwardRef<
   return (
     <div className="feedSurface" data-bottom-nav-variant={bottomNavVariant}>
       <header className="feedChrome">
-        <span className="prototypeBadge">概念原型 · 合成内容</span>
+        <div className="feedStatusBar" aria-hidden="true">
+          <time dateTime="09:41">9:41</time>
+          <span>
+            <DemoIcon name="signal" />
+            <DemoIcon name="wifi" />
+            <DemoIcon name="battery" />
+          </span>
+        </div>
+        <span className="prototypeBadge">概念 · 合成</span>
         <nav className="feedTabs" aria-label="内容频道">
           {feedTabs.map((tab, index) => (
             <button
@@ -383,7 +399,7 @@ export const ShortVideoFeed = forwardRef<
           aria-label="搜索"
           onClick={() => onNotice(boundaryMessage("搜索"))}
         >
-          <span aria-hidden="true">⌕</span>
+          <DemoIcon name="search" />
         </button>
       </header>
 
@@ -453,7 +469,7 @@ export const ShortVideoFeed = forwardRef<
                   <span aria-hidden="true">
                     {item.creator_display_name.slice(0, 1)}
                   </span>
-                  <b aria-hidden="true">+</b>
+                  <b aria-hidden="true"><DemoIcon name="plus" /></b>
                 </button>
                 <button
                   className="railAction"
@@ -463,7 +479,7 @@ export const ShortVideoFeed = forwardRef<
                   onClick={() => toggleSet(setLikedIds, item.id)}
                 >
                   <span className="railIcon" aria-hidden="true">
-                    {liked ? "♥" : "♡"}
+                    <DemoIcon name="heart" filled={liked} />
                   </span>
                   <small>
                     {compactNumber(item.engagement.likes + (liked ? 1 : 0))}
@@ -478,7 +494,9 @@ export const ShortVideoFeed = forwardRef<
                     setCommentItem(item);
                   }}
                 >
-                  <span className="railComment" aria-hidden="true" />
+                  <span className="railComment" aria-hidden="true">
+                    <DemoIcon name="comment" />
+                  </span>
                   <small>{compactNumber(item.engagement.comments)}</small>
                 </button>
                 <button
@@ -488,7 +506,9 @@ export const ShortVideoFeed = forwardRef<
                   aria-pressed={saved}
                   onClick={() => toggleSet(setSavedIds, item.id)}
                 >
-                  <span className="railSave" aria-hidden="true" />
+                  <span className="railSave" aria-hidden="true">
+                    <DemoIcon name="bookmark" filled={saved} />
+                  </span>
                   <small>
                     {compactNumber(
                       item.engagement.favorites + (saved ? 1 : 0),
@@ -501,7 +521,9 @@ export const ShortVideoFeed = forwardRef<
                   aria-label="分享"
                   onClick={() => void shareItem(item)}
                 >
-                  <span className="railShare" aria-hidden="true">↗</span>
+                  <span className="railShare" aria-hidden="true">
+                    <DemoIcon name="share" />
+                  </span>
                   <small>{compactNumber(item.engagement.shares)}</small>
                 </button>
                 <button
@@ -511,7 +533,7 @@ export const ShortVideoFeed = forwardRef<
                   onClick={() => toggleSound(item)}
                 >
                   <span className="railSound" aria-hidden="true">
-                    {muted ? "×" : "))"}
+                    <DemoIcon name={muted ? "mute" : "volume"} />
                   </span>
                 </button>
               </aside>
@@ -551,7 +573,9 @@ export const ShortVideoFeed = forwardRef<
             aria-current={item.label === "首页" ? "page" : undefined}
             onClick={() => onNotice(boundaryMessage(item.label))}
           >
-            <span aria-hidden="true">{item.icon}</span>
+            <span aria-hidden="true">
+              <DemoIcon name={item.icon as DemoIconName} />
+            </span>
             <small>{item.label}</small>
           </button>
         ))}

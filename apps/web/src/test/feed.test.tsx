@@ -283,6 +283,10 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: undefined,
+  });
   Object.defineProperty(navigator, "share", {
     configurable: true,
     value: undefined,
@@ -399,6 +403,30 @@ describe("Chinese short-video Feed", () => {
     );
   });
 
+  it("uses the same self-owned SVG icon system instead of Unicode placeholders", () => {
+    renderFeed();
+
+    for (const label of [
+      "搜索",
+      "点赞",
+      "查看评论",
+      "收藏",
+      "分享",
+      "打开声音",
+      "首页",
+      "商城",
+      "发布",
+      "消息",
+      "我的",
+    ]) {
+      const control = screen.getAllByRole("button", { name: label })[0];
+      expect(control.querySelector("svg[data-demo-icon]")).not.toBeNull();
+    }
+    expect(document.querySelector(".feedSurface")).not.toHaveTextContent(
+      /[⌕⌂▱◇♡♥↗]/,
+    );
+  });
+
   it("opens and closes a read-only synthetic comments drawer", async () => {
     const user = userEvent.setup();
     renderFeed();
@@ -471,6 +499,25 @@ describe("Chinese short-video Feed", () => {
     expect(secondPlay.mock.invocationCallOrder.at(-1)).toBeGreaterThan(
       secondPause.mock.invocationCallOrder.at(-1)!,
     );
+  });
+
+  it("does not autoplay feed video when the user prefers reduced motion", async () => {
+    const play = vi.mocked(HTMLMediaElement.prototype.play);
+    const pause = vi.mocked(HTMLMediaElement.prototype.pause);
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: vi.fn().mockReturnValue({
+        matches: true,
+        media: "(prefers-reduced-motion: reduce)",
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }),
+    });
+
+    renderFeed();
+
+    await waitFor(() => expect(pause).toHaveBeenCalled());
+    expect(play).not.toHaveBeenCalled();
   });
 
   it.each(["resolve", "reject"] as const)(

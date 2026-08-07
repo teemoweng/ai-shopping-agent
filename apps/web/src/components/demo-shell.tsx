@@ -7,6 +7,8 @@ import { getFeed, getProduct } from "@/lib/api-client";
 import {
   createInitialNavigationState,
   demoNavigationReducer,
+  type BaseSurface,
+  type Overlay,
   type ProductRole,
   type VideoSnapshot,
 } from "@/lib/demo-navigation";
@@ -26,6 +28,53 @@ import {
 type FeedResponse = components["schemas"]["FeedResponse"];
 type FeedItem = components["schemas"]["CatalogFeedItemResponse"];
 type ProductDetailResponse = components["schemas"]["ProductDetailResponse"];
+
+export type DemoScenarioName =
+  | "normal"
+  | "price-changed"
+  | "out-of-stock"
+  | "commit-status-unknown";
+
+export interface DemoScenarioConfig {
+  name: DemoScenarioName;
+  preview: "NORMAL" | "PRICE_CHANGED" | "OUT_OF_STOCK";
+  confirm: "NORMAL" | "COMMIT_STATUS_UNKNOWN";
+}
+
+const DEMO_SCENARIOS: Record<DemoScenarioName, DemoScenarioConfig> = {
+  normal: { name: "normal", preview: "NORMAL", confirm: "NORMAL" },
+  "price-changed": {
+    name: "price-changed",
+    preview: "PRICE_CHANGED",
+    confirm: "NORMAL",
+  },
+  "out-of-stock": {
+    name: "out-of-stock",
+    preview: "OUT_OF_STOCK",
+    confirm: "NORMAL",
+  },
+  "commit-status-unknown": {
+    name: "commit-status-unknown",
+    preview: "NORMAL",
+    confirm: "COMMIT_STATUS_UNKNOWN",
+  },
+};
+
+export function parseDemoScenario(search: string): DemoScenarioConfig {
+  const value = new URLSearchParams(search).get("scenario") ?? "normal";
+  return DEMO_SCENARIOS[value as DemoScenarioName] ?? DEMO_SCENARIOS.normal;
+}
+
+export function interviewStepFor(state: {
+  baseSurface: BaseSurface;
+  overlay: Overlay;
+}): string {
+  if (state.overlay === "ai-sheet") return "AI 导购决策支持";
+  if (state.overlay === "cart-confirm") return "价格库存复核与确认";
+  if (state.overlay === "receipt") return "模拟加购回执";
+  if (state.baseSurface === "pdp") return "商品详情与规格选择";
+  return "短视频内容流";
+}
 
 type FeedLoadState =
   | { status: "loading" }
@@ -85,6 +134,11 @@ export function DemoShell() {
     createInitialNavigationState,
   );
   const [loadState, setLoadState] = useState<FeedLoadState>({ status: "loading" });
+  const [demoScenario] = useState<DemoScenarioConfig>(() =>
+    parseDemoScenario(
+      typeof window === "undefined" ? "" : window.location.search,
+    ),
+  );
   const [freshStartingPriceByProductId, setFreshStartingPriceByProductId] = useState<
     Record<string, number | null>
   >({});
@@ -401,6 +455,8 @@ export function DemoShell() {
             onCloseOverlay={() => dispatch({ type: "CLOSE_OVERLAY" })}
             onContinueBrowsing={continueBrowsing}
             cartCount={cartCount}
+            previewScenario={demoScenario.preview}
+            confirmScenario={demoScenario.confirm}
           />
         ) : null}
 
@@ -409,6 +465,63 @@ export function DemoShell() {
           onClose={() => dispatch({ type: "CLEAR_NOTICE" })}
         />
       </section>
+
+      <aside className="interviewPanel" aria-label="演示说明">
+        <header>
+          <span>PORTFOLIO WALKTHROUGH</span>
+          <h1>内容电商 AI 导购概念原型</h1>
+          <p>
+            面向美国 K-Beauty 防晒决策；手机内是同一条实时产品路径，不是静态截图或第二套桌面 App。
+          </p>
+        </header>
+        <section className="interviewCurrentStep" aria-labelledby="current-step-title">
+          <span id="current-step-title">当前步骤</span>
+          <strong data-testid="current-demo-step">
+            {interviewStepFor(navigation)}
+          </strong>
+        </section>
+        <div className="interviewMaturity">
+          <section>
+            <span>已实现 · 确定性</span>
+            <ul>
+              <li>受控 Workflow 与白名单动作</li>
+              <li>结构化价格、库存与规格事实</li>
+              <li>显式复核、幂等加购与结果对账</li>
+            </ul>
+          </section>
+          <section>
+            <span>未来能力 · 未验证</span>
+            <ul>
+              <li>真实 LLM Shopping Agent</li>
+              <li>Hybrid RAG 与多模态实时理解</li>
+              <li>真实用户效果与业务指标</li>
+            </ul>
+          </section>
+        </div>
+        <nav className="scenarioLinks" aria-label="确定性演示场景">
+          <span>公开测试场景</span>
+          {(
+            [
+              ["normal", "正常路径"],
+              ["price-changed", "价格变化"],
+              ["out-of-stock", "规格缺货"],
+              ["commit-status-unknown", "结果待对账"],
+            ] as const
+          ).map(([scenario, label]) => (
+            <a
+              key={scenario}
+              href={`/?scenario=${scenario}`}
+              aria-current={demoScenario.name === scenario ? "page" : undefined}
+            >
+              <span>{label}</span>
+              <small>{scenario}</small>
+            </a>
+          ))}
+        </nav>
+        <footer>
+          概念原型 · 合成商品与创作者 · 未接入 TikTok、支付或真实库存
+        </footer>
+      </aside>
 
       <div
         className="phoneOverlayHost"
