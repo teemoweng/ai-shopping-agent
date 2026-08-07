@@ -104,6 +104,40 @@ def test_transaction_failure_restores_session_events_and_absent_trace(tmp_path) 
     assert not trace_path.exists()
 
 
+def test_transaction_failure_restores_original_session_reference_after_replacement(
+    tmp_path,
+) -> None:
+    repository = SessionRepository(trace_path=tmp_path / "trace.jsonl")
+    session = repository.create(EntryPoint.CONTENT, "morning-routine-uv-001", None)
+    expected_original = session.model_copy(deep=True)
+    replacement = session.model_copy(deep=True)
+
+    with (
+        pytest.raises(RuntimeError, match="injected replacement failure"),
+        repository.transaction(),
+    ):
+        original = repository.get(session.id)
+        repository.save(replacement)
+
+        original.state = WorkflowState.UNDERSTAND
+        original.hard_constraints.max_price_usd = 25
+        original.recommended_product_ids.append("seoul-shade-daily-fluid")
+        replacement.state = WorkflowState.CLARIFY
+        replacement.soft_preferences.finish = "matte"
+        created = repository.create(
+            EntryPoint.CONTENT,
+            "morning-routine-uv-001",
+            None,
+        )
+        raise RuntimeError("injected replacement failure")
+
+    assert repository.get(session.id) is original
+    assert original == expected_original
+    assert repository.get(session.id) is not replacement
+    with pytest.raises(KeyError, match=created.id):
+        repository.get(created.id)
+
+
 def test_nested_transaction_is_reentrant_without_an_inner_savepoint(tmp_path) -> None:
     repository = SessionRepository(trace_path=tmp_path / "trace.jsonl")
     session = repository.create(EntryPoint.CONTENT, "morning-routine-uv-001", None)

@@ -29,7 +29,10 @@ type GuideAction = components["schemas"]["GuideAction"];
 type EvidenceStatus = components["schemas"]["EvidenceStatus"];
 type EvidenceReference = components["schemas"]["EvidenceReference"];
 type ProductRole = "current" | "alternative";
-type SyncExpectation = { kind: "comparison"; sessionId: string } | null;
+type SyncExpectation =
+  | { kind: "comparison-unknown"; sessionId: string }
+  | { kind: "state-conflict"; sessionId: string }
+  | null;
 
 const STARTING_QUESTIONS = [
   "这款适合我吗？",
@@ -72,6 +75,10 @@ function isInvalidApiResponse(error: unknown) {
 
 function isDefinitiveCompareInputRejection(error: unknown) {
   return error instanceof ApiError && error.status === 422;
+}
+
+function isExplicitCompareStateConflict(error: unknown) {
+  return error instanceof ApiError && error.status === 409;
 }
 
 function isMissingGuideSessionError(error: unknown) {
@@ -308,18 +315,26 @@ export function GuideSheet({
   const applyVerifiedTurn = useCallback(
     (nextTurn: GuideTurn, fromNewSession = false) => {
       const previous = verifiedTurnRef.current;
-      if (nextTurn.guide_view_kind === "FATAL_ERROR") {
-        enterTerminalState(nextTurn.text, nextTurn);
+      const expectation = syncExpectationRef.current;
+      if (expectation && nextTurn.session_id !== expectation.sessionId) {
+        enterTerminalState(
+          "服务端返回了无法验证的导购状态，请关闭后重新打开导购。",
+        );
         return;
       }
-      const expectation = syncExpectationRef.current;
-      if (expectation?.kind === "comparison") {
-        if (nextTurn.session_id !== expectation.sessionId) {
-          enterTerminalState(
-            "服务端返回了无法验证的比较状态，请关闭后重新打开导购。",
-          );
-          return;
-        }
+      if (
+        expectation?.kind === "state-conflict" &&
+        previous &&
+        nextTurn.guide_revision < previous.guide_revision
+      ) {
+        freezeGuide(true);
+        requireSync(true, expectation);
+        setTransientError(
+          "服务端快照版本早于上次已核验结果；旧结果仅供查看，请重新同步。",
+        );
+        return;
+      }
+      if (expectation?.kind === "comparison-unknown") {
         if (!isAuthoritativeComparisonTurn(nextTurn, expectation.sessionId)) {
           freezeGuide(true);
           requireSync(true, expectation);
@@ -328,6 +343,10 @@ export function GuideSheet({
           );
           return;
         }
+      }
+      if (nextTurn.guide_view_kind === "FATAL_ERROR") {
+        enterTerminalState(nextTurn.text, nextTurn);
+        return;
       }
       if (
         previous &&
@@ -720,7 +739,11 @@ export function GuideSheet({
     setComparisonError(null);
     freezeGuide(true);
     const sessionId = currentTurn.session_id;
-    requireSync(false, { kind: "comparison", sessionId });
+    const comparisonExpectation = {
+      kind: "comparison-unknown",
+      sessionId,
+    } as const;
+    requireSync(false, comparisonExpectation);
     const version = ++comparisonVersionRef.current;
     const productIds = [...selectedProductIds];
     const isCurrentComparison = () =>
@@ -736,8 +759,7 @@ export function GuideSheet({
         } catch (error: unknown) {
           if (isMissingGuideSessionError(error)) {
             if (
-              syncExpectationRef.current?.kind === "comparison" &&
-              syncExpectationRef.current.sessionId === sessionId &&
+              syncExpectationRef.current === comparisonExpectation &&
               sessionIdRef.current === sessionId &&
               lastContextIdRef.current === contentContextId
             ) {
@@ -748,10 +770,7 @@ export function GuideSheet({
             return;
           }
           if (isDefinitiveCompareInputRejection(error)) {
-            if (
-              syncExpectationRef.current?.kind === "comparison" &&
-              syncExpectationRef.current.sessionId === sessionId
-            ) {
+            if (syncExpectationRef.current === comparisonExpectation) {
               syncExpectationRef.current = null;
             }
             if (!isCurrentComparison()) {
@@ -763,6 +782,17 @@ export function GuideSheet({
               "比较请求未被服务端接受，请检查候选后重试。",
             );
             return;
+          }
+          if (
+            isExplicitCompareStateConflict(error) &&
+            syncExpectationRef.current === comparisonExpectation &&
+            sessionIdRef.current === sessionId &&
+            lastContextIdRef.current === contentContextId
+          ) {
+            syncExpectationRef.current = {
+              kind: "state-conflict",
+              sessionId,
+            };
           }
           if (!isCurrentComparison()) {
             return;
@@ -786,9 +816,15 @@ export function GuideSheet({
             "导购会话已失效，请关闭后重新打开以建立新会话。",
           );
         } else {
-          requireSync(true, { kind: "comparison", sessionId });
+          const activeExpectation =
+            syncExpectationRef.current?.sessionId === sessionId
+              ? syncExpectationRef.current
+              : comparisonExpectation;
+          requireSync(true, activeExpectation);
           setTransientError(
-            "尚未确认服务端最终比较状态；上次已核验结果仅供查看，请重新同步。",
+            activeExpectation.kind === "state-conflict"
+              ? "尚未确认服务端冲突后的最新状态；上次已核验结果仅供查看，请重新同步。"
+              : "尚未确认服务端最终比较状态；上次已核验结果仅供查看，请重新同步。",
           );
         }
       } finally {

@@ -14,7 +14,8 @@ from app.domain.events import GuideSession, TraceEvent
 
 @dataclass(frozen=True)
 class _RepositorySnapshot:
-    sessions: dict[str, GuideSession]
+    session_refs: dict[str, GuideSession]
+    session_values: dict[str, GuideSession]
     events: list[TraceEvent]
     trace_existed: bool
     trace_length: int
@@ -51,7 +52,8 @@ class SessionRepository:
     def _capture_snapshot(self) -> _RepositorySnapshot:
         trace_existed = self._trace_path.exists()
         return _RepositorySnapshot(
-            sessions={
+            session_refs=dict(self._sessions),
+            session_values={
                 session_id: session.model_copy(deep=True)
                 for session_id, session in self._sessions.items()
             },
@@ -71,15 +73,13 @@ class SessionRepository:
         target.__pydantic_fields_set__ = set(restored.__pydantic_fields_set__)
 
     def _restore_snapshot(self, snapshot: _RepositorySnapshot) -> None:
-        current_sessions = self._sessions
         restored_sessions: dict[str, GuideSession] = {}
-        for session_id, saved_session in snapshot.sessions.items():
-            current_session = current_sessions.get(session_id)
-            if current_session is None:
-                current_session = saved_session.model_copy(deep=True)
-            else:
-                self._restore_session(current_session, saved_session)
-            restored_sessions[session_id] = current_session
+        for session_id, original_session in snapshot.session_refs.items():
+            self._restore_session(
+                original_session,
+                snapshot.session_values[session_id],
+            )
+            restored_sessions[session_id] = original_session
         self._sessions = restored_sessions
         self._events = [
             TraceEvent.model_validate_json(event.model_dump_json())

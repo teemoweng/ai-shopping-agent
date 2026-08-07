@@ -746,6 +746,32 @@ it.each([
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });
 
+it("keeps an unknown comparison outcome frozen when GET returns a fatal turn", async () => {
+  api.compareProducts.mockRejectedValueOnce(
+    new ApiError(503, "UNKNOWN_POST_RESULT"),
+  );
+  api.getGuideSession.mockResolvedValueOnce(
+    turnFor("FATAL_ERROR", {
+      guide_revision: 3,
+      text: "这个终态不能证明未知的比较写入结果。",
+    }),
+  );
+  const user = await reachRecommendations();
+  await selectFirstTwoCandidates(user);
+  await user.click(screen.getByRole("button", { name: "比较已选 2 款" }));
+
+  expect(
+    await screen.findByRole("heading", { name: "服务端状态尚未同步" }),
+  ).toBeVisible();
+  expect(screen.getByText(recommendationTurn.text)).toBeVisible();
+  expect(
+    screen.queryByText("这个终态不能证明未知的比较写入结果。"),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByRole("checkbox", { name: "比较 Seoul Shade Daily Fluid" }),
+  ).toBeDisabled();
+});
+
 it.each([
   "ACTION_NOT_ALLOWED",
   "PRODUCT_NOT_RECOMMENDED",
@@ -761,6 +787,151 @@ it.each([
   expect(api.compareProducts).toHaveBeenCalledOnce();
   expect(api.getGuideSession).toHaveBeenCalledWith("ses_guide_1");
   expect(screen.queryByText("比较请求未被服务端接受")).not.toBeInTheDocument();
+});
+
+it("adopts a newer authoritative decision after an action state conflict", async () => {
+  const onOpenProduct = vi.fn();
+  const updatedDecision = turnFor("DECISION_READY", {
+    guide_revision: 3,
+    text: "商品状态变化后，已按服务端最新事实重新推荐。",
+    recommendations: [recommendations[2], recommendations[3]],
+  });
+  api.compareProducts.mockRejectedValueOnce(
+    new ApiError(409, "ACTION_NOT_ALLOWED"),
+  );
+  api.getGuideSession.mockResolvedValueOnce(updatedDecision);
+  const user = await reachRecommendations({ onOpenProduct });
+  await selectFirstTwoCandidates(user);
+  await user.click(screen.getByRole("button", { name: "比较已选 2 款" }));
+
+  expect(
+    await screen.findByText("商品状态变化后，已按服务端最新事实重新推荐。"),
+  ).toBeVisible();
+  expect(
+    screen.getByRole("article", { name: "Jeju Sport Sun Gel 商品建议" }),
+  ).toBeVisible();
+  expect(
+    screen.queryByRole("article", { name: "Cloud Veil Mineral SPF 商品建议" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByRole("checkbox", { name: "比较 Jeju Sport Sun Gel" }),
+  ).toBeEnabled();
+  expect(
+    screen.queryByRole("heading", { name: "服务端状态尚未同步" }),
+  ).not.toBeInTheDocument();
+
+  await user.click(
+    within(
+      screen.getByRole("article", {
+        name: "Jeju Sport Sun Gel 商品建议",
+      }),
+    ).getByRole("button", { name: "查看商品" }),
+  );
+  expect(onOpenProduct).toHaveBeenCalledWith(
+    "jeju-sport-sun-gel",
+    "alternative",
+  );
+  expect(api.getGuideSession).toHaveBeenCalledWith("ses_guide_1");
+});
+
+it("unfreezes an unchanged authoritative decision after a product state conflict", async () => {
+  api.compareProducts.mockRejectedValueOnce(
+    new ApiError(409, "PRODUCT_NOT_RECOMMENDED"),
+  );
+  api.getGuideSession.mockResolvedValueOnce(recommendationTurn);
+  const user = await reachRecommendations();
+  await selectFirstTwoCandidates(user);
+  await user.click(screen.getByRole("button", { name: "比较已选 2 款" }));
+
+  await waitFor(() =>
+    expect(
+      screen.getByRole("checkbox", {
+        name: "比较 Seoul Shade Daily Fluid",
+      }),
+    ).toBeEnabled(),
+  );
+  expect(screen.getByText(recommendationTurn.text)).toBeVisible();
+  expect(
+    screen.queryByRole("heading", { name: "服务端状态尚未同步" }),
+  ).not.toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: "查看商品" })[0]).toBeEnabled();
+  expect(api.compareProducts).toHaveBeenCalledOnce();
+  expect(api.getGuideSession).toHaveBeenCalledWith("ses_guide_1");
+});
+
+it("adopts an authoritative safety boundary after a comparison state conflict", async () => {
+  api.compareProducts.mockRejectedValueOnce(
+    new ApiError(409, "ACTION_NOT_ALLOWED"),
+  );
+  api.getGuideSession.mockResolvedValueOnce(
+    turnFor("SAFE_BOUNDARY", {
+      guide_revision: 3,
+      text: "服务端最新状态要求停止商品比较。",
+    }),
+  );
+  const user = await reachRecommendations();
+  await selectFirstTwoCandidates(user);
+  await user.click(screen.getByRole("button", { name: "比较已选 2 款" }));
+
+  expect(await screen.findByRole("heading", { name: "安全边界" })).toBeVisible();
+  expect(screen.getByText("服务端最新状态要求停止商品比较。")).toBeVisible();
+  expect(
+    screen.queryByRole("heading", { name: "服务端状态尚未同步" }),
+  ).not.toBeInTheDocument();
+  expect(screen.queryByRole("article", { name: /商品建议/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "查看商品" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "关闭 AI 导购" })).toBeEnabled();
+  expect(api.getGuideSession).toHaveBeenCalledWith("ses_guide_1");
+});
+
+it("keeps the verified decision frozen when conflict reconciliation regresses revision", async () => {
+  api.compareProducts.mockRejectedValueOnce(
+    new ApiError(409, "STALE_GUIDE_REVISION"),
+  );
+  api.getGuideSession.mockResolvedValueOnce(
+    turnFor("DECISION_READY", {
+      guide_revision: 1,
+      text: "这是比当前结果更旧的服务端快照。",
+    }),
+  );
+  const user = await reachRecommendations();
+  await selectFirstTwoCandidates(user);
+  await user.click(screen.getByRole("button", { name: "比较已选 2 款" }));
+
+  expect(
+    await screen.findByRole("heading", { name: "服务端状态尚未同步" }),
+  ).toBeVisible();
+  expect(screen.getByText(recommendationTurn.text)).toBeVisible();
+  expect(screen.queryByText("这是比当前结果更旧的服务端快照。")).not.toBeInTheDocument();
+  expect(
+    screen.getByRole("checkbox", { name: "比较 Seoul Shade Daily Fluid" }),
+  ).toBeDisabled();
+});
+
+it("keeps the verified decision frozen when a fatal conflict snapshot regresses revision", async () => {
+  api.compareProducts.mockRejectedValueOnce(
+    new ApiError(409, "STALE_GUIDE_REVISION"),
+  );
+  api.getGuideSession.mockResolvedValueOnce(
+    turnFor("FATAL_ERROR", {
+      guide_revision: 1,
+      text: "这是比当前结果更旧的终态快照。",
+    }),
+  );
+  const user = await reachRecommendations();
+  await selectFirstTwoCandidates(user);
+  await user.click(screen.getByRole("button", { name: "比较已选 2 款" }));
+
+  expect(
+    await screen.findByRole("heading", { name: "服务端状态尚未同步" }),
+  ).toBeVisible();
+  expect(screen.getByText(recommendationTurn.text)).toBeVisible();
+  expect(
+    screen.queryByText("这是比当前结果更旧的终态快照。"),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByRole("checkbox", { name: "比较 Seoul Shade Daily Fluid" }),
+  ).toBeDisabled();
 });
 
 it("keeps the previous decision frozen when comparison conflict reconciliation is retryable", async () => {
@@ -1361,12 +1532,16 @@ describe("sheet lifecycle and snapshot continuity", () => {
     expect(api.getGuideSession).toHaveBeenCalledOnce();
   });
 
-  it("preserves a closed comparison expectation after a 409 conflict and requires an authoritative GET", async () => {
+  it("preserves a closed state-conflict expectation and adopts the authoritative turn on reopen", async () => {
     const pendingComparison = deferred<CompareResponse>();
     api.compareProducts.mockReturnValueOnce(pendingComparison.promise);
-    api.getGuideSession
-      .mockResolvedValueOnce(recommendationTurn)
-      .mockResolvedValueOnce(comparisonReadyTurn);
+    api.getGuideSession.mockResolvedValueOnce(
+      turnFor("DECISION_READY", {
+        guide_revision: 3,
+        text: "重开后已采用冲突对应的最新服务端决策。",
+        recommendations: [recommendations[2], recommendations[3]],
+      }),
+    );
     const user = userEvent.setup();
     render(<OpenHarness />);
 
@@ -1386,17 +1561,16 @@ describe("sheet lifecycle and snapshot continuity", () => {
     await user.click(screen.getByRole("button", { name: "问 AI" }));
 
     expect(
-      await screen.findByRole("heading", { name: "服务端状态尚未同步" }),
+      await screen.findByText("重开后已采用冲突对应的最新服务端决策。"),
     ).toBeVisible();
-    expect(screen.getByRole("heading", { name: "适合" })).toBeVisible();
     expect(
-      screen.getByRole("checkbox", { name: "比较 Seoul Shade Daily Fluid" }),
-    ).toBeDisabled();
-    await user.click(screen.getByRole("button", { name: "重新同步" }));
-
-    expect(await screen.findByRole("table", { name: "商品对比" })).toBeVisible();
+      screen.getByRole("checkbox", { name: "比较 Jeju Sport Sun Gel" }),
+    ).toBeEnabled();
+    expect(
+      screen.queryByRole("heading", { name: "服务端状态尚未同步" }),
+    ).not.toBeInTheDocument();
     expect(api.compareProducts).toHaveBeenCalledOnce();
-    expect(api.getGuideSession).toHaveBeenCalledTimes(2);
+    expect(api.getGuideSession).toHaveBeenCalledOnce();
   });
 
   it("preserves a failed comparison GET retry across close/reopen and rejects a stale decision snapshot", async () => {
