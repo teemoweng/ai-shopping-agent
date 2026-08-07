@@ -22,6 +22,7 @@ export interface CartConfirmationDrawerProps {
   operation: CommerceOperation | null;
   pending?: boolean;
   commitStatusUnknown?: boolean;
+  errorMessage?: string | null;
   onCancel: () => void;
   onConfirm: () => void;
   onAcceptFacts: () => void;
@@ -34,6 +35,7 @@ export function CartConfirmationDrawer({
   operation,
   pending = false,
   commitStatusUnknown = false,
+  errorMessage = null,
   onCancel,
   onConfirm,
   onAcceptFacts,
@@ -42,6 +44,7 @@ export function CartConfirmationDrawer({
 }: CartConfirmationDrawerProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const primaryRef = useRef<HTMLButtonElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -49,7 +52,6 @@ export function CartConfirmationDrawer({
     previousFocusRef.current = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    (cancelRef.current ?? dialogRef.current?.querySelector<HTMLButtonElement>("button"))?.focus();
     return () => {
       document.body.style.overflow = previousOverflow;
       const previousFocus = previousFocusRef.current;
@@ -58,7 +60,17 @@ export function CartConfirmationDrawer({
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!open || !operation) return;
+    (cancelRef.current ??
+      primaryRef.current ??
+      dialogRef.current?.querySelector<HTMLButtonElement>("button"))?.focus();
+  }, [commitStatusUnknown, open, operation]);
+
   if (!open || !operation) return null;
+
+  const portalTarget =
+    document.querySelector<HTMLElement>(".phoneOverlayHost") ?? document.body;
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (
@@ -119,6 +131,12 @@ export function CartConfirmationDrawer({
     in_stock: "库存状态",
     facts_version: "事实版本",
   };
+
+  function formatObservedAt(timestamp: string) {
+    const observed = new Date(timestamp);
+    const pad = (value: number) => String(value).padStart(2, "0");
+    return `${observed.getUTCFullYear()}/${pad(observed.getUTCMonth() + 1)}/${pad(observed.getUTCDate())} ${pad(observed.getUTCHours())}:${pad(observed.getUTCMinutes())} UTC`;
+  }
   return createPortal(
     <div className="commerceBackdrop">
       <div
@@ -132,7 +150,7 @@ export function CartConfirmationDrawer({
         <span className="commerceHandle" aria-hidden="true" />
         <header>
           <div>
-            <span>结构化商品事实 · 刚刚复核</span>
+            <span>事实观测时间：{formatObservedAt(facts.observed_at)}</span>
             <h2 id="cart-confirm-title">{title}</h2>
           </div>
           <strong>模拟</strong>
@@ -171,6 +189,11 @@ export function CartConfirmationDrawer({
             ))}
           </section>
         ) : null}
+        {errorMessage ? (
+          <p className="commerceInlineError" role="alert">
+            {errorMessage}
+          </p>
+        ) : null}
         <p className="commerceBoundaryCopy">
           {isUnknown
             ? "不要重复提交加购；请使用原操作标识查询最终结果。"
@@ -183,6 +206,7 @@ export function CartConfirmationDrawer({
                 返回商品
               </button>
               <button
+                ref={primaryRef}
                 className="commercePrimaryAction"
                 type="button"
                 disabled={pending}
@@ -198,6 +222,7 @@ export function CartConfirmationDrawer({
           ) : null}
           {!isUnknown && hasAction(operation, "CONFIRM_ADD_TO_CART") ? (
             <button
+              ref={primaryRef}
               className="commercePrimaryAction"
               type="button"
               disabled={pending}
@@ -208,6 +233,7 @@ export function CartConfirmationDrawer({
           ) : null}
           {!isUnknown && hasAction(operation, "ACCEPT_UPDATED_FACTS") ? (
             <button
+              ref={primaryRef}
               className="commercePrimaryAction"
               type="button"
               disabled={pending}
@@ -218,6 +244,7 @@ export function CartConfirmationDrawer({
           ) : null}
           {!isUnknown && hasAction(operation, "RESELECT_SKU") && !canCancel ? (
             <button
+              ref={primaryRef}
               className="commercePrimaryAction"
               type="button"
               disabled={pending}
@@ -229,6 +256,6 @@ export function CartConfirmationDrawer({
         </footer>
       </div>
     </div>,
-    document.body,
+    portalTarget,
   );
 }

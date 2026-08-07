@@ -15,6 +15,7 @@ from app.domain.contracts import (
     CommercePreviewRequest,
     CommerceReceiptResponse,
     CommerceStep,
+    GuideAction,
 )
 from app.domain.events import (
     CommerceConfirmationToken,
@@ -299,6 +300,33 @@ class CommerceService:
             raise CommerceConflict("GUIDE_SESSION_NOT_FOUND") from error
         if session.guide_revision != request.source_guide_revision:
             raise CommerceConflict("STALE_GUIDE_REVISION")
+        snapshot = session.latest_response
+        if (
+            snapshot is None
+            or snapshot.guide_revision != request.source_guide_revision
+            or GuideAction.OPEN_PRODUCT not in snapshot.allowed_actions
+        ):
+            raise CommerceConflict("PRODUCT_NOT_RECOMMENDED")
+        openable_product_ids = (
+            set(snapshot.comparison.product_ids)
+            if snapshot.comparison is not None
+            else {card.product_id for card in snapshot.recommendations}
+        )
+        if request.product_id not in openable_product_ids:
+            raise CommerceConflict("PRODUCT_NOT_RECOMMENDED")
+        recommendation = next(
+            (
+                card
+                for card in snapshot.recommendations
+                if card.product_id == request.product_id
+            ),
+            None,
+        )
+        if (
+            recommendation is None
+            or request.sku_id not in recommendation.eligible_sku_ids
+        ):
+            raise CommerceConflict("SKU_NOT_RECOMMENDED")
 
     @staticmethod
     def _raise_if_reconciliation_required(

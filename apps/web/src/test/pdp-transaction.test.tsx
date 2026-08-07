@@ -3,7 +3,7 @@ import { cleanup, render, screen, waitFor, within } from "@testing-library/react
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { DemoShell } from "@/components/demo-shell";
+import { applyCommerceReceiptOnce, DemoShell } from "@/components/demo-shell";
 import { PdpScreen } from "@/components/pdp-screen";
 import { ApiError } from "@/lib/api-client";
 
@@ -332,6 +332,21 @@ function unknownOperation(): CommerceOperation {
   };
 }
 
+function operationExpectation(operation: CommerceOperation) {
+  return {
+    transactionRevision: operation.transaction_revision,
+    purchaseOrigin: operation.purchase_origin,
+    guideSessionId: operation.guide_session_id ?? null,
+    sourceGuideRevision: operation.source_guide_revision ?? null,
+    productId: operation.product_id,
+    skuId: operation.sku_id,
+    quantity: operation.quantity,
+    factsVersion: operation.facts.facts_version,
+    unitPriceUsd: operation.facts.unit_price_usd,
+    subtotalUsd: operation.facts.subtotal_usd,
+  };
+}
+
 beforeEach(() => {
   for (const fn of Object.values(api)) fn.mockReset();
   api.getFeed.mockResolvedValue(FEED);
@@ -499,6 +514,8 @@ describe("PDP transaction flow", () => {
     expect(drawer).toHaveTextContent("$14.00");
     expect(drawer).toHaveTextContent("18 件");
     expect(drawer).toHaveTextContent("数量 1");
+    expect(drawer).toHaveTextContent("事实观测时间：2026/08/05 09:00 UTC");
+    expect(drawer).not.toHaveTextContent("刚刚复核");
     expect(document.body).not.toHaveTextContent("cft_private_direct");
 
     await user.click(within(drawer).getByRole("button", { name: "取消" }));
@@ -541,9 +558,10 @@ describe("PDP transaction flow", () => {
     await user.dblClick(confirm);
 
     expect(api.confirmCommerce).toHaveBeenCalledTimes(1);
-    const [operationId, request] = api.confirmCommerce.mock.calls[0] as [
+    const [operationId, request, expectation] = api.confirmCommerce.mock.calls[0] as [
       string,
       components["schemas"]["CommerceAddRequest"],
+      ReturnType<typeof operationExpectation>,
     ];
     expect(operationId).toBe("cop_direct_1");
     expect(request).toMatchObject({
@@ -552,6 +570,22 @@ describe("PDP transaction flow", () => {
       demo_scenario: "NORMAL",
     });
     expect(request.idempotency_key).toMatch(/^idem_/);
+    expect(expectation).toEqual(
+      operationExpectation(
+        awaitingConfirmation({
+          sku_id: "seoul-shade-30",
+          quantity: 1,
+          facts: {
+            ...awaitingConfirmation().facts,
+            sku_id: "seoul-shade-30",
+            quantity: 1,
+            unit_price_usd: 14,
+            subtotal_usd: 14,
+            inventory_units: 18,
+          },
+        }),
+      ),
+    );
     expect(document.body).not.toHaveTextContent("cft_private_direct");
 
     resolveConfirmation(succeededOperation(request.idempotency_key));
@@ -650,7 +684,11 @@ describe("PDP transaction flow", () => {
       within(drawer).getByRole("button", { name: "接受新事实并继续" }),
     );
 
-    expect(api.acceptUpdatedFacts).toHaveBeenCalledWith("cop_direct_1", 1);
+    expect(api.acceptUpdatedFacts).toHaveBeenCalledWith(
+      "cop_direct_1",
+      1,
+      operationExpectation(changedFactsOperation()),
+    );
     expect(
       await screen.findByRole("button", { name: "确认模拟加购" }),
     ).toBeVisible();
@@ -678,24 +716,28 @@ describe("PDP transaction flow", () => {
     expect(document.activeElement).toBe(
       screen.getByRole("group", { name: "选择规格" }),
     );
+    const unavailable = screen.getByRole("radio", { name: /30 mL 便携装/ });
+    const fallback = screen.getByRole("radio", { name: /50 mL 正装/ });
+    expect(unavailable).toBeDisabled();
+    expect(unavailable.closest("label")).toHaveTextContent("服务器报告：不可用");
+    expect(fallback).toBeChecked();
   });
 
   it("never retries confirmation after an unknown network result and reconciles with the same key", async () => {
     const user = userEvent.setup();
-    api.previewCommerce.mockResolvedValue(
-      awaitingConfirmation({
+    const confirmedAttempt = awaitingConfirmation({
+      sku_id: "seoul-shade-30",
+      quantity: 1,
+      facts: {
+        ...awaitingConfirmation().facts,
         sku_id: "seoul-shade-30",
         quantity: 1,
-        facts: {
-          ...awaitingConfirmation().facts,
-          sku_id: "seoul-shade-30",
-          quantity: 1,
-          unit_price_usd: 14,
-          subtotal_usd: 14,
-          inventory_units: 18,
-        },
-      }),
-    );
+        unit_price_usd: 14,
+        subtotal_usd: 14,
+        inventory_units: 18,
+      },
+    });
+    api.previewCommerce.mockResolvedValue(confirmedAttempt);
     api.confirmCommerce.mockRejectedValue(new TypeError("connection closed"));
     api.reconcileCommerce.mockImplementation((idempotencyKey: string) =>
       Promise.resolve(succeededOperation(idempotencyKey)),
@@ -721,8 +763,175 @@ describe("PDP transaction flow", () => {
     await user.click(within(unknown).getByRole("button", { name: "查询加购结果" }));
 
     expect(api.confirmCommerce).toHaveBeenCalledTimes(1);
-    expect(api.reconcileCommerce).toHaveBeenCalledWith(submittedKey);
+    expect(api.reconcileCommerce).toHaveBeenCalledWith(
+      submittedKey,
+      operationExpectation(confirmedAttempt),
+    );
     expect(await screen.findByRole("dialog", { name: "模拟加购回执" })).toBeVisible();
+    expect(
+      document.querySelector('button[aria-label="购物车，1 件"]'),
+    ).toHaveTextContent("1");
+  });
+
+  it("keeps an unknown commit as a persistent safe state after returning to PDP", async () => {
+    const user = userEvent.setup();
+    const confirmedAttempt = awaitingConfirmation({
+      sku_id: "seoul-shade-30",
+      quantity: 1,
+      facts: {
+        ...awaitingConfirmation().facts,
+        sku_id: "seoul-shade-30",
+        quantity: 1,
+        unit_price_usd: 14,
+        subtotal_usd: 14,
+        inventory_units: 18,
+      },
+    });
+    api.previewCommerce.mockResolvedValue(confirmedAttempt);
+    api.confirmCommerce.mockRejectedValue(new TypeError("connection closed"));
+    api.reconcileCommerce.mockImplementation((idempotencyKey: string) =>
+      Promise.resolve(succeededOperation(idempotencyKey)),
+    );
+    render(<DemoShell />);
+
+    await user.click(
+      await screen.findByRole("button", { name: /查看商品 Seoul Shade Daily Fluid/ }),
+    );
+    await user.click(await screen.findByRole("button", { name: "模拟加入购物车" }));
+    await user.click(
+      within(await screen.findByRole("dialog", { name: "复核模拟加购" })).getByRole(
+        "button",
+        { name: "确认模拟加购" },
+      ),
+    );
+    const unknown = await screen.findByRole("dialog", { name: "加购结果待对账" });
+    const submittedKey = (
+      api.confirmCommerce.mock.calls[0]?.[1] as components["schemas"]["CommerceAddRequest"]
+    ).idempotency_key;
+    await user.click(within(unknown).getByRole("button", { name: "返回商品" }));
+
+    api.getProduct.mockResolvedValue({
+      ...PRODUCT,
+      freshness: {
+        ...PRODUCT.freshness,
+        expires_at: "2026-08-06T09:00:00Z",
+      },
+      product: {
+        ...PRODUCT.product,
+        expires_at: "2026-08-06T09:00:00Z",
+      },
+    });
+    await user.click(screen.getByRole("button", { name: "返回内容流" }));
+    await user.click(
+      await screen.findByRole("button", { name: /查看商品 Seoul Shade Daily Fluid/ }),
+    );
+
+    const query = screen.getByRole("button", { name: "查询加购结果" });
+    expect(screen.getAllByRole("radio").every((radio) => radio.hasAttribute("disabled"))).toBe(true);
+    expect(screen.getByRole("button", { name: "增加数量" })).toBeDisabled();
+    await user.click(query);
+
+    expect(api.previewCommerce).toHaveBeenCalledTimes(1);
+    expect(api.confirmCommerce).toHaveBeenCalledTimes(1);
+    expect(api.reconcileCommerce).toHaveBeenCalledWith(
+      submittedKey,
+      operationExpectation(confirmedAttempt),
+    );
+    expect(await screen.findByRole("dialog", { name: "模拟加购回执" })).toBeVisible();
+  });
+
+  it("keeps a changed reconciliation receipt in the unknown state", async () => {
+    const user = userEvent.setup();
+    const confirmedAttempt = awaitingConfirmation({
+      sku_id: "seoul-shade-30",
+      quantity: 1,
+      facts: {
+        ...awaitingConfirmation().facts,
+        sku_id: "seoul-shade-30",
+        quantity: 1,
+        unit_price_usd: 14,
+        subtotal_usd: 14,
+        inventory_units: 18,
+      },
+    });
+    api.previewCommerce.mockResolvedValue(confirmedAttempt);
+    api.confirmCommerce.mockRejectedValue(new TypeError("connection closed"));
+    api.reconcileCommerce.mockImplementation((idempotencyKey: string) => {
+      const mismatched = succeededOperation(idempotencyKey);
+      mismatched.transaction_revision = confirmedAttempt.transaction_revision + 1;
+      mismatched.facts_version = "catalog-2026-08-05-seoul-v2";
+      mismatched.facts = {
+        ...mismatched.facts,
+        facts_version: "catalog-2026-08-05-seoul-v2",
+        unit_price_usd: 15,
+        subtotal_usd: 15,
+      };
+      mismatched.receipt = {
+        ...mismatched.receipt!,
+        facts_version: "catalog-2026-08-05-seoul-v2",
+        unit_price_usd: 15,
+        subtotal_usd: 15,
+      };
+      return Promise.resolve(mismatched);
+    });
+    render(<DemoShell />);
+
+    await user.click(
+      await screen.findByRole("button", { name: /查看商品 Seoul Shade Daily Fluid/ }),
+    );
+    await user.click(await screen.findByRole("button", { name: "模拟加入购物车" }));
+    await user.click(
+      within(await screen.findByRole("dialog", { name: "复核模拟加购" })).getByRole(
+        "button",
+        { name: "确认模拟加购" },
+      ),
+    );
+    const unknown = await screen.findByRole("dialog", { name: "加购结果待对账" });
+    await user.click(within(unknown).getByRole("button", { name: "查询加购结果" }));
+
+    expect(
+      await within(unknown).findByRole("alert"),
+    ).toHaveTextContent("对账结果与当前模拟加购不一致");
+    expect(screen.queryByRole("dialog", { name: "模拟加购回执" })).toBeNull();
+    expect(
+      document.querySelector('button[aria-label="购物车，0 件"]'),
+    ).not.toBeNull();
+  });
+
+  it("resets the completed operation chain and restores PDP CTA focus", async () => {
+    const user = userEvent.setup();
+    api.confirmCommerce.mockImplementation(
+      (_operationId: string, request: components["schemas"]["CommerceAddRequest"]) =>
+        Promise.resolve(succeededOperation(request.idempotency_key)),
+    );
+    render(<DemoShell />);
+
+    await user.click(
+      await screen.findByRole("button", { name: /查看商品 Seoul Shade Daily Fluid/ }),
+    );
+    await user.click(await screen.findByRole("button", { name: "模拟加入购物车" }));
+    await user.click(await screen.findByRole("button", { name: "确认模拟加购" }));
+    await user.click(
+      within(await screen.findByRole("dialog", { name: "模拟加购回执" })).getByRole(
+        "button",
+        { name: "返回商品" },
+      ),
+    );
+
+    const cta = screen.getByRole("button", { name: "模拟加入购物车" });
+    expect(cta).toHaveFocus();
+    const cartButton = screen.getByRole("button", { name: "购物车，1 件" });
+    expect(within(cartButton).getByText("1")).toBeVisible();
+    await user.click(cta);
+
+    expect(api.previewCommerce).toHaveBeenLastCalledWith({
+      purchase_origin: "FEED",
+      product_id: PRODUCT.product.id,
+      sku_id: "seoul-shade-30",
+      quantity: 1,
+      expected_transaction_revision: 0,
+      demo_scenario: "NORMAL",
+    });
   });
 
   it("renders an explicit unavailable state when every SKU is unavailable", async () => {
@@ -906,7 +1115,7 @@ describe("PDP transaction flow", () => {
       }),
     );
     api.confirmCommerce.mockResolvedValue(
-      changedFactsOperation(),
+      { ...changedFactsOperation(), transaction_revision: 2 },
     );
     render(<DemoShell />);
 
@@ -923,7 +1132,16 @@ describe("PDP transaction flow", () => {
 
     const changed = await screen.findByRole("dialog", { name: "商品事实已更新" });
     expect(within(changed).queryByRole("button", { name: "确认模拟加购" })).toBeNull();
-    expect(within(changed).getByRole("button", { name: "接受新事实并继续" })).toBeVisible();
+    const accept = within(changed).getByRole("button", { name: "接受新事实并继续" });
+    const cancel = within(changed).getByRole("button", { name: "取消" });
+    expect(accept).toBeVisible();
+    expect(cancel).toHaveFocus();
+    await user.keyboard("{Shift>}{Tab}{/Shift}");
+    expect(accept).toHaveFocus();
+    await user.keyboard("{Tab}");
+    expect(cancel).toHaveFocus();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "商品事实已更新" })).toBeNull();
   });
 
   it.each([
@@ -931,6 +1149,10 @@ describe("PDP transaction flow", () => {
     [
       "explicit 409",
       () => Promise.reject(new ApiError(409, "COMMIT_STATUS_UNKNOWN")),
+    ],
+    [
+      "invalid success payload",
+      () => Promise.reject(new ApiError(201, "INVALID_API_RESPONSE")),
     ],
   ])("keeps %s confirmation outcomes reconciliation-only", async (_label, outcome) => {
     const user = userEvent.setup();
@@ -995,6 +1217,9 @@ describe("PDP transaction flow", () => {
     const confirm = within(drawer).getByRole("button", { name: "确认模拟加购" });
     expect(document.body.style.overflow).toBe("hidden");
     expect(screen.getByLabelText("TikTok Shop-inspired Concept Prototype", { selector: "section" })).toHaveAttribute("inert");
+    expect(drawer.closest("[inert]")).toBeNull();
+    expect(drawer.closest(".phoneOverlayHost")).not.toBeNull();
+    expect(drawer.closest(".interviewStage")).not.toBeNull();
     expect(cancel).toHaveFocus();
     confirm.focus();
     await user.keyboard("{Tab}");
@@ -1005,6 +1230,88 @@ describe("PDP transaction flow", () => {
     expect(screen.queryByRole("dialog", { name: "复核模拟加购" })).toBeNull();
     expect(document.body.style.overflow).toBe("");
     expect(cta).toHaveFocus();
+  });
+
+  it("renders commerce action errors inside the active non-inert dialog", async () => {
+    const user = userEvent.setup();
+    api.confirmCommerce.mockRejectedValue(new ApiError(409, "TOKEN_EXPIRED"));
+    render(<DemoShell />);
+
+    await user.click(
+      await screen.findByRole("button", { name: /查看商品 Seoul Shade Daily Fluid/ }),
+    );
+    await user.click(await screen.findByRole("button", { name: "模拟加入购物车" }));
+    const dialog = await screen.findByRole("dialog", { name: "复核模拟加购" });
+    await user.click(within(dialog).getByRole("button", { name: "确认模拟加购" }));
+
+    const alert = await within(dialog).findByRole("alert");
+    expect(alert).toHaveTextContent("模拟加购未完成，请重新复核商品事实");
+    expect(alert.closest('[role="dialog"]')).toBe(dialog);
+    expect(alert.closest("[inert]")).toBeNull();
+    expect(screen.getByLabelText("TikTok Shop-inspired Concept Prototype", { selector: "section" })).toHaveAttribute("inert");
+  });
+
+  it("does not let a stale preview rejection clear or report over a newer request", async () => {
+    const user = userEvent.setup();
+    let rejectFirst!: (reason: unknown) => void;
+    let resolveSecond!: (operation: CommerceOperation) => void;
+    api.previewCommerce
+      .mockImplementationOnce(
+        () => new Promise<CommerceOperation>((_resolve, reject) => (rejectFirst = reject)),
+      )
+      .mockImplementationOnce(
+        () => new Promise<CommerceOperation>((resolve) => (resolveSecond = resolve)),
+      );
+    const secondProduct: ProductDetail = {
+      ...PRODUCT,
+      product: {
+        ...PRODUCT.product,
+        id: "cloud-veil-mineral",
+        name: "Cloud Veil Mineral SPF",
+        display_name_zh: "云感矿物防晒",
+      },
+    };
+    const props = {
+      entrySource: "feed" as const,
+      productRole: "current" as const,
+      onBack: vi.fn(),
+      onNotice: vi.fn(),
+      onCommerceOperation: vi.fn(),
+      overlay: "none" as const,
+      onCloseOverlay: vi.fn(),
+      onContinueBrowsing: vi.fn(),
+      cartCount: 0,
+    };
+    const view = render(<PdpScreen {...props} productId={PRODUCT.product.id} />);
+    await user.click(await screen.findByRole("button", { name: "模拟加入购物车" }));
+
+    api.getProduct.mockResolvedValueOnce(secondProduct);
+    view.rerender(<PdpScreen {...props} productId={secondProduct.product.id} />);
+    await user.click(await screen.findByRole("button", { name: "模拟加入购物车" }));
+    const pending = screen.getByRole("button", { name: "正在复核价格与库存" });
+    expect(pending).toBeDisabled();
+
+    rejectFirst(new TypeError("old request failed"));
+    await waitFor(() => expect(pending).toBeDisabled());
+    expect(props.onNotice).not.toHaveBeenCalled();
+
+    resolveSecond(
+      awaitingConfirmation({
+        product_id: secondProduct.product.id,
+        sku_id: "seoul-shade-30",
+        quantity: 1,
+        facts: {
+          ...awaitingConfirmation().facts,
+          product_id: secondProduct.product.id,
+          sku_id: "seoul-shade-30",
+          quantity: 1,
+          unit_price_usd: 14,
+          subtotal_usd: 14,
+          inventory_units: 18,
+        },
+      }),
+    );
+    await waitFor(() => expect(props.onCommerceOperation).toHaveBeenCalledTimes(1));
   });
 
   it("routes every non-executable PDP shell control to a Concept Boundary notice", async () => {
@@ -1028,48 +1335,54 @@ describe("PDP transaction flow", () => {
     }
   });
 
-  it("does not increment the cart badge when the same receipt is replayed", async () => {
+  it("deduplicates the same reconciliation receipt when its response is replayed", async () => {
     const user = userEvent.setup();
-    const receiptId = "rcp_direct_1";
-    api.confirmCommerce.mockImplementation(
-      (operationId: string, request: components["schemas"]["CommerceAddRequest"]) => {
-        const success = succeededOperation(request.idempotency_key);
-        return Promise.resolve({
-          ...success,
-          operation_id: operationId,
-          transaction_revision: operationId === "cop_direct_2" ? 2 : 1,
-          receipt: { ...success.receipt!, receipt_id: receiptId, operation_id: operationId },
-        });
-      },
-    );
+    let reconciliationReceipt: CommerceOperation | null = null;
+    api.confirmCommerce.mockRejectedValue(new TypeError("connection closed"));
+    api.reconcileCommerce.mockImplementation((idempotencyKey: string) => {
+      reconciliationReceipt = succeededOperation(idempotencyKey);
+      return Promise.resolve(reconciliationReceipt);
+    });
     render(<DemoShell />);
+
     await user.click(
       await screen.findByRole("button", { name: /查看商品 Seoul Shade Daily Fluid/ }),
     );
     await user.click(await screen.findByRole("button", { name: "模拟加入购物车" }));
     await user.click(await screen.findByRole("button", { name: "确认模拟加购" }));
-    await user.click(await screen.findByRole("button", { name: "返回商品" }));
-    expect(screen.getByRole("button", { name: "购物车，1 件" })).toBeVisible();
-
-    api.previewCommerce.mockResolvedValue(
-      awaitingConfirmation({
-        operation_id: "cop_direct_2",
-        transaction_revision: 2,
-        sku_id: "seoul-shade-30",
-        quantity: 1,
-        facts: {
-          ...awaitingConfirmation().facts,
-          sku_id: "seoul-shade-30",
-          quantity: 1,
-          unit_price_usd: 14,
-          subtotal_usd: 14,
-          inventory_units: 18,
-        },
-      }),
+    const unknown = await screen.findByRole("dialog", { name: "加购结果待对账" });
+    const submittedKey = (
+      api.confirmCommerce.mock.calls[0]?.[1] as components["schemas"]["CommerceAddRequest"]
+    ).idempotency_key;
+    await user.click(within(unknown).getByRole("button", { name: "查询加购结果" }));
+    expect(await screen.findByRole("dialog", { name: "模拟加购回执" })).toBeVisible();
+    expect(
+      document.querySelector('button[aria-label="购物车，1 件"]'),
+    ).toHaveTextContent("1");
+    expect(api.confirmCommerce).toHaveBeenCalledTimes(1);
+    expect(api.reconcileCommerce).toHaveBeenCalledTimes(1);
+    expect(api.reconcileCommerce).toHaveBeenCalledWith(
+      submittedKey,
+      expect.objectContaining({ transactionRevision: 1 }),
     );
-    await user.click(screen.getByRole("button", { name: "模拟加入购物车" }));
-    await user.click(await screen.findByRole("button", { name: "确认模拟加购" }));
-    await user.click(await screen.findByRole("button", { name: "返回商品" }));
-    expect(screen.getByRole("button", { name: "购物车，1 件" })).toBeVisible();
+
+    expect(reconciliationReceipt).not.toBeNull();
+    const countedReceiptIds = new Set<string>();
+    const firstCount = applyCommerceReceiptOnce(
+      0,
+      countedReceiptIds,
+      reconciliationReceipt!,
+    );
+    const replayedCount = applyCommerceReceiptOnce(
+      firstCount,
+      countedReceiptIds,
+      reconciliationReceipt!,
+    );
+    expect(firstCount).toBe(1);
+    expect(replayedCount).toBe(1);
+    expect(reconciliationReceipt!.receipt?.idempotency_key).toBe(submittedKey);
+    expect(
+      document.querySelector('button[aria-label="购物车，1 件"]'),
+    ).toHaveTextContent("1");
   });
 });

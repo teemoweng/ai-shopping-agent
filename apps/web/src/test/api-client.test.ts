@@ -220,6 +220,78 @@ function commerceSuccess(
   };
 }
 
+function commerceExpectation(
+  operation: components["schemas"]["CommerceOperationResponse"] = commerceOperation,
+) {
+  return {
+    transactionRevision: operation.transaction_revision,
+    purchaseOrigin: operation.purchase_origin,
+    guideSessionId: operation.guide_session_id ?? null,
+    sourceGuideRevision: operation.source_guide_revision ?? null,
+    productId: operation.product_id,
+    skuId: operation.sku_id,
+    quantity: operation.quantity,
+    factsVersion: operation.facts.facts_version,
+    unitPriceUsd: operation.facts.unit_price_usd,
+    subtotalUsd: operation.facts.subtotal_usd,
+  } as const;
+}
+
+function commerceFactsChanged(
+  transactionRevision = 2,
+): components["schemas"]["CommerceOperationResponse"] {
+  return {
+    ...commerceOperation,
+    transaction_revision: transactionRevision,
+    facts_version: "facts_updated",
+    commerce_view_kind: "FACTS_CHANGED",
+    operation_status: "ACTIVE",
+    allowed_actions: [
+      "ACCEPT_UPDATED_FACTS",
+      "RESELECT_SKU",
+      "CANCEL_CONFIRMATION",
+      "RETURN_TO_PRODUCT",
+    ],
+    facts: {
+      ...commerceOperation.facts,
+      unit_price_usd: 20,
+      subtotal_usd: 20,
+      facts_version: "facts_updated",
+    },
+    facts_diff: [
+      {
+        field: "unit_price_usd",
+        previous_value: 19,
+        current_value: 20,
+      },
+      {
+        field: "facts_version",
+        previous_value: "facts_test",
+        current_value: "facts_updated",
+      },
+    ],
+    error_code: "FACTS_CHANGED",
+    confirmation_token: undefined,
+    confirmation_expires_at: undefined,
+  };
+}
+
+function commerceUnknown(
+  transactionRevision = 1,
+): components["schemas"]["CommerceOperationResponse"] {
+  return {
+    ...commerceOperation,
+    transaction_revision: transactionRevision,
+    commerce_view_kind: "COMMIT_STATUS_UNKNOWN",
+    operation_status: "RECONCILIATION_REQUIRED",
+    allowed_actions: ["RECONCILE_COMMIT", "RETURN_TO_PRODUCT"],
+    facts_diff: [],
+    error_code: "COMMIT_STATUS_UNKNOWN",
+    confirmation_token: undefined,
+    confirmation_expires_at: undefined,
+  };
+}
+
 function mockJson(payload: unknown, status = 200) {
   return vi.spyOn(globalThis, "fetch").mockResolvedValue(
     new Response(JSON.stringify(payload), {
@@ -409,7 +481,7 @@ describe("shopping guide client", () => {
     );
 
     mockJson({ ...commerceOperation, transaction_revision: 2 });
-    await acceptUpdatedFacts("op_test", 1);
+    await acceptUpdatedFacts("op_test", 1, commerceExpectation(commerceOperation));
     expect(fetch).toHaveBeenLastCalledWith(
       "http://127.0.0.1:8000/api/v1/commerce/operations/op_test/accept-facts",
       {
@@ -420,7 +492,11 @@ describe("shopping guide client", () => {
     );
 
     mockJson(commerceSuccess("idem_test"), 201);
-    await confirmCommerce("op_test", addRequest);
+    await confirmCommerce(
+      "op_test",
+      addRequest,
+      commerceExpectation(commerceOperation),
+    );
     expect(fetch).toHaveBeenLastCalledWith(
       "http://127.0.0.1:8000/api/v1/commerce/operations/op_test/items",
       {
@@ -438,11 +514,155 @@ describe("shopping guide client", () => {
     );
 
     mockJson(commerceSuccess("idem_test"));
-    await reconcileCommerce("idem_test");
+    await reconcileCommerce("idem_test", commerceExpectation(commerceOperation));
     expect(fetch).toHaveBeenLastCalledWith(
       "http://127.0.0.1:8000/api/v1/commerce/operations/by-idempotency/idem_test",
       { method: "GET", headers: { "Content-Type": "application/json" } },
     );
+  });
+
+  it("enforces endpoint-specific commerce states and revision transitions", async () => {
+    const previewRequest: components["schemas"]["CommercePreviewRequest"] = {
+      purchase_origin: "FEED",
+      product_id: commerceOperation.product_id,
+      sku_id: commerceOperation.sku_id,
+      quantity: commerceOperation.quantity,
+      expected_transaction_revision: 0,
+      demo_scenario: "NORMAL",
+    };
+    const addRequest: components["schemas"]["CommerceAddRequest"] = {
+      confirmation_token: syntheticConfirmation,
+      idempotency_key: "idem_state_matrix",
+      expected_transaction_revision: 1,
+      demo_scenario: "NORMAL",
+    };
+    const expected = commerceExpectation(commerceOperation);
+
+    mockJson(commerceSuccess("idem_preview_wrong_state"), 201);
+    await expect(previewCommerce(previewRequest)).rejects.toMatchObject({
+      status: 201,
+      code: "INVALID_API_RESPONSE",
+    });
+
+    mockJson(commerceFactsChanged(2));
+    await expect(acceptUpdatedFacts("op_test", 1, expected)).rejects.toMatchObject({
+      status: 200,
+      code: "INVALID_API_RESPONSE",
+    });
+
+    mockJson(commerceSuccess(addRequest.idempotency_key, 2), 201);
+    await expect(confirmCommerce("op_test", addRequest, expected)).rejects.toMatchObject({
+      status: 201,
+      code: "INVALID_API_RESPONSE",
+    });
+
+    mockJson(commerceFactsChanged(1), 201);
+    await expect(confirmCommerce("op_test", addRequest, expected)).rejects.toMatchObject({
+      status: 201,
+      code: "INVALID_API_RESPONSE",
+    });
+
+    mockJson(commerceUnknown());
+    await expect(
+      reconcileCommerce("idem_state_matrix", expected),
+    ).rejects.toMatchObject({
+      status: 200,
+      code: "INVALID_API_RESPONSE",
+    });
+  });
+
+  it("binds reconciliation success to the original revision and facts fingerprint", async () => {
+    const expected = commerceExpectation(commerceOperation);
+    const mismatched = commerceSuccess("idem_reconcile_fingerprint", 2);
+    mismatched.facts_version = "facts_other";
+    mismatched.facts = {
+      ...mismatched.facts,
+      facts_version: "facts_other",
+      unit_price_usd: 21,
+      subtotal_usd: 21,
+    };
+    mismatched.receipt = {
+      ...mismatched.receipt!,
+      facts_version: "facts_other",
+      unit_price_usd: 21,
+      subtotal_usd: 21,
+    };
+    mockJson(mismatched);
+
+    await expect(
+      reconcileCommerce("idem_reconcile_fingerprint", expected),
+    ).rejects.toMatchObject({
+      status: 200,
+      code: "INVALID_API_RESPONSE",
+    });
+  });
+
+  it("binds confirm success and unknown results to the confirmed facts fingerprint", async () => {
+    const addRequest: components["schemas"]["CommerceAddRequest"] = {
+      confirmation_token: syntheticConfirmation,
+      idempotency_key: "idem_fingerprint",
+      expected_transaction_revision: 1,
+      demo_scenario: "NORMAL",
+    };
+    const expected = commerceExpectation(commerceOperation);
+    const mismatchedSuccess = commerceSuccess(addRequest.idempotency_key);
+    mismatchedSuccess.facts_version = "facts_other";
+    mismatchedSuccess.facts = {
+      ...mismatchedSuccess.facts,
+      facts_version: "facts_other",
+      unit_price_usd: 21,
+      subtotal_usd: 21,
+    };
+    mismatchedSuccess.receipt = {
+      ...mismatchedSuccess.receipt!,
+      facts_version: "facts_other",
+      unit_price_usd: 21,
+      subtotal_usd: 21,
+    };
+    mockJson(mismatchedSuccess, 201);
+
+    await expect(confirmCommerce("op_test", addRequest, expected)).rejects.toMatchObject({
+      status: 201,
+      code: "INVALID_API_RESPONSE",
+    });
+
+    const mismatchedUnknown = commerceUnknown();
+    mismatchedUnknown.facts_version = "facts_other";
+    mismatchedUnknown.facts = {
+      ...mismatchedUnknown.facts,
+      facts_version: "facts_other",
+    };
+    mockJson(mismatchedUnknown, 201);
+    await expect(confirmCommerce("op_test", addRequest, expected)).rejects.toMatchObject({
+      status: 201,
+      code: "INVALID_API_RESPONSE",
+    });
+  });
+
+  it("binds accepted facts to the complete operation identity", async () => {
+    const changed = commerceFactsChanged(1);
+    const accepted = {
+      ...changed,
+      transaction_revision: 2,
+      purchase_origin: "AI" as const,
+      guide_session_id: "ses_other",
+      source_guide_revision: 4,
+      commerce_view_kind: "AWAITING_CONFIRMATION" as const,
+      operation_status: "ACTIVE" as const,
+      allowed_actions: commerceOperation.allowed_actions,
+      facts_diff: [],
+      error_code: undefined,
+      confirmation_token: syntheticConfirmation,
+      confirmation_expires_at: "2099-08-05T00:05:00Z",
+    };
+    mockJson(accepted);
+
+    await expect(
+      acceptUpdatedFacts("op_test", 1, commerceExpectation(changed)),
+    ).rejects.toMatchObject({
+      status: 200,
+      code: "INVALID_API_RESPONSE",
+    });
   });
 
   it("preserves the server's stable error code", async () => {
@@ -619,7 +839,13 @@ describe("shopping guide client", () => {
       },
     }, 201);
 
-    await expect(confirmCommerce(commerceOperation.operation_id, addRequest)).rejects.toMatchObject({
+    await expect(
+      confirmCommerce(
+        commerceOperation.operation_id,
+        addRequest,
+        commerceExpectation(commerceOperation),
+      ),
+    ).rejects.toMatchObject({
       status: 201,
       code: "INVALID_API_RESPONSE",
     });

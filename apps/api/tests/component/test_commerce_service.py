@@ -140,6 +140,59 @@ def test_stale_ai_provenance_is_rejected(tmp_path: Path) -> None:
         )
 
 
+def test_ai_preview_rejects_product_outside_current_authoritative_open_set(
+    tmp_path: Path,
+) -> None:
+    from app.services.commerce_service import CommerceConflict
+
+    service, _, sessions, _ = build_service(tmp_path)
+    session = build_ai_provenance(service, sessions)
+
+    with pytest.raises(CommerceConflict, match="PRODUCT_NOT_RECOMMENDED"):
+        service.preview(
+            CommercePreviewRequest(
+                purchase_origin="AI",
+                guide_session_id=session.id,
+                source_guide_revision=session.guide_revision,
+                product_id="jeju-sport-sun-gel",
+                sku_id="jeju-sport-50",
+            )
+        )
+
+
+def test_ai_preview_uses_product_scoped_skus_from_authoritative_snapshot(
+    tmp_path: Path,
+) -> None:
+    from app.services.commerce_service import CommerceConflict
+
+    service, _, sessions, _ = build_service(tmp_path)
+    session = build_ai_provenance(service, sessions)
+    snapshot = session.latest_response
+    assert snapshot is not None
+    session.latest_response = snapshot.model_copy(
+        update={
+            "recommendations": [
+                card.model_copy(update={"eligible_sku_ids": ["seoul-shade-30"]})
+                if card.product_id == "seoul-shade-daily-fluid"
+                else card
+                for card in snapshot.recommendations
+            ]
+        }
+    )
+    sessions.save(session)
+
+    with pytest.raises(CommerceConflict, match="SKU_NOT_RECOMMENDED"):
+        service.preview(
+            CommercePreviewRequest(
+                purchase_origin="AI",
+                guide_session_id=session.id,
+                source_guide_revision=session.guide_revision,
+                product_id="seoul-shade-daily-fluid",
+                sku_id="seoul-shade-50",
+            )
+        )
+
+
 def test_preview_rejects_sku_from_another_product(tmp_path: Path) -> None:
     from app.services.commerce_service import CommerceConflict
 

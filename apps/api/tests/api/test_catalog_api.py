@@ -1,6 +1,10 @@
 from fastapi.testclient import TestClient
 
+from app.api.routes.catalog import get_catalog_service
+from app.dependencies import catalog
 from app.main import app
+from app.repositories.fixture_repository import FixtureRepository
+from app.services.catalog_service import CatalogService
 
 client = TestClient(app)
 
@@ -47,6 +51,35 @@ def test_product_detail_returns_current_catalog_facts_and_synthetic_disclosure()
         "expires_at": "2026-08-12T09:00:00Z",
     }
     assert body["synthetic_disclosure"] is True
+
+
+def test_product_detail_returns_real_fallback_price_when_every_sku_is_out_of_stock() -> None:
+    product = catalog.fixtures.get_product("seoul-shade-daily-fluid")
+    unavailable = product.model_copy(
+        update={
+            "skus": tuple(
+                sku.model_copy(update={"in_stock": False, "inventory_units": 0})
+                for sku in product.skus
+            )
+        }
+    )
+    fixtures = FixtureRepository(
+        products={**catalog.fixtures.products, product.id: unavailable},
+        content_contexts=catalog.fixtures.content_contexts,
+        evidence_documents=catalog.fixtures.evidence_documents,
+        feed_items=catalog.fixtures.feed_items,
+    )
+    app.dependency_overrides[get_catalog_service] = lambda: CatalogService(fixtures)
+    try:
+        response = client.get(f"/api/v1/catalog/products/{product.id}")
+    finally:
+        app.dependency_overrides.pop(get_catalog_service, None)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["starting_price_usd"] == 14.0
+    assert all(sku["in_stock"] is False for sku in body["product"]["skus"])
+    assert all(sku["inventory_units"] == 0 for sku in body["product"]["skus"])
 
 
 def test_unknown_product_returns_stable_not_found_error() -> None:

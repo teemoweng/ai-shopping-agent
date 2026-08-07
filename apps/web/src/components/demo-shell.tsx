@@ -13,7 +13,10 @@ import {
 
 import { ConceptBoundaryToast } from "./concept-boundary-toast";
 import { GuideSheet } from "./guide-sheet";
-import { PdpScreen } from "./pdp-screen";
+import {
+  PdpScreen,
+  type PendingCommerceReconciliation,
+} from "./pdp-screen";
 import {
   ShortVideoFeed,
   type ShortVideoFeedHandle,
@@ -62,6 +65,21 @@ function hasFreshFacts(detail: ProductDetailResponse, now = Date.now()): boolean
   );
 }
 
+export function applyCommerceReceiptOnce(
+  currentCount: number,
+  countedReceiptIds: Set<string>,
+  operation: components["schemas"]["CommerceOperationResponse"],
+): number {
+  if (operation.commerce_view_kind !== "SUCCEEDED" || !operation.receipt) {
+    return currentCount;
+  }
+  if (countedReceiptIds.has(operation.receipt.receipt_id)) {
+    return currentCount;
+  }
+  countedReceiptIds.add(operation.receipt.receipt_id);
+  return currentCount + operation.receipt.quantity;
+}
+
 export function DemoShell() {
   const [navigation, dispatch] = useReducer(
     demoNavigationReducer,
@@ -87,6 +105,8 @@ export function DemoShell() {
     productRole: ProductRole;
   } | null>(null);
   const [cartCount, setCartCount] = useState(0);
+  const [pendingCommerceReconciliation, setPendingCommerceReconciliation] =
+    useState<PendingCommerceReconciliation | null>(null);
   const countedReceiptIdsRef = useRef(new Set<string>());
   const feedRef = useRef<ShortVideoFeedHandle>(null);
   const guideFocusTimerRef = useRef<number | null>(null);
@@ -241,16 +261,20 @@ export function DemoShell() {
     }
     dispatch({
       type: "OPEN_PDP",
-      productId,
+      productId:
+        pendingCommerceReconciliation?.operation.product_id ?? productId,
       entrySource: "feed",
       productRole: "current",
     });
     setPdpGuideCandidate(null);
+    if (pendingCommerceReconciliation) {
+      showNotice("请先查询上一笔模拟加购的最终结果");
+    }
   }
 
   function openProductFromGuide(productId: string, role: ProductRole) {
     setPdpGuideCandidate(
-      verifiedGuideTurn
+      !pendingCommerceReconciliation && verifiedGuideTurn
         ? {
             sessionId: verifiedGuideTurn.session_id,
             guideRevision: verifiedGuideTurn.guide_revision,
@@ -260,19 +284,28 @@ export function DemoShell() {
     );
     dispatch({
       type: "OPEN_PDP",
-      productId,
+      productId:
+        pendingCommerceReconciliation?.operation.product_id ?? productId,
       entrySource: "ai",
       productRole: role,
     });
+    if (pendingCommerceReconciliation) {
+      showNotice("请先查询上一笔模拟加购的最终结果");
+    }
   }
 
   function handleCommerceOperation(
     operation: components["schemas"]["CommerceOperationResponse"],
   ) {
     if (operation.commerce_view_kind === "SUCCEEDED" && operation.receipt) {
-      if (!countedReceiptIdsRef.current.has(operation.receipt.receipt_id)) {
-        countedReceiptIdsRef.current.add(operation.receipt.receipt_id);
-        setCartCount((current) => current + operation.receipt!.quantity);
+      setPendingCommerceReconciliation(null);
+      const receiptDelta = applyCommerceReceiptOnce(
+        0,
+        countedReceiptIdsRef.current,
+        operation,
+      );
+      if (receiptDelta > 0) {
+        setCartCount((current) => current + receiptDelta);
       }
       dispatch({ type: "SHOW_RECEIPT" });
       return;
@@ -361,6 +394,8 @@ export function DemoShell() {
             entrySource={navigation.pdpEntrySource!}
             productRole={navigation.productRole!}
             guideCandidate={pdpGuideCandidate}
+            pendingReconciliation={pendingCommerceReconciliation}
+            onPendingReconciliationChange={setPendingCommerceReconciliation}
             backButtonRef={setPdpBackButton}
             onBack={() => dispatch({ type: "CLOSE_PDP" })}
             onNotice={showNotice}
@@ -377,6 +412,15 @@ export function DemoShell() {
           onClose={() => dispatch({ type: "CLEAR_NOTICE" })}
         />
       </section>
+
+      <div
+        className="phoneOverlayHost"
+        data-active={
+          navigation.overlay === "cart-confirm" || navigation.overlay === "receipt"
+            ? true
+            : undefined
+        }
+      />
 
       <GuideSheet
         open={navigation.overlay === "ai-sheet"}

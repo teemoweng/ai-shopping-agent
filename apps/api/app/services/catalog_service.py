@@ -112,4 +112,9 @@ class CatalogService:
 
     @staticmethod
     def _starting_price(product: Product) -> float:
-        return min(sku.price_usd for sku in product.skus if sku.in_stock)
+        available_prices = [
+            sku.price_usd
+            for sku in product.skus
+            if sku.in_stock and sku.inventory_units > 0
+        ]
+        return min(available_prices or [sku.price_usd for sku in product.skus])

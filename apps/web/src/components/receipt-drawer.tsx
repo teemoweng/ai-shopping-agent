@@ -43,6 +43,9 @@ export function ReceiptDrawer({
     return null;
   }
 
+  const portalTarget =
+    document.querySelector<HTMLElement>(".phoneOverlayHost") ?? document.body;
+
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === "Escape") {
       event.preventDefault();
@@ -100,6 +103,6 @@ export function ReceiptDrawer({
         </footer>
       </div>
     </div>,
-    document.body,
+    portalTarget,
   );
 }

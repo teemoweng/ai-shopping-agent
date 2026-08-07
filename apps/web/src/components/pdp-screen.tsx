@@ -16,6 +16,7 @@ import {
   getProduct,
   previewCommerce,
   reconcileCommerce,
+  type CommerceOperationExpectation,
 } from "@/lib/api-client";
 import type { Overlay, PdpEntrySource, ProductRole } from "@/lib/demo-navigation";
 import { formatUsd } from "@/lib/formatters";
@@ -38,10 +39,41 @@ function hasFreshCatalogFacts(detail: ProductDetail, now = Date.now()) {
   );
 }
 
+function expectationFor(
+  operation: CommerceOperation,
+): CommerceOperationExpectation {
+  return {
+    transactionRevision: operation.transaction_revision,
+    purchaseOrigin: operation.purchase_origin,
+    guideSessionId: operation.guide_session_id ?? null,
+    sourceGuideRevision: operation.source_guide_revision ?? null,
+    productId: operation.product_id,
+    skuId: operation.sku_id,
+    quantity: operation.quantity,
+    factsVersion: operation.facts.facts_version,
+    unitPriceUsd: operation.facts.unit_price_usd,
+    subtotalUsd: operation.facts.subtotal_usd,
+  };
+}
+
 export interface PdpGuideCandidate {
   sessionId: string;
   guideRevision: number;
   productRole: ProductRole;
+}
+
+type ReconciliationOperation = Omit<
+  CommerceOperation,
+  "confirmation_token" | "confirmation_expires_at"
+> & {
+  confirmation_token?: undefined;
+  confirmation_expires_at?: undefined;
+};
+
+export interface PendingCommerceReconciliation {
+  operation: ReconciliationOperation;
+  idempotencyKey: string;
+  confirmedFingerprint: CommerceOperationExpectation;
 }
 
 export interface PdpScreenProps {
@@ -49,6 +81,10 @@ export interface PdpScreenProps {
   entrySource: PdpEntrySource;
   productRole: ProductRole;
   guideCandidate?: PdpGuideCandidate | null;
+  pendingReconciliation?: PendingCommerceReconciliation | null;
+  onPendingReconciliationChange?: (
+    pending: PendingCommerceReconciliation | null,
+  ) => void;
   backButtonRef?: (node: HTMLButtonElement | null) => void;
   onBack: () => void;
   onNotice: (message: string) => void;
@@ -64,6 +100,8 @@ export function PdpScreen({
   entrySource,
   productRole,
   guideCandidate = null,
+  pendingReconciliation = null,
+  onPendingReconciliationChange,
   backButtonRef,
   onBack,
   onNotice,
@@ -81,8 +119,16 @@ export function PdpScreen({
   const [verifiedGuide, setVerifiedGuide] = useState<PdpGuideCandidate | null>(null);
   const [guideCheckPending, setGuideCheckPending] = useState(false);
   const [guideAttributionUnavailable, setGuideAttributionUnavailable] = useState(false);
-  const [commerceOperation, setCommerceOperation] = useState<CommerceOperation | null>(null);
-  const [commitStatusUnknown, setCommitStatusUnknown] = useState(false);
+  const [commerceOperation, setCommerceOperation] = useState<CommerceOperation | null>(
+    pendingReconciliation?.operation ?? null,
+  );
+  const [commitStatusUnknown, setCommitStatusUnknown] = useState(
+    Boolean(pendingReconciliation),
+  );
+  const [commerceError, setCommerceError] = useState<string | null>(null);
+  const [serverUnavailableSkuIds, setServerUnavailableSkuIds] = useState(
+    () => new Set<string>(),
+  );
   const localBackRef = useRef<HTMLButtonElement | null>(null);
   const loadVersionRef = useRef(0);
   const previewPendingRef = useRef(false);
@@ -91,9 +137,42 @@ export function PdpScreen({
   const confirmPendingRef = useRef(false);
   const reconcilePendingRef = useRef(false);
   const commerceActionVersionRef = useRef(0);
-  const idempotencyKeyRef = useRef<string | null>(null);
+  const idempotencyKeyRef = useRef<string | null>(
+    pendingReconciliation?.idempotencyKey ?? null,
+  );
+  const pendingReconciliationRef = useRef(pendingReconciliation);
   const guideVersionRef = useRef(0);
   const skuSelectorRef = useRef<HTMLFieldSetElement>(null);
+  const pdpCtaRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    pendingReconciliationRef.current = pendingReconciliation;
+  }, [pendingReconciliation]);
+
+  function persistReconciliation(
+    operation: CommerceOperation,
+    idempotencyKey: string,
+    confirmedFingerprint: CommerceOperationExpectation,
+  ) {
+    const safeOperation: ReconciliationOperation = {
+      ...operation,
+      confirmation_token: undefined,
+      confirmation_expires_at: undefined,
+    };
+    const pending: PendingCommerceReconciliation = {
+      operation: safeOperation,
+      idempotencyKey,
+      confirmedFingerprint,
+    };
+    pendingReconciliationRef.current = pending;
+    idempotencyKeyRef.current = idempotencyKey;
+    onPendingReconciliationChange?.(pending);
+  }
+
+  function clearPersistedReconciliation() {
+    pendingReconciliationRef.current = null;
+    onPendingReconciliationChange?.(null);
+  }
 
   function setBackButton(node: HTMLButtonElement | null) {
     localBackRef.current = node;
@@ -108,23 +187,29 @@ export function PdpScreen({
     previewPendingRef.current = false;
     queueMicrotask(() => {
       if (loadVersionRef.current !== version) return;
+      const pending = pendingReconciliationRef.current;
       setDetail(null);
       setLoadError(false);
       setSelectedSkuId(null);
       setQuantity(1);
       setPreviewPending(false);
-      setCommerceOperation(null);
-      setCommitStatusUnknown(false);
-      idempotencyKeyRef.current = null;
+      setCommerceOperation(pending?.operation ?? null);
+      setCommitStatusUnknown(Boolean(pending));
+      setCommerceError(null);
+      setServerUnavailableSkuIds(new Set());
+      idempotencyKeyRef.current = pending?.idempotencyKey ?? null;
     });
     void getProduct(productId)
       .then((nextDetail) => {
         if (loadVersionRef.current !== version) return;
         setDetail(nextDetail);
+        const pendingSkuId = pendingReconciliationRef.current?.operation.sku_id;
         setSelectedSkuId(
-          nextDetail.product.skus.find(
-            (sku) => sku.in_stock && sku.inventory_units > 0,
-          )?.id ?? null,
+          nextDetail.product.skus.find((sku) => sku.id === pendingSkuId)?.id ??
+            nextDetail.product.skus.find(
+              (sku) => sku.in_stock && sku.inventory_units > 0,
+            )?.id ??
+            null,
         );
       })
       .catch(() => {
@@ -197,19 +282,34 @@ export function PdpScreen({
     () => detail?.product.skus.find((sku) => sku.id === selectedSkuId) ?? null,
     [detail, selectedSkuId],
   );
+  const reconciliationRequired =
+    commitStatusUnknown ||
+    commerceOperation?.commerce_view_kind === "COMMIT_STATUS_UNKNOWN";
+
+  function changeSelection(change: () => void) {
+    selectionVersionRef.current += 1;
+    previewVersionRef.current += 1;
+    previewPendingRef.current = false;
+    setPreviewPending(false);
+    setCommerceError(null);
+    change();
+  }
 
   async function preview() {
     if (
       !detail ||
       !selectedSku ||
       !selectedSku.in_stock ||
+      serverUnavailableSkuIds.has(selectedSku.id) ||
       !hasFreshCatalogFacts(detail) ||
-      previewPendingRef.current
+      previewPendingRef.current ||
+      reconciliationRequired
     ) {
       return;
     }
     previewPendingRef.current = true;
     setPreviewPending(true);
+    setCommerceError(null);
     const previewVersion = ++previewVersionRef.current;
     const selectionVersion = selectionVersionRef.current;
     const previousOperation = commerceOperation;
@@ -255,14 +355,25 @@ export function PdpScreen({
         return;
       }
       idempotencyKeyRef.current = null;
+      clearPersistedReconciliation();
       setCommitStatusUnknown(false);
       setCommerceOperation(operation);
       onCommerceOperation(operation);
     } catch {
-      onNotice("商品事实暂时无法复核，请稍后重试");
+      if (
+        previewVersionRef.current === previewVersion &&
+        selectionVersionRef.current === selectionVersion
+      ) {
+        onNotice("商品事实暂时无法复核，请稍后重试");
+      }
     } finally {
-      previewPendingRef.current = false;
-      setPreviewPending(false);
+      if (
+        previewVersionRef.current === previewVersion &&
+        selectionVersionRef.current === selectionVersion
+      ) {
+        previewPendingRef.current = false;
+        setPreviewPending(false);
+      }
     }
   }
 
@@ -278,18 +389,24 @@ export function PdpScreen({
     }
     confirmPendingRef.current = true;
     setPreviewPending(true);
+    setCommerceError(null);
     const actionVersion = ++commerceActionVersionRef.current;
     const idempotencyKey =
       idempotencyKeyRef.current ??
       `idem_${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}_${Math.random()}`}`;
     idempotencyKeyRef.current = idempotencyKey;
+    const confirmedFingerprint = expectationFor(commerceOperation);
     try {
-      const operation = await confirmCommerce(commerceOperation.operation_id, {
-        confirmation_token: commerceOperation.confirmation_token,
-        idempotency_key: idempotencyKey,
-        expected_transaction_revision: commerceOperation.transaction_revision,
-        demo_scenario: "NORMAL",
-      });
+      const operation = await confirmCommerce(
+        commerceOperation.operation_id,
+        {
+          confirmation_token: commerceOperation.confirmation_token,
+          idempotency_key: idempotencyKey,
+          expected_transaction_revision: commerceOperation.transaction_revision,
+          demo_scenario: "NORMAL",
+        },
+        confirmedFingerprint,
+      );
       if (commerceActionVersionRef.current !== actionVersion) return;
       const matchesConfirmation =
         operation.operation_id === commerceOperation.operation_id &&
@@ -301,13 +418,36 @@ export function PdpScreen({
         operation.product_id === commerceOperation.product_id &&
         operation.sku_id === commerceOperation.sku_id &&
         operation.quantity === commerceOperation.quantity &&
-        (operation.transaction_revision === commerceOperation.transaction_revision ||
-          operation.transaction_revision === commerceOperation.transaction_revision + 1) &&
+        ((operation.commerce_view_kind === "FACTS_CHANGED" &&
+          operation.transaction_revision ===
+            commerceOperation.transaction_revision + 1 &&
+          (operation.facts_diff?.length ?? 0) > 0) ||
+          ((operation.commerce_view_kind === "SUCCEEDED" ||
+            operation.commerce_view_kind === "COMMIT_STATUS_UNKNOWN") &&
+            operation.transaction_revision === commerceOperation.transaction_revision &&
+            operation.facts.facts_version ===
+              commerceOperation.facts.facts_version &&
+            operation.facts.unit_price_usd ===
+              commerceOperation.facts.unit_price_usd &&
+            operation.facts.subtotal_usd ===
+              commerceOperation.facts.subtotal_usd)) &&
         (operation.commerce_view_kind !== "SUCCEEDED" ||
           operation.receipt?.idempotency_key === idempotencyKey);
       if (!matchesConfirmation) {
-        onNotice("模拟加购响应与当前操作不一致，请返回商品重试");
+        persistReconciliation(
+          commerceOperation,
+          idempotencyKey,
+          confirmedFingerprint,
+        );
+        setCommitStatusUnknown(true);
+        setCommerceError("写入结果无法验证，请查询原加购操作的最终结果");
         return;
+      }
+      setCommerceError(null);
+      if (operation.commerce_view_kind === "COMMIT_STATUS_UNKNOWN") {
+        persistReconciliation(operation, idempotencyKey, confirmedFingerprint);
+      } else {
+        clearPersistedReconciliation();
       }
       setCommitStatusUnknown(operation.commerce_view_kind === "COMMIT_STATUS_UNKNOWN");
       setCommerceOperation(operation);
@@ -320,9 +460,15 @@ export function PdpScreen({
         error.code === "INVALID_API_RESPONSE" ||
         (error.status === 409 && error.code === "COMMIT_STATUS_UNKNOWN");
       if (uncertain) {
+        persistReconciliation(
+          commerceOperation,
+          idempotencyKey,
+          confirmedFingerprint,
+        );
         setCommitStatusUnknown(true);
+        setCommerceError(null);
       } else {
-        onNotice("模拟加购未完成，请重新复核商品事实");
+        setCommerceError("模拟加购未完成，请重新复核商品事实");
       }
     } finally {
       confirmPendingRef.current = false;
@@ -343,30 +489,41 @@ export function PdpScreen({
     }
     previewPendingRef.current = true;
     setPreviewPending(true);
+    setCommerceError(null);
     const actionVersion = ++commerceActionVersionRef.current;
     const current = commerceOperation;
     try {
       const operation = await acceptUpdatedFacts(
         current.operation_id,
         current.transaction_revision,
+        expectationFor(current),
       );
       if (commerceActionVersionRef.current !== actionVersion) return;
       if (
         operation.operation_id !== current.operation_id ||
         operation.transaction_revision !== current.transaction_revision + 1 ||
+        operation.purchase_origin !== current.purchase_origin ||
+        (operation.guide_session_id ?? null) !==
+          (current.guide_session_id ?? null) ||
+        (operation.source_guide_revision ?? null) !==
+          (current.source_guide_revision ?? null) ||
         operation.product_id !== current.product_id ||
         operation.sku_id !== current.sku_id ||
-        operation.quantity !== current.quantity
+        operation.quantity !== current.quantity ||
+        operation.facts.facts_version !== current.facts.facts_version ||
+        operation.facts.unit_price_usd !== current.facts.unit_price_usd ||
+        operation.facts.subtotal_usd !== current.facts.subtotal_usd
       ) {
-        onNotice("更新后的商品事实与当前操作不一致，请重新尝试");
+        setCommerceError("更新后的商品事实与当前操作不一致，请重新尝试");
         return;
       }
       idempotencyKeyRef.current = null;
+      clearPersistedReconciliation();
       setCommitStatusUnknown(false);
       setCommerceOperation(operation);
     } catch {
       if (commerceActionVersionRef.current === actionVersion) {
-        onNotice("更新后的商品事实暂时无法确认，请重新尝试");
+        setCommerceError("更新后的商品事实暂时无法确认，请重新尝试");
       }
     } finally {
       previewPendingRef.current = false;
@@ -377,6 +534,21 @@ export function PdpScreen({
   }
 
   function reselectSku() {
+    if (detail && commerceOperation) {
+      const unavailableSkuId = commerceOperation.sku_id;
+      const nextUnavailable = new Set(serverUnavailableSkuIds);
+      nextUnavailable.add(unavailableSkuId);
+      setServerUnavailableSkuIds(nextUnavailable);
+      const fallback = detail.product.skus.find(
+        (sku) =>
+          sku.id !== unavailableSkuId &&
+          sku.in_stock &&
+          sku.inventory_units > 0 &&
+          !nextUnavailable.has(sku.id),
+      );
+      changeSelection(() => setSelectedSkuId(fallback?.id ?? null));
+    }
+    setCommerceError(null);
     onCloseOverlay();
     window.setTimeout(() => skuSelectorRef.current?.focus(), 0);
   }
@@ -385,11 +557,14 @@ export function PdpScreen({
     const idempotencyKey = idempotencyKeyRef.current;
     const current = commerceOperation;
     if (!idempotencyKey || !current || reconcilePendingRef.current) return;
+    const confirmedFingerprint =
+      pendingReconciliationRef.current?.confirmedFingerprint ?? expectationFor(current);
     reconcilePendingRef.current = true;
     setPreviewPending(true);
+    setCommerceError(null);
     const actionVersion = ++commerceActionVersionRef.current;
     try {
-      const operation = await reconcileCommerce(idempotencyKey);
+      const operation = await reconcileCommerce(idempotencyKey, confirmedFingerprint);
       if (commerceActionVersionRef.current !== actionVersion) return;
       const matchesAttempt =
         operation.operation_id === current.operation_id &&
@@ -400,18 +575,26 @@ export function PdpScreen({
         operation.product_id === current.product_id &&
         operation.sku_id === current.sku_id &&
         operation.quantity === current.quantity &&
+        operation.transaction_revision === confirmedFingerprint.transactionRevision &&
+        operation.facts.facts_version === confirmedFingerprint.factsVersion &&
+        operation.facts.unit_price_usd === confirmedFingerprint.unitPriceUsd &&
+        operation.facts.subtotal_usd === confirmedFingerprint.subtotalUsd &&
         (operation.commerce_view_kind !== "SUCCEEDED" ||
           operation.receipt?.idempotency_key === idempotencyKey);
       if (!matchesAttempt) {
-        onNotice("对账结果与当前模拟加购不一致，请返回商品重试");
+        setCommerceError("对账结果与当前模拟加购不一致，请稍后再次查询");
         return;
       }
+      setCommerceError(null);
       setCommerceOperation(operation);
       setCommitStatusUnknown(operation.commerce_view_kind === "COMMIT_STATUS_UNKNOWN");
+      if (operation.commerce_view_kind === "SUCCEEDED") {
+        clearPersistedReconciliation();
+      }
       onCommerceOperation(operation);
     } catch {
       if (commerceActionVersionRef.current === actionVersion) {
-        onNotice("加购结果仍在确认中，请稍后再次查询");
+        setCommerceError("加购结果仍在确认中，请稍后再次查询");
       }
     } finally {
       reconcilePendingRef.current = false;
@@ -419,6 +602,21 @@ export function PdpScreen({
         setPreviewPending(false);
       }
     }
+  }
+
+  function returnFromReceipt() {
+    commerceActionVersionRef.current += 1;
+    previewPendingRef.current = false;
+    confirmPendingRef.current = false;
+    reconcilePendingRef.current = false;
+    idempotencyKeyRef.current = null;
+    clearPersistedReconciliation();
+    setPreviewPending(false);
+    setCommerceOperation(null);
+    setCommitStatusUnknown(false);
+    setCommerceError(null);
+    onCloseOverlay();
+    window.setTimeout(() => pdpCtaRef.current?.focus(), 0);
   }
 
   if (loadError) {
@@ -498,6 +696,9 @@ export function PdpScreen({
               onClick={() => onNotice(message)}
             >
               {label === "搜索" ? "⌕" : label === "分享" ? "↗" : label === "购物车" ? "▱" : "•••"}
+              {label === "购物车" && cartCount > 0 ? (
+                <span className="pdpCartBadge" aria-hidden="true">{cartCount}</span>
+              ) : null}
             </button>
           ))}
         </div>
@@ -574,7 +775,9 @@ export function PdpScreen({
         <fieldset ref={skuSelectorRef} className="pdpSkuSelector" tabIndex={-1}>
           <legend>选择规格</legend>
           {product.skus.map((sku) => {
-            const unavailable = !sku.in_stock || sku.inventory_units < 1;
+            const serverUnavailable = serverUnavailableSkuIds.has(sku.id);
+            const unavailable =
+              !sku.in_stock || sku.inventory_units < 1 || serverUnavailable;
             return (
               <label key={sku.id} data-unavailable={unavailable || undefined}>
                 <input
@@ -582,16 +785,17 @@ export function PdpScreen({
                   name="pdp-sku"
                   value={sku.id}
                   checked={sku.id === selectedSkuId}
-                  disabled={unavailable}
-                  onChange={() => {
-                    selectionVersionRef.current += 1;
-                    setSelectedSkuId(sku.id);
-                  }}
+                  disabled={unavailable || reconciliationRequired}
+                  onChange={() =>
+                    changeSelection(() => setSelectedSkuId(sku.id))
+                  }
                 />
                 <span>{sku.label}</span>
                 <small>
                   {!factsFresh
                     ? "待重新核实"
+                    : serverUnavailable
+                      ? "服务器报告：不可用"
                     : unavailable
                       ? "暂时缺货"
                       : formatUsd(sku.price_usd)}
@@ -607,11 +811,12 @@ export function PdpScreen({
             <button
               type="button"
               aria-label="减少数量"
-              disabled={quantity <= 1}
-              onClick={() => {
-                selectionVersionRef.current += 1;
-                setQuantity((current) => Math.max(1, current - 1));
-              }}
+              disabled={quantity <= 1 || reconciliationRequired}
+              onClick={() =>
+                changeSelection(() =>
+                  setQuantity((current) => Math.max(1, current - 1)),
+                )
+              }
             >
               −
             </button>
@@ -619,11 +824,12 @@ export function PdpScreen({
             <button
               type="button"
               aria-label="增加数量"
-              disabled={quantity >= 5}
-              onClick={() => {
-                selectionVersionRef.current += 1;
-                setQuantity((current) => Math.min(5, current + 1));
-              }}
+              disabled={quantity >= 5 || reconciliationRequired}
+              onClick={() =>
+                changeSelection(() =>
+                  setQuantity((current) => Math.min(5, current + 1)),
+                )
+              }
             >
               +
             </button>
@@ -639,15 +845,30 @@ export function PdpScreen({
           <span aria-hidden="true">○</span>聊天
         </button>
         <button
+          ref={pdpCtaRef}
           className="pdpPrimaryCta"
           type="button"
-          disabled={!factsFresh || previewPending || guideCheckPending}
-          onClick={() => void preview()}
+          disabled={
+            previewPending ||
+            (!reconciliationRequired && (!factsFresh || guideCheckPending))
+          }
+          onClick={() => {
+            if (reconciliationRequired && commerceOperation) {
+              onCommerceOperation(commerceOperation);
+              void reconcile();
+              return;
+            }
+            void preview();
+          }}
         >
-          {!factsFresh
-            ? "商品事实已过期"
-            : guideCheckPending
-            ? "正在核对导购来源"
+          {reconciliationRequired
+            ? previewPending
+              ? "正在查询加购结果"
+              : "查询加购结果"
+            : !factsFresh
+              ? "商品事实已过期"
+              : guideCheckPending
+                ? "正在核对导购来源"
             : previewPending
               ? "正在复核价格与库存"
               : "模拟加入购物车"}
@@ -659,7 +880,11 @@ export function PdpScreen({
       operation={commerceOperation}
       pending={previewPending}
       commitStatusUnknown={commitStatusUnknown}
-      onCancel={onCloseOverlay}
+      errorMessage={commerceError}
+      onCancel={() => {
+        setCommerceError(null);
+        onCloseOverlay();
+      }}
       onConfirm={() => void confirm()}
       onAcceptFacts={() => void acceptFacts()}
       onReselect={reselectSku}
@@ -668,7 +893,7 @@ export function PdpScreen({
     <ReceiptDrawer
       open={overlay === "receipt"}
       operation={commerceOperation}
-      onReturnProduct={onCloseOverlay}
+      onReturnProduct={returnFromReceipt}
       onContinueBrowsing={onContinueBrowsing}
     />
     </>

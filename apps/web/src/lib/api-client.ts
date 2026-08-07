@@ -21,6 +21,19 @@ type CommerceAddRequest = components["schemas"]["CommerceAddRequest"];
 type CommerceOperationResponse =
   components["schemas"]["CommerceOperationResponse"];
 
+export interface CommerceOperationExpectation {
+  transactionRevision: number;
+  purchaseOrigin: "FEED" | "AI";
+  guideSessionId: string | null;
+  sourceGuideRevision: number | null;
+  productId: string;
+  skuId: string;
+  quantity: number;
+  factsVersion: string;
+  unitPriceUsd: number;
+  subtotalUsd: number;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -161,6 +174,7 @@ export const previewCommerce = (request: CommercePreviewRequest) =>
     (payload) =>
       validateCommerceOperationResponse(payload, {
         confirmationSecretPolicy: "required",
+        allowedViews: ["AWAITING_CONFIRMATION", "FACTS_CHANGED"],
         expected: {
           purchaseOrigin: request.purchase_origin,
           guideSessionId: request.guide_session_id ?? null,
@@ -176,6 +190,7 @@ export const previewCommerce = (request: CommercePreviewRequest) =>
 export const acceptUpdatedFacts = (
   operationId: string,
   expectedRevision: number,
+  expectedOperation: CommerceOperationExpectation,
 ) =>
   post<CommerceOperationResponse>(
     `/commerce/operations/${encodeURIComponent(operationId)}/accept-facts`,
@@ -183,8 +198,11 @@ export const acceptUpdatedFacts = (
     (payload) =>
       validateCommerceOperationResponse(payload, {
         confirmationSecretPolicy: "required",
+        allowedViews: ["AWAITING_CONFIRMATION"],
+        factsFingerprintViews: ["AWAITING_CONFIRMATION"],
         expected: {
           operationId,
+          ...expectedOperation,
           transactionRevisions: [expectedRevision + 1],
         },
       }),
@@ -193,6 +211,7 @@ export const acceptUpdatedFacts = (
 export const confirmCommerce = (
   operationId: string,
   request: CommerceAddRequest,
+  expectedOperation: CommerceOperationExpectation,
 ) =>
   post<CommerceOperationResponse>(
     `/commerce/operations/${encodeURIComponent(operationId)}/items`,
@@ -200,12 +219,21 @@ export const confirmCommerce = (
     (payload) =>
       validateCommerceOperationResponse(payload, {
         confirmationSecretPolicy: "forbidden",
+        allowedViews: [
+          "SUCCEEDED",
+          "COMMIT_STATUS_UNKNOWN",
+          "FACTS_CHANGED",
+        ],
+        transactionRevisionsByView: {
+          SUCCEEDED: [request.expected_transaction_revision],
+          COMMIT_STATUS_UNKNOWN: [request.expected_transaction_revision],
+          FACTS_CHANGED: [request.expected_transaction_revision + 1],
+        },
+        factsFingerprintViews: ["SUCCEEDED", "COMMIT_STATUS_UNKNOWN"],
+        requireFactsDiffForViews: ["FACTS_CHANGED"],
         expected: {
           operationId,
-          transactionRevisions: [
-            request.expected_transaction_revision,
-            request.expected_transaction_revision + 1,
-          ],
+          ...expectedOperation,
           idempotencyKey: request.idempotency_key,
         },
       }),
@@ -221,12 +249,23 @@ export const getCommerceOperation = (operationId: string) =>
       }),
   );
 
-export const reconcileCommerce = (idempotencyKey: string) =>
+export const reconcileCommerce = (
+  idempotencyKey: string,
+  expectedOperation: CommerceOperationExpectation,
+) =>
   get<CommerceOperationResponse>(
     `/commerce/operations/by-idempotency/${encodeURIComponent(idempotencyKey)}`,
     (payload) =>
       validateCommerceOperationResponse(payload, {
         confirmationSecretPolicy: "forbidden",
-        expected: { idempotencyKey },
+        allowedViews: ["SUCCEEDED"],
+        transactionRevisionsByView: {
+          SUCCEEDED: [expectedOperation.transactionRevision],
+        },
+        factsFingerprintViews: ["SUCCEEDED"],
+        expected: {
+          ...expectedOperation,
+          idempotencyKey,
+        },
       }),
   );

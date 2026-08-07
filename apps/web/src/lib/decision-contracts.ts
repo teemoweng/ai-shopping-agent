@@ -409,6 +409,12 @@ function hasValidCommerceFacts(value: unknown): value is CommerceFactsResponse {
 
 export interface CommerceValidationOptions {
   confirmationSecretPolicy?: "required" | "optional" | "forbidden";
+  allowedViews?: readonly CommerceStep[];
+  transactionRevisionsByView?: Partial<
+    Record<CommerceStep, readonly number[]>
+  >;
+  factsFingerprintViews?: readonly CommerceStep[];
+  requireFactsDiffForViews?: readonly CommerceStep[];
   expected?: {
     operationId?: string;
     purchaseOrigin?: "FEED" | "AI";
@@ -419,6 +425,9 @@ export interface CommerceValidationOptions {
     quantity?: number;
     transactionRevisions?: readonly number[];
     idempotencyKey?: string;
+    factsVersion?: string;
+    unitPriceUsd?: number;
+    subtotalUsd?: number;
   };
 }
 
@@ -532,6 +541,15 @@ export function validateCommerceOperationResponse(
 
   const step = value.commerce_view_kind as CommerceStep;
   const status = value.operation_status as CommerceOperationStatus;
+  const revisionsForView = options.transactionRevisionsByView?.[step];
+  if (
+    (options.allowedViews !== undefined &&
+      !options.allowedViews.includes(step)) ||
+    (revisionsForView !== undefined &&
+      !revisionsForView.includes(value.transaction_revision))
+  ) {
+    return null;
+  }
   const allowedForView =
     step === "FACTS_CHANGED" && !value.facts.in_stock
       ? (["RESELECT_SKU", "RETURN_TO_PRODUCT"] as const)
@@ -597,6 +615,20 @@ export function validateCommerceOperationResponse(
   }
 
   const diffLength = (value.facts_diff as unknown[]).length;
+  if (
+    options.requireFactsDiffForViews?.includes(step) &&
+    diffLength === 0
+  ) {
+    return null;
+  }
+  if (
+    options.factsFingerprintViews?.includes(step) &&
+    (value.facts.facts_version !== expected?.factsVersion ||
+      value.facts.unit_price_usd !== expected?.unitPriceUsd ||
+      value.facts.subtotal_usd !== expected?.subtotalUsd)
+  ) {
+    return null;
+  }
   const hasError = isNonBlankString(value.error_code);
   const hasReceipt = !hasNoValue(value, "receipt");
   switch (step) {

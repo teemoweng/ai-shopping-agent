@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
+from app.api.routes.guide import service as guide_service
 from app.main import app
 
 client = TestClient(app)
@@ -19,6 +20,82 @@ def preview_payload(**updates: object) -> dict[str, object]:
     }
     payload.update(updates)
     return payload
+
+
+def create_ai_purchase_context(message_id: str) -> tuple[str, int]:
+    opened = client.post(
+        "/api/v1/guide/sessions",
+        json={
+            "entry_point": "content",
+            "content_context_id": "morning-routine-uv-001",
+            "locale": "zh-CN",
+        },
+    )
+    assert opened.status_code == 201
+    session_id = opened.json()["session_id"]
+    decided = client.post(
+        f"/api/v1/guide/sessions/{session_id}/messages",
+        json={
+            "message_id": message_id,
+            "text": "预算30美元以内、无香精、自然妆效",
+        },
+    )
+    assert decided.status_code == 200
+    return session_id, decided.json()["guide_revision"]
+
+
+def test_ai_preview_rejects_correct_revision_with_unauthorized_product() -> None:
+    session_id, guide_revision = create_ai_purchase_context(
+        f"api_commerce_product_scope_{uuid4()}"
+    )
+
+    response = client.post(
+        "/api/v1/commerce/cart/preview",
+        json=preview_payload(
+            purchase_origin="AI",
+            guide_session_id=session_id,
+            source_guide_revision=guide_revision,
+            product_id="jeju-sport-sun-gel",
+            sku_id="jeju-sport-50",
+        ),
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "PRODUCT_NOT_RECOMMENDED"
+
+
+def test_ai_preview_rejects_correct_revision_with_unauthorized_product_sku() -> None:
+    session_id, guide_revision = create_ai_purchase_context(
+        f"api_commerce_sku_scope_{uuid4()}"
+    )
+    session = guide_service.sessions.get(session_id)
+    snapshot = session.latest_response
+    assert snapshot is not None
+    session.latest_response = snapshot.model_copy(
+        update={
+            "recommendations": [
+                card.model_copy(update={"eligible_sku_ids": ["seoul-shade-30"]})
+                if card.product_id == "seoul-shade-daily-fluid"
+                else card
+                for card in snapshot.recommendations
+            ]
+        }
+    )
+    guide_service.sessions.save(session)
+
+    response = client.post(
+        "/api/v1/commerce/cart/preview",
+        json=preview_payload(
+            purchase_origin="AI",
+            guide_session_id=session_id,
+            source_guide_revision=guide_revision,
+            product_id="seoul-shade-daily-fluid",
+            sku_id="seoul-shade-50",
+        ),
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "SKU_NOT_RECOMMENDED"
 
 
 def test_price_change_returns_structured_diff_then_accepts_fresh_token() -> None:
