@@ -4,7 +4,7 @@
 
 ## Release result
 
-The redesigned demo passed the backend, frontend, contract, static, evaluation, and production-browser gates listed below. All eight required product journeys ran once in `mobile-chromium` against one fresh in-memory API process. Transaction journeys were intentionally skipped in `desktop-interview` so the second project could not consume the same finite fixture inventory again. Desktop evidence instead exercised the same live phone path through the Foundation guide regressions, responsive checks, and the formal AI decision Sheet capture.
+The redesigned demo passed the backend, frontend, contract, static, evaluation, and production-browser gates listed below. All eight required product journeys ran once in `mobile-chromium` against one fresh in-memory API process. Those eight journeys were intentionally skipped in `desktop-interview` so the second project could not repeat the complete transaction matrix. The three pre-existing PDP focus regressions still run in both projects, preserving their 6/6 viewport coverage; the fixture inventory is sufficient for those focused operations. Desktop evidence also exercised the same live phone path through the Foundation guide regressions, responsive checks, and the formal AI decision Sheet capture.
 
 Every Playwright test calls `page.clock.setFixedTime(new Date("2026-08-07T12:00:00Z"))` before `page.goto`. This freezes only the synthetic browser evidence clock. The application still defaults to real `Date.now()` outside the test, the API uses its normal server clock, and no URL-controlled time override or test-reset endpoint exists.
 
@@ -16,7 +16,7 @@ Every Playwright test calls `page.clock.setFixedTime(new Date("2026-08-07T12:00:
 | Node / pnpm | Node 24.14.0 / pnpm 11.20.0 |
 | uv / Python | uv 0.11.14 / Python 3.14.5 |
 | Browser runner | Playwright 1.62.1; Chrome for Testing 151.0.7922.34 |
-| API / Web | Fresh `127.0.0.1:8000` uvicorn process; production `next build && next start` on `127.0.0.1:3000` for formal capture |
+| API / Web | Fresh `127.0.0.1:8000` uvicorn process with `--no-access-log`; production `next build && next start` on `127.0.0.1:3000` for formal capture |
 | Concurrency | `workers: 1`; `fullyParallel: false`; existing servers never reused |
 
 The Next.js build emitted the repository's existing multiple-lockfile workspace-root inference warning. Compilation, type checking, static generation, and exit status were successful. API tests and the Foundation runner emitted one existing Starlette/httpx deprecation warning.
@@ -31,12 +31,13 @@ The Next.js build emitted the repository's existing multiple-lockfile workspace-
 | Layout | `pnpm check:layout` | `Foundation layout is valid`; exit 0 |
 | Web lint | `pnpm lint:web` | ESLint exit 0; 0 errors |
 | Web production build | `pnpm --dir apps/web build` | Next production build and TypeScript/static generation exit 0 |
-| Production E2E + capture | `CAPTURE_TIKTOK_REDESIGN_EVIDENCE=1 pnpm test:e2e` | 25 passed; 13 intentionally skipped; 0 failed; 38 collected |
+| E2E without capture | `pnpm test:e2e` | 26 passed; 12 intentionally skipped; 0 failed; 38 collected |
+| Production E2E + capture | `CAPTURE_TIKTOK_REDESIGN_EVIDENCE=1 pnpm test:e2e` | 28 passed; 10 intentionally skipped; 0 failed; 38 collected |
 | Foundation eval tests | `uv --directory apps/api run pytest tests/eval/test_foundation_eval.py -q` | 14 passed; 0 failed; 1 upstream deprecation warning |
 | Foundation eval runner | `uv --directory apps/api run python ../../evals/run_foundation.py` | 6/6 passed; pass rate 1.0; exit 0 |
 | API lint | `uv --directory apps/api run ruff check .` | `All checks passed!` |
 | Integrity | `git diff --check` | Exit 0 |
-| Secret scan | Repository scan described below | No credential-shaped assignment in the delivery diff; tokens and idempotency keys stayed in memory only |
+| Secret scan | Delivery-file credential-pattern scan described below | No credential-shaped assignment in this delivery diff; explicit synthetic test constants elsewhere in the repository remain in scope as test data |
 | Asset audit | `ffprobe`, byte-size inventory, and `ASSET_SOURCES.md` inspection | Two licensed H.264/yuv420p 720×1280 videos; all nine demo files have provenance or original-synthetic disclosure |
 
 ## Eight required journeys
@@ -52,7 +53,9 @@ The Next.js build emitted the repository's existing multiple-lockfile workspace-
 | 7 | `?scenario=price-changed`: preview returns `FACTS_CHANGED` revision 1 with structured price diff → accept returns `AWAITING_CONFIRMATION` revision 2 and a fresh runtime token (asserted by type only) → confirm succeeds at revision 2 | Pass |
 | 8 | `?scenario=commit-status-unknown`: exactly one `POST .../items` returns `COMMIT_STATUS_UNKNOWN` / `RECONCILIATION_REQUIRED`; one subsequent `GET .../by-idempotency/{same-key}` reconciles to success; one receipt and one cart badge exist | Pass |
 
-The journey assertions read real response status, view state, operation identity, and transaction revision. The price-change test verifies the accepted response contains a fresh runtime token by type only, without printing its value. The unknown-commit listener stores only numeric counters plus two private local key variables; matchers receive only numbers, a type, and the key-equality boolean, never the secret-bearing request body or URL. Playwright trace recording is disabled because it would serialize network bodies. No confirmation token or idempotency key is logged, attached, screenshotted, or committed.
+The journey assertions read real response status, view state, operation identity, and transaction revision. The price-change test verifies the accepted response contains a fresh runtime token by type only, without printing its value. The unknown-commit listener stores only numeric counters plus two private local key variables; matchers receive only numbers, a type, and the key-equality boolean, never the secret-bearing request body or URL. Playwright trace recording is disabled because it would serialize network bodies, and the local uvicorn evidence process disables access logs. The runtime-generated confirmation token and idempotency key from these production E2E runs did not enter a retained trace, matcher failure, screenshot, access log, or commit. This narrow claim does not say that the repository contains no explicit synthetic test constants.
+
+The idempotency key currently appears in the reconciliation URL. It is a non-authentication operation identifier, not a credential, but URL paths may be retained by access logs or upstream proxies. `--no-access-log` closes that path for this local evidence process; a productionized design must move or redact the identifier before proxy/access-log persistence is enabled.
 
 ## Formal screenshots
 
@@ -84,7 +87,7 @@ The two background videos are Pexels assets credited to Anna Tarazevich and Leel
 ## Known limitations and evidence maturity
 
 - This verifies deterministic local behavior on a small synthetic fixture set. It does not validate a real LLM Shopping Agent, Hybrid RAG, live multimodal understanding, TikTok API, production inventory, payment, order, fulfillment, latency, cost, or production reliability.
-- Browser coverage is Chromium only. Mobile transaction journeys ran once to protect finite shared in-memory inventory; desktop demonstrates the same path and layout but does not repeat the eight transaction-sensitive journeys.
+- Browser coverage is Chromium only. The eight redesigned journeys run once on mobile to avoid repeating the complete shared-inventory matrix; the three focused PDP regressions continue to run in both mobile and desktop projects (6/6 total).
 - Freezing the browser clock makes the synthetic fixture evidence reproducible. It does not override the server clock or prove behavior after the fixtures' real expiry; existing API/Web tests continue to cover stale-fact refusal.
 - Automated journeys and visual inspection are not user research. User comprehension, trust, task completion with unassisted participants, conversion lift, and business impact remain unverified hypotheses.
 - Evidence maturity is **implemented and evaluated on frozen synthetic fixtures**. It must not be described as validated with real users or real business traffic.

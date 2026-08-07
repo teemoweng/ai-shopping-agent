@@ -30,22 +30,24 @@
 
 - `workers=1`、`fullyParallel=false`、API/Web 均 `reuseExistingServer=false`。
 - `CAPTURE_TIKTOK_REDESIGN_EVIDENCE=1` 时 Web 必须执行 `next build && next start`；普通本地 E2E 仍使用 `next dev`。
-- 8 条 required journey 只在 `mobile-chromium` 运行，避免第二 project 重复消费库存。
-- `desktop-interview` 运行 Foundation guide 与 responsive regressions，并独立采集 AI decision Sheet + panel。
+- 8 条 required journey 只在 `mobile-chromium` 运行，避免第二 project 重复完整交易矩阵；既有 `pdp-focus.spec.ts` 三条回归保留双 project 6/6 覆盖，fixture 库存足够。
+- `desktop-interview` 运行 Foundation guide、PDP focus 与 responsive regressions，并独立采集 AI decision Sheet + panel。
 - 所有 spec 的每次 `goto` 前都固定浏览器时间为 `2026-08-07T12:00:00Z`；没有 URL 时间透传、全局 demo time override 或 reset endpoint。
-- Commerce 网络断言只保存在测试内存；Playwright trace 明确关闭，避免把 request body 中的 confirmation token 或 idempotency key 序列化为附件。
+- Commerce 网络断言只保存在测试内存；Playwright trace 明确关闭，避免把 request body 中的 confirmation token 或 idempotency key 序列化为附件；本地 uvicorn evidence process 使用 `--no-access-log`。
 - unknown journey 只把请求次数和两份私有 key 值留在局部变量中；matcher 只接收数字、类型和布尔值，失败输出也不会展开 request body 或含 key 的 URL。
+- 本次 production E2E 运行时生成的 token/key 未进入 retained trace、matcher failure、截图、access log 或提交；这不等于仓库没有显式合成测试常量。idempotency key 当前位于 reconciliation URL，是非认证用操作标识，但生产化前仍需避免被 access/proxy log 持久化。
 
 ## 正式结果
 
 - API：234 passed。
 - Web：9 files / 193 passed。
-- Production E2E：38 collected，25 passed，13 intentional skips，0 failed；8/8 required journey 实跑通过。
+- 非 capture E2E：38 collected，26 passed，12 intentional skips，0 failed。
+- Production E2E：38 collected，28 passed，10 intentional skips，0 failed；8/8 required journey 实跑通过，PDP focus 双 project 6/6。
 - Foundation eval pytest：14 passed；runner：6/6、pass rate 1.0。
 - Contracts、layout、ESLint、Ruff、production build：exit 0。
 - 三张 production Chromium 正式图：390×844 shoppable Feed、1440×1000 AI Sheet + panel、390×844 normal Feed。
 
-详细命令、逐旅程网络状态/revision、图片 checksum、fixture/media inventory 与限制见 [`artifacts/evidence/tiktok-redesign-verification.md`](../../../../artifacts/evidence/tiktok-redesign-verification.md)。
+详细命令、逐旅程网络状态/revision、图片 checksum、fixture/media inventory 与限制见 [`artifacts/evidence/tiktok-redesign-verification.md`](../../../artifacts/evidence/tiktok-redesign-verification.md)。
 
 ## 剩余工作
 

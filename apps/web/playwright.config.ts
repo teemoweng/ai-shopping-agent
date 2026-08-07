@@ -17,7 +17,7 @@ export default defineConfig({
   webServer: [
     {
       command:
-        "uv --directory ../api run uvicorn app.main:app --host 127.0.0.1 --port 8000",
+        "uv --directory ../api run uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-access-log",
       url: "http://127.0.0.1:8000/api/v1/health",
       reuseExistingServer: false,
       timeout: 120_000,
