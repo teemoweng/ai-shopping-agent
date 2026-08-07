@@ -13,6 +13,7 @@ import {
 
 import { ConceptBoundaryToast } from "./concept-boundary-toast";
 import { GuideSheet } from "./guide-sheet";
+import { PdpScreen } from "./pdp-screen";
 import {
   ShortVideoFeed,
   type ShortVideoFeedHandle,
@@ -77,10 +78,23 @@ export function DemoShell() {
   );
   const [guideMediaRestore, setGuideMediaRestore] =
     useState<GuideMediaRestore | null>(null);
+  const [verifiedGuideTurn, setVerifiedGuideTurn] = useState<
+    components["schemas"]["GuideTurnResponse"] | null
+  >(null);
+  const [pdpGuideCandidate, setPdpGuideCandidate] = useState<{
+    sessionId: string;
+    guideRevision: number;
+    productRole: ProductRole;
+  } | null>(null);
+  const [cartCount, setCartCount] = useState(0);
+  const countedReceiptIdsRef = useRef(new Set<string>());
   const feedRef = useRef<ShortVideoFeedHandle>(null);
   const guideFocusTimerRef = useRef<number | null>(null);
   const pdpBackRef = useRef<HTMLButtonElement | null>(null);
   const loadVersionRef = useRef(0);
+  const setPdpBackButton = useCallback((node: HTMLButtonElement | null) => {
+    pdpBackRef.current = node;
+  }, []);
 
   const loadCatalog = useCallback(async () => {
     const loadVersion = ++loadVersionRef.current;
@@ -231,9 +245,19 @@ export function DemoShell() {
       entrySource: "feed",
       productRole: "current",
     });
+    setPdpGuideCandidate(null);
   }
 
   function openProductFromGuide(productId: string, role: ProductRole) {
+    setPdpGuideCandidate(
+      verifiedGuideTurn
+        ? {
+            sessionId: verifiedGuideTurn.session_id,
+            guideRevision: verifiedGuideTurn.guide_revision,
+            productRole: role,
+          }
+        : null,
+    );
     dispatch({
       type: "OPEN_PDP",
       productId,
@@ -242,15 +266,41 @@ export function DemoShell() {
     });
   }
 
+  function handleCommerceOperation(
+    operation: components["schemas"]["CommerceOperationResponse"],
+  ) {
+    if (operation.commerce_view_kind === "SUCCEEDED" && operation.receipt) {
+      if (!countedReceiptIdsRef.current.has(operation.receipt.receipt_id)) {
+        countedReceiptIdsRef.current.add(operation.receipt.receipt_id);
+        setCartCount((current) => current + operation.receipt!.quantity);
+      }
+      dispatch({ type: "SHOW_RECEIPT" });
+      return;
+    }
+    dispatch({ type: "OPEN_CART_CONFIRM" });
+  }
+
+  function continueBrowsing() {
+    if (navigation.pdpEntrySource === "ai" && guideMediaRestore) {
+      setPdpFeedReturn({
+        itemId: guideMediaRestore.itemId,
+        snapshot: guideMediaRestore.snapshot,
+      });
+      setGuideMediaRestore(null);
+      setPdpGuideCandidate(null);
+    }
+    dispatch({ type: "CLOSE_PDP" });
+  }
+
   return (
     <main className="interviewStage">
       <section
         className="phoneFrame"
         aria-label="TikTok Shop-inspired Concept Prototype"
-        aria-hidden={navigation.overlay === "ai-sheet" ? true : undefined}
+        aria-hidden={navigation.overlay !== "none" ? true : undefined}
         data-base-surface={navigation.baseSurface}
         data-overlay={navigation.overlay}
-        inert={navigation.overlay === "ai-sheet"}
+        inert={navigation.overlay !== "none"}
       >
         {loadState.status === "loading" ? (
           <div className="feedLoadState" role="status">
@@ -306,29 +356,20 @@ export function DemoShell() {
         ) : null}
 
         {loadState.status === "ready" && navigation.baseSurface === "pdp" ? (
-          <section
-            className="pdpNavigationScaffold"
-            role="region"
-            aria-label="商品详情"
-          >
-            <header>
-              <button
-                ref={pdpBackRef}
-                type="button"
-                aria-label="返回内容流"
-                onClick={() => dispatch({ type: "CLOSE_PDP" })}
-              >
-                ‹
-              </button>
-              <strong>商品详情</strong>
-              <span>概念原型</span>
-            </header>
-            <div>
-              <span className="pdpScaffoldEyebrow">PDP NAVIGATION SURFACE</span>
-              <h1>{navigation.pdpProductId}</h1>
-              <p>商品事实、SKU 与独立模拟加购流程将在下一层商品页承接。</p>
-            </div>
-          </section>
+          <PdpScreen
+            productId={navigation.pdpProductId!}
+            entrySource={navigation.pdpEntrySource!}
+            productRole={navigation.productRole!}
+            guideCandidate={pdpGuideCandidate}
+            backButtonRef={setPdpBackButton}
+            onBack={() => dispatch({ type: "CLOSE_PDP" })}
+            onNotice={showNotice}
+            onCommerceOperation={handleCommerceOperation}
+            overlay={navigation.overlay}
+            onCloseOverlay={() => dispatch({ type: "CLOSE_OVERLAY" })}
+            onContinueBrowsing={continueBrowsing}
+            cartCount={cartCount}
+          />
         ) : null}
 
         <ConceptBoundaryToast
@@ -346,6 +387,7 @@ export function DemoShell() {
           dispatch({ type: "SAVE_GUIDE_SCROLL", scrollTop })
         }
         onOpenProduct={openProductFromGuide}
+        onVerifiedTurnChange={setVerifiedGuideTurn}
       />
     </main>
   );

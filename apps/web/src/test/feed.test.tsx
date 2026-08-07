@@ -112,8 +112,64 @@ const PRODUCT_DETAIL = {
   },
   starting_price_usd: 14,
   synthetic_disclosure: true,
-  product: {},
-} as ProductDetailResponse;
+  product: {
+    id: "seoul-shade-daily-fluid",
+    brand: "Mirae Lab",
+    name: "Seoul Shade Daily Fluid",
+    display_name_zh: "首尔轻透通勤防晒乳",
+    description_zh: "适合潮湿通勤场景的轻薄 SPF 50 广谱防晒。",
+    synthetic: true,
+    spf: 50,
+    broad_spectrum: true,
+    fragrance_free: true,
+    water_resistance_minutes: null,
+    finish: "natural",
+    skin_types: ["combination", "oily", "sensitive"],
+    white_cast_risk: "low",
+    active_filter_type: "organic",
+    ingredient_highlights: ["centella asiatica", "panthenol"],
+    media: {
+      kind: "image",
+      src: "/demo/product-seoul-shade.svg",
+      poster_src: null,
+      alt_zh: "Seoul Shade Daily Fluid 合成商品包装图",
+      license_ref: "自有合成 SVG 资产",
+    },
+    shipping: {
+      market: "US",
+      fee_usd: 3.99,
+      eta_min_days: 4,
+      eta_max_days: 7,
+      return_summary_zh: "签收后 30 天内可申请退货；商品需保持未开封状态。",
+    },
+    list_price_usd: 22,
+    promotion: null,
+    store_name: "Mirae Lab 官方合成店",
+    facts_version: "catalog-v1",
+    observed_at: "2026-08-05T09:00:00Z",
+    expires_at: "2099-08-12T09:00:00Z",
+    skus: [
+      {
+        id: "seoul-shade-30",
+        size_ml: 30,
+        price_usd: 14,
+        in_stock: true,
+        inventory_units: 18,
+        label: "30 mL 便携装",
+        image_src: "/demo/product-seoul-shade.svg",
+      },
+      {
+        id: "seoul-shade-50",
+        size_ml: 50,
+        price_usd: 19,
+        in_stock: true,
+        inventory_units: 7,
+        label: "50 mL 正装",
+        image_src: "/demo/product-seoul-shade.svg",
+      },
+    ],
+  },
+} satisfies ProductDetailResponse;
 
 const GUIDE_DECISION: components["schemas"]["GuideTurnResponse"] = {
   session_id: "ses_feed_lifecycle",
@@ -598,7 +654,7 @@ describe("DemoShell", () => {
       }),
     );
     const pdp = screen.getByRole("region", { name: "商品详情" });
-    expect(pdp).toHaveTextContent("seoul-shade-daily-fluid");
+    expect(await within(pdp).findByRole("heading", { name: "Seoul Shade Daily Fluid" })).toBeVisible();
 
     await user.click(within(pdp).getByRole("button", { name: "返回内容流" }));
     expect(

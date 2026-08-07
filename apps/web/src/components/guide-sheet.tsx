@@ -229,6 +229,7 @@ export interface GuideSheetProps {
   initialScrollTop?: number;
   onScrollTopChange?: (scrollTop: number) => void;
   onOpenProduct?: (productId: string, role: ProductRole) => void;
+  onVerifiedTurnChange?: (turn: GuideTurn | null) => void;
 }
 
 export function GuideSheet({
@@ -238,6 +239,7 @@ export function GuideSheet({
   initialScrollTop = 0,
   onScrollTopChange,
   onOpenProduct,
+  onVerifiedTurnChange,
 }: GuideSheetProps) {
   const [turn, setTurn] = useState<GuideTurn | null>(null);
   const [showStartingQuestions, setShowStartingQuestions] = useState(true);
@@ -298,6 +300,7 @@ export function GuideSheet({
   const enterTerminalState = useCallback(
     (message: string, terminalTurn?: GuideTurn) => {
       verifiedTurnRef.current = null;
+      onVerifiedTurnChange?.(null);
       setLastUsableTurn(null);
       sessionIdRef.current = null;
       submittingRef.current = false;
@@ -309,7 +312,7 @@ export function GuideSheet({
       setTransientError(null);
       setFatalError(terminalTurn ? null : message);
     },
-    [freezeGuide, requireSync, resetComparison],
+    [freezeGuide, onVerifiedTurnChange, requireSync, resetComparison],
   );
 
   const applyVerifiedTurn = useCallback(
@@ -359,6 +362,7 @@ export function GuideSheet({
         setLastUsableTurn(nextTurn);
       }
       verifiedTurnRef.current = nextTurn;
+      onVerifiedTurnChange?.(nextTurn);
       sessionIdRef.current = nextTurn.session_id;
       comparisonPendingRef.current = false;
       setTurn(nextTurn);
@@ -375,7 +379,7 @@ export function GuideSheet({
         setShowStartingQuestions(false);
       }
     },
-    [enterTerminalState, freezeGuide, requireSync, resetComparison],
+    [enterTerminalState, freezeGuide, onVerifiedTurnChange, requireSync, resetComparison],
   );
 
   const saveScrollPosition = useCallback(() => {
@@ -418,6 +422,7 @@ export function GuideSheet({
     lastContextIdRef.current = contentContextId;
     setActiveContextId(contentContextId);
     verifiedTurnRef.current = null;
+    onVerifiedTurnChange?.(null);
     setLastUsableTurn(null);
     sessionIdRef.current = null;
     setTurn(null);
@@ -431,7 +436,7 @@ export function GuideSheet({
     setTransientError(null);
     setFatalError(null);
     resetComparison();
-  }, [contentContextId, freezeGuide, requireSync, resetComparison]);
+  }, [contentContextId, freezeGuide, onVerifiedTurnChange, requireSync, resetComparison]);
 
   useEffect(() => {
     if (!open) {
@@ -928,6 +933,7 @@ export function GuideSheet({
     resetComparison();
     sessionIdRef.current = null;
     verifiedTurnRef.current = null;
+    onVerifiedTurnChange?.(null);
     setPendingLabel("正在建立新的安全导购会话…");
     setTransientError(null);
     const requestVersion = ++requestVersionRef.current;

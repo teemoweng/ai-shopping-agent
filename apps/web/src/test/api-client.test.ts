@@ -87,6 +87,73 @@ const cartItem = {
   simulated: true,
 } satisfies components["schemas"]["CartItemResponse"];
 
+const productDetail = {
+  freshness: {
+    facts_version: "catalog-2026-08-05-seoul-v1",
+    observed_at: "2026-08-05T09:00:00Z",
+    expires_at: "2099-08-12T09:00:00Z",
+  },
+  starting_price_usd: 14,
+  synthetic_disclosure: true,
+  product: {
+    id: "seoul-shade-daily-fluid",
+    brand: "Mirae Lab",
+    name: "Seoul Shade Daily Fluid",
+    display_name_zh: "首尔轻透通勤防晒乳",
+    description_zh: "适合潮湿通勤场景的轻薄 SPF 50 广谱防晒。",
+    synthetic: true,
+    spf: 50,
+    broad_spectrum: true,
+    fragrance_free: true,
+    water_resistance_minutes: null,
+    finish: "natural",
+    skin_types: ["combination", "oily", "sensitive"],
+    white_cast_risk: "low",
+    active_filter_type: "organic",
+    ingredient_highlights: ["centella asiatica", "panthenol"],
+    media: {
+      kind: "image",
+      src: "/demo/product-seoul-shade.svg",
+      poster_src: null,
+      alt_zh: "Seoul Shade Daily Fluid 合成商品包装图",
+      license_ref: "自有合成 SVG 资产",
+    },
+    shipping: {
+      market: "US",
+      fee_usd: 3.99,
+      eta_min_days: 4,
+      eta_max_days: 7,
+      return_summary_zh: "签收后 30 天内可申请退货。",
+    },
+    list_price_usd: 22,
+    promotion: null,
+    store_name: "Mirae Lab 官方合成店",
+    facts_version: "catalog-2026-08-05-seoul-v1",
+    observed_at: "2026-08-05T09:00:00Z",
+    expires_at: "2099-08-12T09:00:00Z",
+    skus: [
+      {
+        id: "seoul-shade-30",
+        size_ml: 30,
+        price_usd: 14,
+        in_stock: true,
+        inventory_units: 18,
+        label: "30 mL 便携装",
+        image_src: "/demo/product-seoul-shade.svg",
+      },
+      {
+        id: "seoul-shade-50",
+        size_ml: 50,
+        price_usd: 19,
+        in_stock: true,
+        inventory_units: 7,
+        label: "50 mL 正装",
+        image_src: "/demo/product-seoul-shade.svg",
+      },
+    ],
+  },
+} satisfies components["schemas"]["ProductDetailResponse"];
+
 const commerceOperation = {
   operation_id: "op_test",
   purchase_origin: "FEED",
@@ -97,7 +164,13 @@ const commerceOperation = {
   facts_version: "facts_test",
   commerce_view_kind: "AWAITING_CONFIRMATION",
   operation_status: "ACTIVE",
-  allowed_actions: ["CONFIRM_ADD_TO_CART", "RETURN_TO_PRODUCT"],
+  allowed_actions: [
+    "SELECT_SKU",
+    "SET_QUANTITY",
+    "CONFIRM_ADD_TO_CART",
+    "CANCEL_CONFIRMATION",
+    "RETURN_TO_PRODUCT",
+  ],
   facts: {
     product_id: "seoul-shade-daily-fluid",
     sku_id: "seoul-shade-50",
@@ -111,9 +184,41 @@ const commerceOperation = {
   },
   facts_diff: [],
   confirmation_token: syntheticConfirmation,
-  confirmation_expires_at: "2026-08-05T00:05:00Z",
+  confirmation_expires_at: "2099-08-05T00:05:00Z",
   simulated: true,
 } satisfies components["schemas"]["CommerceOperationResponse"];
+
+function commerceSuccess(
+  idempotencyKey: string,
+  transactionRevision = 1,
+): components["schemas"]["CommerceOperationResponse"] {
+  return {
+    ...commerceOperation,
+    transaction_revision: transactionRevision,
+    commerce_view_kind: "SUCCEEDED",
+    operation_status: "SUCCEEDED",
+    allowed_actions: ["RETURN_TO_PRODUCT", "CONTINUE_BROWSING"],
+    confirmation_token: undefined,
+    confirmation_expires_at: undefined,
+    receipt: {
+      receipt_id: "rcp_test",
+      cart_id: "cart_simulated",
+      cart_item_id: "item_test",
+      operation_id: commerceOperation.operation_id,
+      idempotency_key: idempotencyKey,
+      product_id: commerceOperation.product_id,
+      sku_id: commerceOperation.sku_id,
+      quantity: commerceOperation.quantity,
+      unit_price_usd: commerceOperation.facts.unit_price_usd,
+      subtotal_usd: commerceOperation.facts.subtotal_usd,
+      facts_version: commerceOperation.facts_version,
+      committed_at: "2026-08-05T00:01:00Z",
+      simulated: true,
+      order_created: false,
+      payment_created: false,
+    },
+  };
+}
 
 function mockJson(payload: unknown, status = 200) {
   return vi.spyOn(globalThis, "fetch").mockResolvedValue(
@@ -188,7 +293,7 @@ describe("shopping guide client", () => {
       { method: "GET", headers: { "Content-Type": "application/json" } },
     );
 
-    mockJson({}, 200);
+    mockJson(productDetail, 200);
     await getProduct("seoul-shade-daily-fluid");
     expect(fetch).toHaveBeenLastCalledWith(
       "http://127.0.0.1:8000/api/v1/catalog/products/seoul-shade-daily-fluid",
@@ -303,7 +408,7 @@ describe("shopping guide client", () => {
       },
     );
 
-    mockJson(commerceOperation);
+    mockJson({ ...commerceOperation, transaction_revision: 2 });
     await acceptUpdatedFacts("op_test", 1);
     expect(fetch).toHaveBeenLastCalledWith(
       "http://127.0.0.1:8000/api/v1/commerce/operations/op_test/accept-facts",
@@ -314,7 +419,7 @@ describe("shopping guide client", () => {
       },
     );
 
-    mockJson(commerceOperation, 201);
+    mockJson(commerceSuccess("idem_test"), 201);
     await confirmCommerce("op_test", addRequest);
     expect(fetch).toHaveBeenLastCalledWith(
       "http://127.0.0.1:8000/api/v1/commerce/operations/op_test/items",
@@ -325,14 +430,14 @@ describe("shopping guide client", () => {
       },
     );
 
-    mockJson(commerceOperation);
+    mockJson(commerceSuccess("idem_test"));
     await getCommerceOperation("op_test");
     expect(fetch).toHaveBeenLastCalledWith(
       "http://127.0.0.1:8000/api/v1/commerce/operations/op_test",
       { method: "GET", headers: { "Content-Type": "application/json" } },
     );
 
-    mockJson(commerceOperation);
+    mockJson(commerceSuccess("idem_test"));
     await reconcileCommerce("idem_test");
     expect(fetch).toHaveBeenLastCalledWith(
       "http://127.0.0.1:8000/api/v1/commerce/operations/by-idempotency/idem_test",
@@ -383,6 +488,139 @@ describe("shopping guide client", () => {
     mockJson({ ...commerceOperation, facts: undefined });
     await expect(getCommerceOperation("op_test")).rejects.toMatchObject({
       status: 200,
+      code: "INVALID_API_RESPONSE",
+    });
+  });
+
+  it("rejects malformed or mismatched ProductDetail success payloads", async () => {
+    for (const malformed of [
+      { ...productDetail, product: { ...productDetail.product, id: "wrong-product" } },
+      {
+        ...productDetail,
+        freshness: { ...productDetail.freshness, facts_version: "wrong-version" },
+      },
+      {
+        ...productDetail,
+        starting_price_usd: 999,
+      },
+      {
+        ...productDetail,
+        product: {
+          ...productDetail.product,
+          skus: [
+            ...productDetail.product.skus,
+            { ...productDetail.product.skus[0], id: productDetail.product.skus[1].id },
+          ],
+        },
+      },
+      {
+        ...productDetail,
+        product: { ...productDetail.product, spf: 101 },
+      },
+      {
+        ...productDetail,
+        product: {
+          ...productDetail.product,
+          skus: [
+            { ...productDetail.product.skus[0], size_ml: 30.5 },
+            productDetail.product.skus[1],
+          ],
+        },
+      },
+    ]) {
+      mockJson(malformed);
+      await expect(getProduct(productDetail.product.id)).rejects.toMatchObject({
+        status: 200,
+        code: "INVALID_API_RESPONSE",
+      });
+    }
+  });
+
+  it("requires confirmation secrets from preview but permits secret-free operation reads", async () => {
+    const secretFree = {
+      ...commerceOperation,
+      confirmation_token: undefined,
+      confirmation_expires_at: undefined,
+    };
+    const previewRequest: components["schemas"]["CommercePreviewRequest"] = {
+      purchase_origin: "FEED",
+      product_id: commerceOperation.product_id,
+      sku_id: commerceOperation.sku_id,
+      quantity: 1,
+      expected_transaction_revision: 0,
+      demo_scenario: "NORMAL",
+    };
+
+    mockJson(secretFree, 201);
+    await expect(previewCommerce(previewRequest)).rejects.toMatchObject({
+      status: 201,
+      code: "INVALID_API_RESPONSE",
+    });
+
+    mockJson(secretFree);
+    await expect(getCommerceOperation(commerceOperation.operation_id)).resolves.toMatchObject({
+      commerce_view_kind: "AWAITING_CONFIRMATION",
+    });
+
+    mockJson(commerceOperation);
+    await expect(getCommerceOperation(commerceOperation.operation_id)).rejects.toMatchObject({
+      status: 200,
+      code: "INVALID_API_RESPONSE",
+    });
+  });
+
+  it("rejects a commerce response that does not match the submitted product selection", async () => {
+    const request: components["schemas"]["CommercePreviewRequest"] = {
+      purchase_origin: "FEED",
+      product_id: commerceOperation.product_id,
+      sku_id: commerceOperation.sku_id,
+      quantity: 1,
+      expected_transaction_revision: 0,
+      demo_scenario: "NORMAL",
+    };
+    mockJson({ ...commerceOperation, sku_id: "wrong-sku", facts: { ...commerceOperation.facts, sku_id: "wrong-sku" } }, 201);
+
+    await expect(previewCommerce(request)).rejects.toMatchObject({
+      status: 201,
+      code: "INVALID_API_RESPONSE",
+    });
+  });
+
+  it("rejects a success receipt that does not echo the submitted idempotency key", async () => {
+    const addRequest: components["schemas"]["CommerceAddRequest"] = {
+      confirmation_token: syntheticConfirmation,
+      idempotency_key: "idem_submitted",
+      expected_transaction_revision: 1,
+      demo_scenario: "NORMAL",
+    };
+    mockJson({
+      ...commerceOperation,
+      commerce_view_kind: "SUCCEEDED",
+      operation_status: "SUCCEEDED",
+      allowed_actions: ["RETURN_TO_PRODUCT", "CONTINUE_BROWSING"],
+      confirmation_token: undefined,
+      confirmation_expires_at: undefined,
+      receipt: {
+        receipt_id: "rcp_test",
+        cart_id: "cart_simulated",
+        cart_item_id: "item_test",
+        operation_id: commerceOperation.operation_id,
+        idempotency_key: "idem_wrong",
+        product_id: commerceOperation.product_id,
+        sku_id: commerceOperation.sku_id,
+        quantity: commerceOperation.quantity,
+        unit_price_usd: commerceOperation.facts.unit_price_usd,
+        subtotal_usd: commerceOperation.facts.subtotal_usd,
+        facts_version: commerceOperation.facts_version,
+        committed_at: "2026-08-05T00:01:00Z",
+        simulated: true,
+        order_created: false,
+        payment_created: false,
+      },
+    }, 201);
+
+    await expect(confirmCommerce(commerceOperation.operation_id, addRequest)).rejects.toMatchObject({
+      status: 201,
       code: "INVALID_API_RESPONSE",
     });
   });

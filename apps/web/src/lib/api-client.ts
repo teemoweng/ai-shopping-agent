@@ -4,6 +4,7 @@ import {
   validateCommerceOperationResponse,
   validateComparisonResponse,
   validateGuideTurnResponse,
+  validateProductDetailResponse,
 } from "@/lib/decision-contracts";
 
 const API_BASE =
@@ -106,7 +107,10 @@ async function request<T>(
 export const getFeed = () => get<FeedResponse>("/catalog/feed");
 
 export const getProduct = (productId: string) =>
-  get<ProductDetailResponse>(`/catalog/products/${encodeURIComponent(productId)}`);
+  get<ProductDetailResponse>(
+    `/catalog/products/${encodeURIComponent(productId)}`,
+    (payload) => validateProductDetailResponse(payload, productId),
+  );
 
 export const createGuideSession = (
   contentContextId: string,
@@ -154,7 +158,19 @@ export const previewCommerce = (request: CommercePreviewRequest) =>
   post<CommerceOperationResponse>(
     "/commerce/cart/preview",
     request,
-    validateCommerceOperationResponse,
+    (payload) =>
+      validateCommerceOperationResponse(payload, {
+        confirmationSecretPolicy: "required",
+        expected: {
+          purchaseOrigin: request.purchase_origin,
+          guideSessionId: request.guide_session_id ?? null,
+          sourceGuideRevision: request.source_guide_revision ?? null,
+          productId: request.product_id,
+          skuId: request.sku_id,
+          quantity: request.quantity,
+          transactionRevisions: [request.expected_transaction_revision + 1],
+        },
+      }),
   );
 
 export const acceptUpdatedFacts = (
@@ -164,7 +180,14 @@ export const acceptUpdatedFacts = (
   post<CommerceOperationResponse>(
     `/commerce/operations/${encodeURIComponent(operationId)}/accept-facts`,
     { expected_transaction_revision: expectedRevision },
-    validateCommerceOperationResponse,
+    (payload) =>
+      validateCommerceOperationResponse(payload, {
+        confirmationSecretPolicy: "required",
+        expected: {
+          operationId,
+          transactionRevisions: [expectedRevision + 1],
+        },
+      }),
   );
 
 export const confirmCommerce = (
@@ -174,17 +197,36 @@ export const confirmCommerce = (
   post<CommerceOperationResponse>(
     `/commerce/operations/${encodeURIComponent(operationId)}/items`,
     request,
-    validateCommerceOperationResponse,
+    (payload) =>
+      validateCommerceOperationResponse(payload, {
+        confirmationSecretPolicy: "forbidden",
+        expected: {
+          operationId,
+          transactionRevisions: [
+            request.expected_transaction_revision,
+            request.expected_transaction_revision + 1,
+          ],
+          idempotencyKey: request.idempotency_key,
+        },
+      }),
   );
 
 export const getCommerceOperation = (operationId: string) =>
   get<CommerceOperationResponse>(
     `/commerce/operations/${encodeURIComponent(operationId)}`,
-    validateCommerceOperationResponse,
+    (payload) =>
+      validateCommerceOperationResponse(payload, {
+        confirmationSecretPolicy: "forbidden",
+        expected: { operationId },
+      }),
   );
 
 export const reconcileCommerce = (idempotencyKey: string) =>
   get<CommerceOperationResponse>(
     `/commerce/operations/by-idempotency/${encodeURIComponent(idempotencyKey)}`,
-    validateCommerceOperationResponse,
+    (payload) =>
+      validateCommerceOperationResponse(payload, {
+        confirmationSecretPolicy: "forbidden",
+        expected: { idempotencyKey },
+      }),
   );

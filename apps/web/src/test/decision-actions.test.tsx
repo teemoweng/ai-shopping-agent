@@ -62,7 +62,13 @@ const awaitingCommerceOperation: components["schemas"]["CommerceOperationRespons
   facts_version: "facts_test",
   commerce_view_kind: "AWAITING_CONFIRMATION",
   operation_status: "ACTIVE",
-  allowed_actions: ["CONFIRM_ADD_TO_CART", "RETURN_TO_PRODUCT"],
+  allowed_actions: [
+    "SELECT_SKU",
+    "SET_QUANTITY",
+    "CONFIRM_ADD_TO_CART",
+    "CANCEL_CONFIRMATION",
+    "RETURN_TO_PRODUCT",
+  ],
   facts: {
     product_id: "seoul-shade-daily-fluid",
     sku_id: "seoul-shade-50",
@@ -155,6 +161,7 @@ describe("server semantic guards", () => {
         allowed_actions: ["RECONCILE_COMMIT", "RETURN_TO_PRODUCT"],
         confirmation_token: null,
         confirmation_expires_at: null,
+        error_code: "COMMIT_STATUS_UNKNOWN",
       }),
     ).not.toBeNull();
     expect(
@@ -186,6 +193,31 @@ describe("server semantic guards", () => {
     ).toBeNull();
   });
 
+  it("rejects malformed previous values in a server fact diff", () => {
+    expect(
+      validateCommerceOperationResponse({
+        ...awaitingCommerceOperation,
+        commerce_view_kind: "FACTS_CHANGED",
+        allowed_actions: [
+          "ACCEPT_UPDATED_FACTS",
+          "RESELECT_SKU",
+          "CANCEL_CONFIRMATION",
+          "RETURN_TO_PRODUCT",
+        ],
+        confirmation_token: null,
+        confirmation_expires_at: null,
+        error_code: "FACTS_CHANGED",
+        facts_diff: [
+          {
+            field: "unit_price_usd",
+            previous_value: "nineteen dollars",
+            current_value: 19,
+          },
+        ],
+      }),
+    ).toBeNull();
+  });
+
   it("requires the canonical PDP_READY and FAILED action pairs", () => {
     for (const valid of [
       {
@@ -203,6 +235,7 @@ describe("server semantic guards", () => {
         allowed_actions: ["RETRY_COMMERCE_OPERATION", "RETURN_TO_PRODUCT"],
         confirmation_token: null,
         confirmation_expires_at: null,
+        error_code: "TEMPORARY_FAILURE",
       },
     ]) {
       expect(validateCommerceOperationResponse(valid)).not.toBeNull();
