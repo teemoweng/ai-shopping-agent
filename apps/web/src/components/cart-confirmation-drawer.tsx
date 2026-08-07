@@ -5,6 +5,7 @@ import {
   useEffect,
   useRef,
   type KeyboardEvent,
+  type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
 
@@ -23,6 +24,7 @@ export interface CartConfirmationDrawerProps {
   pending?: boolean;
   commitStatusUnknown?: boolean;
   errorMessage?: string | null;
+  returnFocusRef: RefObject<HTMLElement | null>;
   onCancel: () => void;
   onConfirm: () => void;
   onAcceptFacts: () => void;
@@ -36,6 +38,7 @@ export function CartConfirmationDrawer({
   pending = false,
   commitStatusUnknown = false,
   errorMessage = null,
+  returnFocusRef,
   onCancel,
   onConfirm,
   onAcceptFacts,
@@ -45,20 +48,32 @@ export function CartConfirmationDrawer({
   const dialogRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const primaryRef = useRef<HTMLButtonElement>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    previousFocusRef.current = document.activeElement as HTMLElement | null;
+    const returnFocus = returnFocusRef.current;
+    const dialog = dialogRef.current;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = previousOverflow;
-      const previousFocus = previousFocusRef.current;
-      previousFocusRef.current = null;
-      previousFocus?.focus();
+      window.setTimeout(() => {
+        const activeElement = document.activeElement as HTMLElement | null;
+        const focusWasReleased =
+          !activeElement ||
+          activeElement === document.body ||
+          !activeElement.isConnected ||
+          Boolean(dialog?.contains(activeElement));
+        if (
+          focusWasReleased &&
+          returnFocus?.isConnected &&
+          !returnFocus.closest("[inert]")
+        ) {
+          returnFocus.focus();
+        }
+      }, 0);
     };
-  }, [open]);
+  }, [open, returnFocusRef]);
 
   useEffect(() => {
     if (!open || !operation) return;

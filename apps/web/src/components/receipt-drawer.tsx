@@ -1,7 +1,12 @@
 "use client";
 
 import type { components } from "@shopping-guide/contracts/src/api";
-import { useEffect, useRef, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  type KeyboardEvent,
+  type RefObject,
+} from "react";
 import { createPortal } from "react-dom";
 
 import { formatUsd } from "@/lib/formatters";
@@ -11,6 +16,7 @@ type CommerceOperation = components["schemas"]["CommerceOperationResponse"];
 export interface ReceiptDrawerProps {
   open: boolean;
   operation: CommerceOperation | null;
+  returnFocusRef: RefObject<HTMLElement | null>;
   onReturnProduct: () => void;
   onContinueBrowsing: () => void;
 }
@@ -18,26 +24,39 @@ export interface ReceiptDrawerProps {
 export function ReceiptDrawer({
   open,
   operation,
+  returnFocusRef,
   onReturnProduct,
   onContinueBrowsing,
 }: ReceiptDrawerProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const returnRef = useRef<HTMLButtonElement>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    previousFocusRef.current = document.activeElement as HTMLElement | null;
+    const returnFocus = returnFocusRef.current;
+    const dialog = dialogRef.current;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     returnRef.current?.focus();
     return () => {
       document.body.style.overflow = previousOverflow;
-      const previousFocus = previousFocusRef.current;
-      previousFocusRef.current = null;
-      previousFocus?.focus();
+      window.setTimeout(() => {
+        const activeElement = document.activeElement as HTMLElement | null;
+        const focusWasReleased =
+          !activeElement ||
+          activeElement === document.body ||
+          !activeElement.isConnected ||
+          Boolean(dialog?.contains(activeElement));
+        if (
+          focusWasReleased &&
+          returnFocus?.isConnected &&
+          !returnFocus.closest("[inert]")
+        ) {
+          returnFocus.focus();
+        }
+      }, 0);
     };
-  }, [open]);
+  }, [open, returnFocusRef]);
 
   if (!open || operation?.commerce_view_kind !== "SUCCEEDED" || !operation.receipt) {
     return null;

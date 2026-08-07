@@ -4,7 +4,10 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { applyCommerceReceiptOnce, DemoShell } from "@/components/demo-shell";
-import { PdpScreen } from "@/components/pdp-screen";
+import {
+  PdpScreen,
+  type PendingCommerceReconciliation,
+} from "@/components/pdp-screen";
 import { ApiError } from "@/lib/api-client";
 
 const api = vi.hoisted(() => ({
@@ -521,7 +524,123 @@ describe("PDP transaction flow", () => {
     await user.click(within(drawer).getByRole("button", { name: "取消" }));
     expect(screen.queryByRole("dialog", { name: "复核模拟加购" })).toBeNull();
     expect(api.confirmCommerce).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "模拟加入购物车" })).toBeVisible();
+    const cta = screen.getByRole("button", { name: "模拟加入购物车" });
+    expect(cta).toBeVisible();
+    await waitFor(() => expect(cta).toHaveFocus());
+  });
+
+  it("opens the confirmation overlay without exporting its operation or secret and reports only a minimal receipt", async () => {
+    const user = userEvent.setup();
+    const onOpenCommerceOverlay = vi.fn();
+    const onCommerceReceipt = vi.fn();
+    const onPendingReconciliationChange = vi.fn();
+    const consoleLog = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    api.confirmCommerce.mockImplementation(
+      (_operationId: string, request: components["schemas"]["CommerceAddRequest"]) =>
+        Promise.resolve(succeededOperation(request.idempotency_key)),
+    );
+    const renderPdp = (overlay: "none" | "cart-confirm") => (
+      <PdpScreen
+        productId={PRODUCT.product.id}
+        entrySource="feed"
+        productRole="current"
+        onBack={vi.fn()}
+        onNotice={vi.fn()}
+        onOpenCommerceOverlay={onOpenCommerceOverlay}
+        onCommerceReceipt={onCommerceReceipt}
+        onPendingReconciliationChange={onPendingReconciliationChange}
+        overlay={overlay}
+        onCloseOverlay={vi.fn()}
+        onContinueBrowsing={vi.fn()}
+        cartCount={0}
+      />
+    );
+    const view = render(renderPdp("none"));
+
+    await user.click(await screen.findByRole("button", { name: "模拟加入购物车" }));
+
+    await waitFor(() => expect(onOpenCommerceOverlay).toHaveBeenCalledTimes(1));
+    expect(onOpenCommerceOverlay.mock.calls).toEqual([[]]);
+    expect(onCommerceReceipt).not.toHaveBeenCalled();
+    expect(onPendingReconciliationChange).not.toHaveBeenCalled();
+    expect(document.body.innerHTML).not.toContain("cft_private_direct");
+    expect(JSON.stringify(consoleLog.mock.calls)).not.toContain("cft_private_direct");
+
+    view.rerender(renderPdp("cart-confirm"));
+    await user.click(
+      within(await screen.findByRole("dialog", { name: "复核模拟加购" })).getByRole(
+        "button",
+        { name: "确认模拟加购" },
+      ),
+    );
+
+    await waitFor(() => expect(onCommerceReceipt).toHaveBeenCalledTimes(1));
+    expect(onCommerceReceipt.mock.calls).toEqual([
+      [{ receiptId: "rcp_direct_1", quantity: 1 }],
+    ]);
+    expect(onPendingReconciliationChange).not.toHaveBeenCalled();
+    expect(
+      JSON.stringify([
+        onOpenCommerceOverlay.mock.calls,
+        onCommerceReceipt.mock.calls,
+        onPendingReconciliationChange.mock.calls,
+      ]),
+    ).not.toContain("cft_private_direct");
+    expect(document.body.innerHTML).not.toContain("cft_private_direct");
+    expect(JSON.stringify(consoleLog.mock.calls)).not.toContain("cft_private_direct");
+  });
+
+  it("exports unresolved reconciliation state only after stripping confirmation secrets", async () => {
+    const user = userEvent.setup();
+    const onOpenCommerceOverlay = vi.fn();
+    const onCommerceReceipt = vi.fn();
+    const onPendingReconciliationChange = vi.fn();
+    const consoleLog = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    api.confirmCommerce.mockRejectedValue(new TypeError("connection closed"));
+    const renderPdp = (overlay: "none" | "cart-confirm") => (
+      <PdpScreen
+        productId={PRODUCT.product.id}
+        entrySource="feed"
+        productRole="current"
+        onBack={vi.fn()}
+        onNotice={vi.fn()}
+        onOpenCommerceOverlay={onOpenCommerceOverlay}
+        onCommerceReceipt={onCommerceReceipt}
+        onPendingReconciliationChange={onPendingReconciliationChange}
+        overlay={overlay}
+        onCloseOverlay={vi.fn()}
+        onContinueBrowsing={vi.fn()}
+        cartCount={0}
+      />
+    );
+    const view = render(renderPdp("none"));
+
+    await user.click(await screen.findByRole("button", { name: "模拟加入购物车" }));
+    await waitFor(() => expect(onOpenCommerceOverlay).toHaveBeenCalledTimes(1));
+    expect(onOpenCommerceOverlay.mock.calls).toEqual([[]]);
+    view.rerender(renderPdp("cart-confirm"));
+    await user.click(
+      within(await screen.findByRole("dialog", { name: "复核模拟加购" })).getByRole(
+        "button",
+        { name: "确认模拟加购" },
+      ),
+    );
+
+    await waitFor(() =>
+      expect(onPendingReconciliationChange).toHaveBeenCalledTimes(1),
+    );
+    const pending = onPendingReconciliationChange.mock.calls[0]?.[0] as
+      | PendingCommerceReconciliation
+      | undefined;
+    expect(pending).toBeDefined();
+    expect(pending?.operation.confirmation_token).toBeUndefined();
+    expect(pending?.operation.confirmation_expires_at).toBeUndefined();
+    expect(onCommerceReceipt).not.toHaveBeenCalled();
+    expect(JSON.stringify(onPendingReconciliationChange.mock.calls)).not.toContain(
+      "cft_private_direct",
+    );
+    expect(document.body.innerHTML).not.toContain("cft_private_direct");
+    expect(JSON.stringify(consoleLog.mock.calls)).not.toContain("cft_private_direct");
   });
 
   it("confirms once with a client-held idempotency key and shows a deduplicated simulated receipt", async () => {
@@ -809,6 +928,10 @@ describe("PDP transaction flow", () => {
       api.confirmCommerce.mock.calls[0]?.[1] as components["schemas"]["CommerceAddRequest"]
     ).idempotency_key;
     await user.click(within(unknown).getByRole("button", { name: "返回商品" }));
+    const queryBeforeNavigation = screen.getByRole("button", {
+      name: "查询加购结果",
+    });
+    await waitFor(() => expect(queryBeforeNavigation).toHaveFocus());
 
     api.getProduct.mockResolvedValue({
       ...PRODUCT,
@@ -1079,7 +1202,8 @@ describe("PDP transaction flow", () => {
       productRole: "current" as const,
       onBack: vi.fn(),
       onNotice: vi.fn(),
-      onCommerceOperation: vi.fn(),
+      onOpenCommerceOverlay: vi.fn(),
+      onCommerceReceipt: vi.fn(),
       overlay: "none" as const,
       onCloseOverlay: vi.fn(),
       onContinueBrowsing: vi.fn(),
@@ -1276,7 +1400,8 @@ describe("PDP transaction flow", () => {
       productRole: "current" as const,
       onBack: vi.fn(),
       onNotice: vi.fn(),
-      onCommerceOperation: vi.fn(),
+      onOpenCommerceOverlay: vi.fn(),
+      onCommerceReceipt: vi.fn(),
       overlay: "none" as const,
       onCloseOverlay: vi.fn(),
       onContinueBrowsing: vi.fn(),
@@ -1311,7 +1436,7 @@ describe("PDP transaction flow", () => {
         },
       }),
     );
-    await waitFor(() => expect(props.onCommerceOperation).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(props.onOpenCommerceOverlay).toHaveBeenCalledTimes(1));
   });
 
   it("routes every non-executable PDP shell control to a Concept Boundary notice", async () => {
@@ -1368,15 +1493,15 @@ describe("PDP transaction flow", () => {
 
     expect(reconciliationReceipt).not.toBeNull();
     const countedReceiptIds = new Set<string>();
-    const firstCount = applyCommerceReceiptOnce(
-      0,
-      countedReceiptIds,
-      reconciliationReceipt!,
-    );
+    const receiptSignal = {
+      receiptId: reconciliationReceipt!.receipt!.receipt_id,
+      quantity: reconciliationReceipt!.receipt!.quantity,
+    };
+    const firstCount = applyCommerceReceiptOnce(0, countedReceiptIds, receiptSignal);
     const replayedCount = applyCommerceReceiptOnce(
       firstCount,
       countedReceiptIds,
-      reconciliationReceipt!,
+      receiptSignal,
     );
     expect(firstCount).toBe(1);
     expect(replayedCount).toBe(1);

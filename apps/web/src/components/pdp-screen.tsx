@@ -76,6 +76,11 @@ export interface PendingCommerceReconciliation {
   confirmedFingerprint: CommerceOperationExpectation;
 }
 
+export interface CommerceReceiptSignal {
+  receiptId: string;
+  quantity: number;
+}
+
 export interface PdpScreenProps {
   productId: string;
   entrySource: PdpEntrySource;
@@ -88,7 +93,8 @@ export interface PdpScreenProps {
   backButtonRef?: (node: HTMLButtonElement | null) => void;
   onBack: () => void;
   onNotice: (message: string) => void;
-  onCommerceOperation: (operation: CommerceOperation) => void;
+  onOpenCommerceOverlay: () => void;
+  onCommerceReceipt: (receipt: CommerceReceiptSignal) => void;
   overlay: Overlay;
   onCloseOverlay: () => void;
   onContinueBrowsing: () => void;
@@ -105,7 +111,8 @@ export function PdpScreen({
   backButtonRef,
   onBack,
   onNotice,
-  onCommerceOperation,
+  onOpenCommerceOverlay,
+  onCommerceReceipt,
   overlay,
   onCloseOverlay,
   onContinueBrowsing,
@@ -144,6 +151,7 @@ export function PdpScreen({
   const guideVersionRef = useRef(0);
   const skuSelectorRef = useRef<HTMLFieldSetElement>(null);
   const pdpCtaRef = useRef<HTMLButtonElement>(null);
+  const commerceReturnFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     pendingReconciliationRef.current = pendingReconciliation;
@@ -170,13 +178,21 @@ export function PdpScreen({
   }
 
   function clearPersistedReconciliation() {
+    const hadPendingReconciliation = pendingReconciliationRef.current !== null;
     pendingReconciliationRef.current = null;
-    onPendingReconciliationChange?.(null);
+    if (hadPendingReconciliation) {
+      onPendingReconciliationChange?.(null);
+    }
   }
 
   function setBackButton(node: HTMLButtonElement | null) {
     localBackRef.current = node;
     backButtonRef?.(node);
+  }
+
+  function openCommerceOverlay() {
+    commerceReturnFocusRef.current = pdpCtaRef.current;
+    onOpenCommerceOverlay();
   }
 
   useEffect(() => {
@@ -358,7 +374,7 @@ export function PdpScreen({
       clearPersistedReconciliation();
       setCommitStatusUnknown(false);
       setCommerceOperation(operation);
-      onCommerceOperation(operation);
+      openCommerceOverlay();
     } catch {
       if (
         previewVersionRef.current === previewVersion &&
@@ -451,7 +467,12 @@ export function PdpScreen({
       }
       setCommitStatusUnknown(operation.commerce_view_kind === "COMMIT_STATUS_UNKNOWN");
       setCommerceOperation(operation);
-      onCommerceOperation(operation);
+      if (operation.commerce_view_kind === "SUCCEEDED" && operation.receipt) {
+        onCommerceReceipt({
+          receiptId: operation.receipt.receipt_id,
+          quantity: operation.receipt.quantity,
+        });
+      }
     } catch (error) {
       if (commerceActionVersionRef.current !== actionVersion) return;
       const uncertain =
@@ -591,7 +612,12 @@ export function PdpScreen({
       if (operation.commerce_view_kind === "SUCCEEDED") {
         clearPersistedReconciliation();
       }
-      onCommerceOperation(operation);
+      if (operation.receipt) {
+        onCommerceReceipt({
+          receiptId: operation.receipt.receipt_id,
+          quantity: operation.receipt.quantity,
+        });
+      }
     } catch {
       if (commerceActionVersionRef.current === actionVersion) {
         setCommerceError("加购结果仍在确认中，请稍后再次查询");
@@ -854,7 +880,7 @@ export function PdpScreen({
           }
           onClick={() => {
             if (reconciliationRequired && commerceOperation) {
-              onCommerceOperation(commerceOperation);
+              openCommerceOverlay();
               void reconcile();
               return;
             }
@@ -881,6 +907,7 @@ export function PdpScreen({
       pending={previewPending}
       commitStatusUnknown={commitStatusUnknown}
       errorMessage={commerceError}
+      returnFocusRef={commerceReturnFocusRef}
       onCancel={() => {
         setCommerceError(null);
         onCloseOverlay();
@@ -893,6 +920,7 @@ export function PdpScreen({
     <ReceiptDrawer
       open={overlay === "receipt"}
       operation={commerceOperation}
+      returnFocusRef={commerceReturnFocusRef}
       onReturnProduct={returnFromReceipt}
       onContinueBrowsing={onContinueBrowsing}
     />

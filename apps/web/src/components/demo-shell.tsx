@@ -15,6 +15,7 @@ import { ConceptBoundaryToast } from "./concept-boundary-toast";
 import { GuideSheet } from "./guide-sheet";
 import {
   PdpScreen,
+  type CommerceReceiptSignal,
   type PendingCommerceReconciliation,
 } from "./pdp-screen";
 import {
@@ -68,16 +69,13 @@ function hasFreshFacts(detail: ProductDetailResponse, now = Date.now()): boolean
 export function applyCommerceReceiptOnce(
   currentCount: number,
   countedReceiptIds: Set<string>,
-  operation: components["schemas"]["CommerceOperationResponse"],
+  receipt: CommerceReceiptSignal,
 ): number {
-  if (operation.commerce_view_kind !== "SUCCEEDED" || !operation.receipt) {
+  if (countedReceiptIds.has(receipt.receiptId)) {
     return currentCount;
   }
-  if (countedReceiptIds.has(operation.receipt.receipt_id)) {
-    return currentCount;
-  }
-  countedReceiptIds.add(operation.receipt.receipt_id);
-  return currentCount + operation.receipt.quantity;
+  countedReceiptIds.add(receipt.receiptId);
+  return currentCount + receipt.quantity;
 }
 
 export function DemoShell() {
@@ -294,22 +292,20 @@ export function DemoShell() {
     }
   }
 
-  function handleCommerceOperation(
-    operation: components["schemas"]["CommerceOperationResponse"],
-  ) {
-    if (operation.commerce_view_kind === "SUCCEEDED" && operation.receipt) {
-      setPendingCommerceReconciliation(null);
-      const receiptDelta = applyCommerceReceiptOnce(
-        0,
-        countedReceiptIdsRef.current,
-        operation,
-      );
-      if (receiptDelta > 0) {
-        setCartCount((current) => current + receiptDelta);
-      }
-      dispatch({ type: "SHOW_RECEIPT" });
-      return;
+  function handleCommerceReceipt(receipt: CommerceReceiptSignal) {
+    setPendingCommerceReconciliation(null);
+    const receiptDelta = applyCommerceReceiptOnce(
+      0,
+      countedReceiptIdsRef.current,
+      receipt,
+    );
+    if (receiptDelta > 0) {
+      setCartCount((current) => current + receiptDelta);
     }
+    dispatch({ type: "SHOW_RECEIPT" });
+  }
+
+  function openCommerceOverlay() {
     dispatch({ type: "OPEN_CART_CONFIRM" });
   }
 
@@ -399,7 +395,8 @@ export function DemoShell() {
             backButtonRef={setPdpBackButton}
             onBack={() => dispatch({ type: "CLOSE_PDP" })}
             onNotice={showNotice}
-            onCommerceOperation={handleCommerceOperation}
+            onOpenCommerceOverlay={openCommerceOverlay}
+            onCommerceReceipt={handleCommerceReceipt}
             overlay={navigation.overlay}
             onCloseOverlay={() => dispatch({ type: "CLOSE_OVERLAY" })}
             onContinueBrowsing={continueBrowsing}
