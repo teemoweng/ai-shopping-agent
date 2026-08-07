@@ -3812,6 +3812,7 @@ svg[data-demo-icon] {
 }
 
 .feedChrome {
+  --feed-status-top: max(7px, calc(var(--safe-top) + 5px));
   height: calc(116px + var(--safe-top));
   padding-right: var(--safe-right);
   padding-left: var(--safe-left);
@@ -3819,7 +3820,7 @@ svg[data-demo-icon] {
 
 .feedStatusBar {
   position: absolute;
-  top: max(7px, calc(var(--safe-top) + 5px));
+  top: var(--feed-status-top);
   right: max(17px, calc(var(--safe-right) + 13px));
   left: max(17px, calc(var(--safe-left) + 13px));
   display: flex;
@@ -3843,7 +3844,7 @@ svg[data-demo-icon] {
 }
 
 .prototypeBadge {
-  top: max(29px, calc(var(--safe-top) + 27px));
+  top: calc(var(--feed-status-top) + 1rem + 3px);
   left: max(10px, calc(var(--safe-left) + 10px));
   padding: 4px 7px;
   color: #f1f1f2;
@@ -3857,7 +3858,7 @@ svg[data-demo-icon] {
 }
 
 .feedTabs {
-  top: max(56px, calc(var(--safe-top) + 54px));
+  top: calc(var(--feed-status-top) + 1.6875rem + 16px);
   right: max(52px, calc(var(--safe-right) + 52px));
   left: max(8px, calc(var(--safe-left) + 8px));
   justify-content: center;

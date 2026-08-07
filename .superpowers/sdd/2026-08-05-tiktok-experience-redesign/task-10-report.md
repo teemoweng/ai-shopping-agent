@@ -107,6 +107,7 @@ Task 10 已将同一棵 React 产品树收敛为两种观看方式：
 - `320×700` Commerce drawer `{x:16,y:60.8125,w:288,h:623.1875}`；滚动后的 primary CTA `{x:164,y:594,w:124,h:74}`；document scrollWidth `320`。
 - 字体 `100% → 200%`：商品名 `12→24px`、Commerce h2 `20→40px`、fact label `10→20px`、fact value `11→22px`、boundary `9→18px`、CTA `12→24px`，全部为精确 `2×`。
 - active 频道实测为“推荐”，不是 LIVE。
+- 最终 Minor 复核新增 320/root32px chrome bbox 门禁：status bar、完整“合成原型”与五个频道按钮依次相邻，两段垂直间隔均保持在 `2–4px`，search/rail 防碰撞断言继续通过。
 
 复核复拍（不提交）：
 

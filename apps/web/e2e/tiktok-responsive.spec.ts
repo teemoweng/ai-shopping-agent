@@ -160,6 +160,27 @@ test("320×700 at 200% text size reflows without trapping product actions", asyn
         requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
       ),
   );
+  const statusBarBox = await page.locator(".feedStatusBar").boundingBox();
+  const badgeBox = await page.locator(".prototypeBadge").boundingBox();
+  const tabButtonBoxes = await page
+    .locator(".feedTabs button")
+    .evaluateAll((buttons) =>
+      buttons.map((button) => {
+        const rect = button.getBoundingClientRect();
+        return { top: rect.top, bottom: rect.bottom };
+      }),
+    );
+  expect(statusBarBox).not.toBeNull();
+  expect(badgeBox).not.toBeNull();
+  expect(tabButtonBoxes.length).toBeGreaterThan(0);
+  const statusToBadgeGap = badgeBox!.y - (statusBarBox!.y + statusBarBox!.height);
+  const badgeToTabsGap =
+    Math.min(...tabButtonBoxes.map((box) => box.top)) -
+    (badgeBox!.y + badgeBox!.height);
+  expect(statusToBadgeGap).toBeGreaterThanOrEqual(2);
+  expect(statusToBadgeGap).toBeLessThanOrEqual(4);
+  expect(badgeToTabsGap).toBeGreaterThanOrEqual(2);
+  expect(badgeToTabsGap).toBeLessThanOrEqual(4);
   const product = page.getByRole("button", { name: /查看商品/ });
   const askAi = page.getByRole("button", { name: /问 AI/ });
   await expect(product).toBeVisible();
