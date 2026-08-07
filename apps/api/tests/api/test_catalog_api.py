@@ -14,8 +14,8 @@ def test_feed_returns_ordered_items_with_commerce_fields_only_when_available() -
 
     assert response.status_code == 200
     body = response.json()
-    assert body["feed_tabs"]
-    assert body["bottom_nav_variant"]
+    assert body["feed_tabs"] == ["LIVE", "社区", "好友", "关注", "推荐"]
+    assert body["bottom_nav_variant"] == "content-commerce-v1"
     assert [item["id"] for item in body["items"]] == [
         "feed-uv-morning-001",
         "feed-city-style-002",

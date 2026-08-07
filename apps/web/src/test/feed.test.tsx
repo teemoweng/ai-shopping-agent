@@ -43,8 +43,8 @@ interface PendingPlay {
 }
 
 const FEED: FeedResponse = {
-  feed_tabs: ["For You", "Following"],
-  bottom_nav_variant: "shopping-agent",
+  feed_tabs: ["LIVE", "社区", "好友", "关注", "推荐"],
+  bottom_nav_variant: "content-commerce-v1",
   items: [
     {
       id: "feed-uv-morning-001",
@@ -314,14 +314,42 @@ describe("Chinese short-video Feed", () => {
     expect(items[1]).toHaveAttribute("data-commerce-status", "none");
   });
 
-  it("localizes configured navigation and keeps the normal item free of commerce and AI", () => {
+  it("renders configured chrome with 推荐 active and keeps future LIVE behind the concept boundary", async () => {
+    const user = userEvent.setup();
+    const onNotice = vi.fn();
+    renderFeed({ onNotice });
+
+    const tabs = screen.getByRole("navigation", { name: "内容频道" });
+    expect(within(tabs).getAllByRole("button").map((button) => button.textContent)).toEqual([
+      "LIVE",
+      "社区",
+      "好友",
+      "关注",
+      "推荐",
+    ]);
+    expect(within(tabs).getByRole("button", { name: "推荐" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(within(tabs).getByRole("button", { name: "LIVE" })).not.toHaveAttribute(
+      "aria-current",
+    );
+    await user.click(within(tabs).getByRole("button", { name: "LIVE" }));
+    expect(onNotice).toHaveBeenCalledWith(
+      "LIVE未接入本次概念原型；当前只演示内容导购路径",
+    );
+  });
+
+  it("consumes the catalog chrome variant and keeps the normal item free of commerce and AI", () => {
     renderFeed();
 
-    expect(screen.getByRole("navigation", { name: "内容频道" })).toHaveTextContent(
-      "为你推荐",
-    );
-    expect(screen.getByRole("navigation", { name: "内容频道" })).toHaveTextContent(
-      "关注",
+    const bottomNavigation = screen.getByRole("navigation", { name: "底部导航" });
+    expect(
+      within(bottomNavigation).getAllByRole("button").map((button) => button.getAttribute("aria-label")),
+    ).toEqual(["首页", "商城", "发布", "收件箱", "主页"]);
+    expect(document.querySelector(".feedSurface")).toHaveAttribute(
+      "data-bottom-nav-variant",
+      "content-commerce-v1",
     );
     const [shoppable, normal] = screen.getAllByTestId("feed-item");
     expect(within(shoppable).getByRole("group", { name: "可购物商品" })).toBeVisible();
@@ -416,8 +444,8 @@ describe("Chinese short-video Feed", () => {
       "首页",
       "商城",
       "发布",
-      "消息",
-      "我的",
+      "收件箱",
+      "主页",
     ]) {
       const control = screen.getAllByRole("button", { name: label })[0];
       expect(control.querySelector("svg[data-demo-icon]")).not.toBeNull();
@@ -613,7 +641,7 @@ describe("Chinese short-video Feed", () => {
 
     await user.click(screen.getAllByRole("button", { name: "关注 Routine Notes" })[0]);
     await user.click(screen.getByRole("button", { name: "搜索" }));
-    for (const label of ["首页", "商城", "发布", "消息", "我的"]) {
+    for (const label of ["首页", "商城", "发布", "收件箱", "主页"]) {
       await user.click(screen.getByRole("button", { name: label }));
     }
 

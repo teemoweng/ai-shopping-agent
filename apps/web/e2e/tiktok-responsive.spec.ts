@@ -23,6 +23,41 @@ async function tabTo(page: Page, accessibleName: string) {
   throw new Error(`Could not reach ${accessibleName} with Tab`);
 }
 
+async function expectBoxInsideViewport(page: Page, selector: string) {
+  const box = await page.locator(selector).first().boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.x).toBeGreaterThanOrEqual(0);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(await page.evaluate(() => innerWidth));
+  expect(box!.y).toBeGreaterThanOrEqual(0);
+  expect(box!.y + box!.height).toBeLessThanOrEqual(await page.evaluate(() => innerHeight));
+  return box!;
+}
+
+async function expectAnchorAboveCreator(page: Page) {
+  const anchor = await page.locator(".productAnchor").first().boundingBox();
+  const creator = await page.locator(".creatorCopy").first().boundingBox();
+  const rail = await page.locator(".actionRail").first().boundingBox();
+  const nav = await page.locator(".bottomNavigation").boundingBox();
+  expect(anchor).not.toBeNull();
+  expect(creator).not.toBeNull();
+  expect(rail).not.toBeNull();
+  expect(nav).not.toBeNull();
+  expect(anchor!.y + anchor!.height).toBeLessThanOrEqual(creator!.y);
+  expect(creator!.y + creator!.height).toBeLessThanOrEqual(nav!.y);
+  const anchorOverlapsRail =
+    anchor!.x < rail!.x + rail!.width &&
+    anchor!.x + anchor!.width > rail!.x &&
+    anchor!.y < rail!.y + rail!.height &&
+    anchor!.y + anchor!.height > rail!.y;
+  expect(anchorOverlapsRail).toBe(false);
+}
+
+async function computedFontSize(page: Page, selector: string) {
+  return page.locator(selector).first().evaluate((node) =>
+    Number.parseFloat(getComputedStyle(node).fontSize),
+  );
+}
+
 test("390×844 is a true full-bleed phone with no outside frame", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/?scenario=normal");
@@ -32,15 +67,47 @@ test("390×844 is a true full-bleed phone with no outside frame", async ({ page 
   expect(phone).toEqual({ x: 0, y: 0, width: 390, height: 844 });
   await expect(page.getByRole("complementary", { name: "演示说明" })).toBeHidden();
   await expectNoHorizontalOverflow(page);
+  const tabs = page.getByRole("navigation", { name: "内容频道" });
+  await expect(tabs.getByRole("button")).toHaveText([
+    "LIVE",
+    "社区",
+    "好友",
+    "关注",
+    "推荐",
+  ]);
+  await expect(tabs.getByRole("button", { name: "推荐" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  expect(
+    await page
+      .getByRole("navigation", { name: "底部导航" })
+      .getByRole("button")
+      .evaluateAll((buttons) =>
+        buttons.map((button) => button.getAttribute("aria-label")),
+      ),
+  ).toEqual(["首页", "商城", "发布", "收件箱", "主页"]);
+  await tabs.getByRole("button", { name: "LIVE" }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "LIVE未接入本次概念原型",
+  );
 
   for (const selector of [".feedTabs", ".actionRail", ".creatorCopy", ".productAnchor", ".bottomNavigation"]) {
-    const box = await page.locator(selector).first().boundingBox();
-    expect(box).not.toBeNull();
-    expect(box!.x).toBeGreaterThanOrEqual(0);
-    expect(box!.x + box!.width).toBeLessThanOrEqual(390);
-    expect(box!.y).toBeGreaterThanOrEqual(0);
-    expect(box!.y + box!.height).toBeLessThanOrEqual(844);
+    await expectBoxInsideViewport(page, selector);
   }
+  await expectAnchorAboveCreator(page);
+
+  const normalItem = page.locator('[data-feed-item-id="feed-city-style-002"]');
+  await normalItem.scrollIntoViewIfNeeded();
+  await expect(normalItem).toBeVisible();
+  await expect(normalItem.locator(".productAnchor")).toHaveCount(0);
+  const normalCreator = await normalItem.locator(".creatorCopy").boundingBox();
+  const nav = await page.locator(".bottomNavigation").boundingBox();
+  expect(normalCreator).not.toBeNull();
+  expect(nav).not.toBeNull();
+  const normalCreatorGap = nav!.y - (normalCreator!.y + normalCreator!.height);
+  expect(normalCreatorGap).toBeGreaterThanOrEqual(0);
+  expect(normalCreatorGap).toBeLessThanOrEqual(24);
 });
 
 test("1440×1000 keeps one 390×844 live phone and an outside panel", async ({ page }) => {
@@ -80,13 +147,53 @@ test("1440×1000 keeps one 390×844 live phone and an outside panel", async ({ p
 test("320×700 at 200% text size reflows without trapping product actions", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 700 });
   await page.goto("/?scenario=normal");
+  const baseProductNameFont = await computedFontSize(page, ".productAnchorName");
   await page.evaluate(() => {
     document.documentElement.style.fontSize = "200%";
   });
+  await expect
+    .poll(() => computedFontSize(page, "html"))
+    .toBeGreaterThanOrEqual(32);
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
   const product = page.getByRole("button", { name: /查看商品/ });
   const askAi = page.getByRole("button", { name: /问 AI/ });
   await expect(product).toBeVisible();
   await expect(askAi).toBeVisible();
+  await expect(page.locator(".prototypeBadge")).toHaveText("合成原型");
+  const disclosureBox = await expectBoxInsideViewport(page, ".prototypeBadge");
+  expect(disclosureBox.width).toBeGreaterThan(0);
+  const searchBox = await expectBoxInsideViewport(page, ".feedSearchButton");
+  const searchIconBox = await expectBoxInsideViewport(page, ".feedSearchButton svg");
+  expect(searchIconBox.width).toBeLessThanOrEqual(searchBox.width);
+  expect(searchIconBox.height).toBeLessThanOrEqual(searchBox.height);
+  const railBox = await expectBoxInsideViewport(page, ".actionRail");
+  const searchOverlapsRail =
+    searchBox.x < railBox.x + railBox.width &&
+    searchBox.x + searchBox.width > railBox.x &&
+    searchBox.y < railBox.y + railBox.height &&
+    searchBox.y + searchBox.height > railBox.y;
+  expect(await computedFontSize(page, ".productAnchorName")).toBeGreaterThanOrEqual(
+    baseProductNameFont * 1.8,
+  );
+  for (const selector of [".productAnchorName", ".productAnchorCopy small"]) {
+    const textMetrics = await page.locator(selector).first().evaluate((node) => ({
+      clientWidth: node.clientWidth,
+      clientHeight: node.clientHeight,
+      scrollWidth: node.scrollWidth,
+      scrollHeight: node.scrollHeight,
+    }));
+    expect(textMetrics.clientWidth).toBeGreaterThan(0);
+    expect(textMetrics.clientHeight).toBeGreaterThan(0);
+    expect(textMetrics.scrollWidth).toBeLessThanOrEqual(textMetrics.clientWidth + 1);
+    expect(textMetrics.scrollHeight).toBeLessThanOrEqual(textMetrics.clientHeight + 1);
+  }
+  expect(searchOverlapsRail).toBe(false);
+  await expectAnchorAboveCreator(page);
   await expectNoHorizontalOverflow(page);
   const navLabelBottoms = await page.locator(".bottomNavigation small").evaluateAll(
     (labels) => labels.map((label) => label.getBoundingClientRect().bottom),
@@ -112,4 +219,83 @@ test("320×700 at 200% text size reflows without trapping product actions", asyn
   await expectNoHorizontalOverflow(page);
   await page.keyboard.press("Escape");
   await expect(askAi).toBeFocused();
+});
+
+test("320×700 at 200% text size doubles core commerce copy and keeps the action reachable", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 700 });
+  await page.route("**/commerce/cart/preview", async (route) => {
+    const response = await route.fetch();
+    const operation = (await response.json()) as Record<string, unknown> & {
+      facts: Record<string, unknown>;
+    };
+    await route.fulfill({
+      response,
+      json: {
+        ...operation,
+        commerce_view_kind: "AWAITING_CONFIRMATION",
+        operation_status: "ACTIVE",
+        allowed_actions: [
+          "SELECT_SKU",
+          "SET_QUANTITY",
+          "CONFIRM_ADD_TO_CART",
+          "CANCEL_CONFIRMATION",
+          "RETURN_TO_PRODUCT",
+        ],
+        confirmation_token: "cft_e2e_text_resize",
+        confirmation_expires_at: "2099-08-07T09:00:00Z",
+        facts: {
+          ...operation.facts,
+          inventory_units: 18,
+          in_stock: true,
+        },
+        facts_diff: [],
+        error_code: null,
+      },
+    });
+  });
+  await page.goto("/?scenario=normal");
+  await page.getByRole("button", { name: /查看商品 Seoul Shade Daily Fluid/ }).click();
+  const cta = page.getByRole("button", { name: "模拟加入购物车" });
+  await expect(cta).toBeVisible();
+  await cta.click();
+  const dialog = page.getByRole("dialog", { name: "复核模拟加购" });
+  await expect(dialog).toBeVisible();
+
+  const selectors = [
+    ".commerceDrawer h2",
+    ".commerceFactList dt",
+    ".commerceFactList dd",
+    ".commerceBoundaryCopy",
+    ".commercePrimaryAction",
+  ] as const;
+  const baseline = Object.fromEntries(
+    await Promise.all(
+      selectors.map(async (selector) => [selector, await computedFontSize(page, selector)]),
+    ),
+  );
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = "200%";
+  });
+  await expect
+    .poll(() => computedFontSize(page, "html"))
+    .toBeGreaterThanOrEqual(32);
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
+  for (const selector of selectors) {
+    expect(await computedFontSize(page, selector)).toBeGreaterThanOrEqual(
+      baseline[selector] * 1.8,
+    );
+  }
+  await expectNoHorizontalOverflow(page);
+  await expect(dialog).toBeVisible();
+  const primary = dialog.getByRole("button", { name: "确认模拟加购" });
+  await primary.scrollIntoViewIfNeeded();
+  await expect(primary).toBeVisible();
+  const primaryBox = await primary.boundingBox();
+  expect(primaryBox!.y).toBeGreaterThanOrEqual(0);
+  expect(primaryBox!.y + primaryBox!.height).toBeLessThanOrEqual(700);
 });

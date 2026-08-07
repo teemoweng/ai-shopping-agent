@@ -21,8 +21,8 @@ vi.mock("@/lib/api-client", async (importOriginal) => {
 });
 
 const feed = {
-  feed_tabs: ["For You", "Following"],
-  bottom_nav_variant: "shopping-agent",
+  feed_tabs: ["LIVE", "社区", "好友", "关注", "推荐"],
+  bottom_nav_variant: "content-commerce-v1",
   items: [
     {
       id: "feed-uv-morning-001",

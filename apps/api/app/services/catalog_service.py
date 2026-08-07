@@ -15,8 +15,8 @@ from app.repositories.fixture_repository import FixtureRepository
 
 
 class CatalogService:
-    feed_tabs = ("For You", "Following")
-    bottom_nav_variant = "shopping-agent"
+    feed_tabs = ("LIVE", "社区", "好友", "关注", "推荐")
+    bottom_nav_variant = "content-commerce-v1"
 
     def __init__(self, fixtures: FixtureRepository) -> None:
         self.fixtures = fixtures

@@ -149,18 +149,32 @@ interface ShortVideoFeedProps {
   onNotice: (message: string) => void;
 }
 
-const tabTranslations: Record<string, string> = {
-  "For You": "为你推荐",
-  Following: "关注",
+interface BottomNavigationItem {
+  label: string;
+  icon: DemoIconName;
+}
+
+const bottomNavigationByVariant: Record<
+  string,
+  readonly BottomNavigationItem[]
+> = {
+  "content-commerce-v1": [
+    { label: "首页", icon: "home" },
+    { label: "商城", icon: "bag" },
+    { label: "发布", icon: "plus" },
+    { label: "收件箱", icon: "inbox" },
+    { label: "主页", icon: "user" },
+  ],
 };
 
-const bottomNavigation = [
-  { label: "首页", icon: "home" },
-  { label: "商城", icon: "bag" },
-  { label: "发布", icon: "plus" },
-  { label: "消息", icon: "inbox" },
-  { label: "我的", icon: "user" },
-] as const;
+function bottomNavigationForVariant(
+  variant: string,
+): readonly BottomNavigationItem[] {
+  return (
+    bottomNavigationByVariant[variant] ??
+    bottomNavigationByVariant["content-commerce-v1"]
+  );
+}
 
 const boundaryMessage = (feature: string) =>
   `${feature}未接入本次概念原型；当前只演示内容导购路径`;
@@ -175,10 +189,6 @@ function compactNumber(value: number): string {
     return `${count.toString().replace(/\.0$/, "")}k`;
   }
   return String(value);
-}
-
-function translatedTab(tab: string): string {
-  return tabTranslations[tab] ?? tab;
 }
 
 export const ShortVideoFeed = forwardRef<
@@ -218,6 +228,7 @@ export const ShortVideoFeed = forwardRef<
     () => new Set(),
   );
   const [commentItem, setCommentItem] = useState<FeedItem | null>(null);
+  const bottomNavigation = bottomNavigationForVariant(bottomNavVariant);
   const commentTriggerRef = useRef<HTMLButtonElement | null>(null);
   const closeCommentsRef = useRef<HTMLButtonElement | null>(null);
 
@@ -380,16 +391,16 @@ export const ShortVideoFeed = forwardRef<
             <DemoIcon name="battery" />
           </span>
         </div>
-        <span className="prototypeBadge">概念 · 合成</span>
+        <span className="prototypeBadge">合成原型</span>
         <nav className="feedTabs" aria-label="内容频道">
-          {feedTabs.map((tab, index) => (
+          {feedTabs.map((tab) => (
             <button
               key={tab}
               type="button"
-              aria-current={index === 0 ? "page" : undefined}
-              onClick={() => onNotice(boundaryMessage(translatedTab(tab)))}
+              aria-current={tab === "推荐" ? "page" : undefined}
+              onClick={() => onNotice(boundaryMessage(tab))}
             >
-              {translatedTab(tab)}
+              {tab}
             </button>
           ))}
         </nav>
@@ -538,26 +549,27 @@ export const ShortVideoFeed = forwardRef<
                 </button>
               </aside>
 
-              <div className="creatorCopy">
-                <strong>{item.creator_handle}</strong>
-                <p>{item.caption_zh}</p>
-                <small>合成创作者与互动数据</small>
+              <div className="feedLowerOverlay">
+                {shoppable ? (
+                  <ProductAnchor
+                    product={item.anchor_product!}
+                    startingPriceUsd={
+                      freshStartingPriceByProductId[item.anchor_product!.id] ??
+                      null
+                    }
+                    entryButtonRef={(button) => {
+                      productEntryElements.current[item.id] = button;
+                    }}
+                    onOpenProduct={(productId) => onOpenProduct(productId, item)}
+                    onAskAi={() => onAskAi(item)}
+                  />
+                ) : null}
+                <div className="creatorCopy">
+                  <strong>{item.creator_handle}</strong>
+                  <p>{item.caption_zh}</p>
+                  <small>合成创作者与互动数据</small>
+                </div>
               </div>
-
-              {shoppable ? (
-                <ProductAnchor
-                  product={item.anchor_product!}
-                  startingPriceUsd={
-                    freshStartingPriceByProductId[item.anchor_product!.id] ??
-                    null
-                  }
-                  entryButtonRef={(button) => {
-                    productEntryElements.current[item.id] = button;
-                  }}
-                  onOpenProduct={(productId) => onOpenProduct(productId, item)}
-                  onAskAi={() => onAskAi(item)}
-                />
-              ) : null}
             </article>
           );
         })}
@@ -574,7 +586,7 @@ export const ShortVideoFeed = forwardRef<
             onClick={() => onNotice(boundaryMessage(item.label))}
           >
             <span aria-hidden="true">
-              <DemoIcon name={item.icon as DemoIconName} />
+              <DemoIcon name={item.icon} />
             </span>
             <small>{item.label}</small>
           </button>

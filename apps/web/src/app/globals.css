@@ -3251,12 +3251,12 @@ a:focus-visible {
 
 .commerceDrawer > header span {
   color: #707279;
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 
 .commerceDrawer h2 {
   margin: 4px 0 0;
-  font-size: 20px;
+  font-size: 1.25rem;
   line-height: 1.2;
 }
 
@@ -3266,7 +3266,7 @@ a:focus-visible {
   border: 1px solid #fe2c5544;
   border-radius: 4px;
   background: #fff5f7;
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 
 .commerceFactList,
@@ -3296,21 +3296,21 @@ a:focus-visible {
 .commerceFactList dt,
 .receiptSummary dt {
   color: #74767c;
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 
 .commerceFactList dd,
 .receiptSummary dd {
   margin: 0;
   color: #161823;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
 .commerceFactTotal dd {
   color: #fe2c55;
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 
 .commerceFactsDiff {
@@ -3327,7 +3327,7 @@ a:focus-visible {
   grid-template-columns: minmax(68px, 1fr) auto 14px auto;
   align-items: center;
   gap: 6px;
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 
 .commerceFactsDiff del {
@@ -3346,7 +3346,7 @@ a:focus-visible {
   color: #66686e;
   border-left: 3px solid #25f4ee;
   background: #effdfc;
-  font-size: 9px;
+  font-size: 0.5625rem;
   line-height: 1.45;
 }
 
@@ -3356,7 +3356,7 @@ a:focus-visible {
   color: #9b1c36;
   border-left: 3px solid #fe2c55;
   background: #fff1f4;
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 700;
   line-height: 1.45;
 }
@@ -3375,7 +3375,7 @@ a:focus-visible {
   border: 1px solid #d9dade;
   border-radius: 7px;
   background: #fff;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 750;
   cursor: pointer;
 }
@@ -3405,27 +3405,27 @@ a:focus-visible {
   border: 2px solid #25f4ee;
   border-radius: 50%;
   background: #effdfc;
-  font-size: 26px;
+  font-size: 1.625rem;
   font-weight: 900;
 }
 
 .receiptDrawer h2 {
   margin: 0;
   color: #6f7177;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
 }
 
 .receiptDrawer > strong {
   display: block;
   margin-top: 5px;
-  font-size: 22px;
+  font-size: 1.375rem;
 }
 
 .receiptDrawer > p {
   margin: 7px 0 0;
   color: #74767c;
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 
 .receiptSummary {
@@ -3853,23 +3853,36 @@ svg[data-demo-icon] {
   font-family: inherit;
   font-size: 0.5625rem;
   letter-spacing: 0;
+  white-space: nowrap;
 }
 
 .feedTabs {
   top: max(56px, calc(var(--safe-top) + 54px));
+  right: max(52px, calc(var(--safe-right) + 52px));
+  left: max(8px, calc(var(--safe-left) + 8px));
+  justify-content: center;
+  gap: clamp(7px, 2.6vw, 14px);
+  transform: none;
 }
 
 .feedTabs button {
   min-height: 38px;
-  font-size: 0.9375rem;
+  font-size: 13px;
 }
 
 .feedSearchButton {
-  top: max(56px, calc(var(--safe-top) + 54px));
+  top: max(48px, calc(var(--safe-top) + 46px));
   right: max(9px, calc(var(--safe-right) + 9px));
+  width: 38px;
+  height: 38px;
   display: grid;
   place-items: center;
-  font-size: 1.625rem;
+  font-size: 0;
+}
+
+.feedSearchButton svg {
+  width: 22px;
+  height: 22px;
 }
 
 .actionRail {
@@ -3881,6 +3894,23 @@ svg[data-demo-icon] {
 
 .feedItem[data-commerce-status="none"] .actionRail {
   bottom: calc(var(--safe-bottom) + var(--feed-nav-height) + 87px);
+}
+
+.feedLowerOverlay {
+  position: absolute;
+  z-index: 5;
+  right: max(68px, calc(var(--safe-right) + 68px));
+  bottom: calc(var(--safe-bottom) + var(--feed-nav-height) + 8px);
+  left: max(9px, calc(var(--safe-left) + 9px));
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.feedLowerOverlay > * {
+  pointer-events: auto;
 }
 
 .creatorFollowButton,
@@ -3923,16 +3953,13 @@ svg[data-demo-icon] {
 }
 
 .creatorCopy {
-  right: max(68px, calc(var(--safe-right) + 68px));
-  bottom: calc(
-    var(--safe-bottom) + var(--feed-nav-height) + var(--feed-anchor-height) + 28px
-  );
-  left: max(13px, calc(var(--safe-left) + 13px));
+  position: static;
+  min-width: 0;
   text-wrap: pretty;
 }
 
 .feedItem[data-commerce-status="none"] .creatorCopy {
-  bottom: calc(var(--safe-bottom) + var(--feed-nav-height) + 20px);
+  position: static;
 }
 
 .creatorCopy strong {
@@ -3950,18 +3977,33 @@ svg[data-demo-icon] {
 }
 
 .productAnchor {
-  right: max(9px, calc(var(--safe-right) + 8px));
-  bottom: calc(var(--safe-bottom) + var(--feed-nav-height) + 6px);
-  left: max(9px, calc(var(--safe-left) + 8px));
+  position: static;
+  width: 100%;
+  min-width: 0;
   min-height: var(--feed-anchor-height);
 }
 
-.productAnchorName {
+.productAnchorCopy {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.productAnchorCopy .productAnchorName {
+  max-width: none;
+  overflow: visible;
   font-size: 0.75rem;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .productAnchorCopy small {
   font-size: 0.5625rem;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .askAiTextButton {
@@ -4278,35 +4320,35 @@ svg[data-demo-icon] {
 
 @media (max-width: 360px) {
   .feedTabs {
-    gap: 14px;
+    gap: 7px;
   }
 
   .feedTabs button {
-    font-size: 0.8125rem;
+    font-size: 13px;
   }
 
   .prototypeBadge {
-    max-width: 82px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
     white-space: nowrap;
   }
 
-  .creatorCopy {
-    right: max(60px, calc(var(--safe-right) + 60px));
+  .feedLowerOverlay {
+    right: max(64px, calc(var(--safe-right) + 64px));
+    left: max(6px, calc(var(--safe-left) + 6px));
   }
 
   .productAnchor {
-    right: max(6px, calc(var(--safe-right) + 5px));
-    left: max(6px, calc(var(--safe-left) + 5px));
+    width: 100%;
   }
 
   .productAnchorCopy {
-    gap: 4px;
+    gap: 2px;
   }
 
   .productAnchorCopy small {
-    display: none;
+    display: block;
   }
 
   .clarificationChoices,
