@@ -1,5 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 
+test.beforeEach(async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile-chromium", "Commerce focus runs once against the shared API inventory.");
+  await page.clock.setFixedTime(new Date("2026-08-07T12:00:00Z"));
+});
+
 async function openProduct(page: Page) {
   await page.goto("/");
   const product = page.getByRole("button", {

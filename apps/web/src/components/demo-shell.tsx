@@ -1,7 +1,14 @@
 "use client";
 
 import type { components } from "@shopping-guide/contracts/src/api";
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useReducer,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import { getFeed, getProduct } from "@/lib/api-client";
 import {
@@ -59,6 +66,10 @@ const DEMO_SCENARIOS: Record<DemoScenarioName, DemoScenarioConfig> = {
     confirm: "COMMIT_STATUS_UNKNOWN",
   },
 };
+
+const subscribeToStaticLocation = () => () => {};
+const getBrowserSearch = () => window.location.search;
+const getServerSearch = () => "";
 
 export function parseDemoScenario(search: string): DemoScenarioConfig {
   const value = new URLSearchParams(search).get("scenario") ?? "normal";
@@ -134,9 +145,11 @@ export function DemoShell() {
     createInitialNavigationState,
   );
   const [loadState, setLoadState] = useState<FeedLoadState>({ status: "loading" });
-  const [demoScenario] = useState<DemoScenarioConfig>(() =>
-    parseDemoScenario(
-      typeof window === "undefined" ? "" : window.location.search,
+  const demoScenario = parseDemoScenario(
+    useSyncExternalStore(
+      subscribeToStaticLocation,
+      getBrowserSearch,
+      getServerSearch,
     ),
   );
   const [freshStartingPriceByProductId, setFreshStartingPriceByProductId] = useState<

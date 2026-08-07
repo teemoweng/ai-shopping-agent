@@ -1,12 +1,17 @@
 import { defineConfig } from "@playwright/test";
 
+const captureFormalEvidence =
+  process.env.CAPTURE_TIKTOK_REDESIGN_EVIDENCE === "1";
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
   workers: 1,
   use: {
     baseURL: "http://127.0.0.1:3000",
-    trace: "retain-on-failure",
+    // Transaction requests carry runtime-only confirmation/idempotency secrets.
+    // Do not serialize network bodies into Playwright trace attachments.
+    trace: "off",
     screenshot: "only-on-failure",
   },
   webServer: [
@@ -14,16 +19,18 @@ export default defineConfig({
       command:
         "uv --directory ../api run uvicorn app.main:app --host 127.0.0.1 --port 8000",
       url: "http://127.0.0.1:8000/api/v1/health",
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       timeout: 120_000,
     },
     {
-      command: "pnpm dev --hostname 127.0.0.1 --port 3000",
+      command: captureFormalEvidence
+        ? "pnpm build && pnpm start --hostname 127.0.0.1 --port 3000"
+        : "pnpm dev --hostname 127.0.0.1 --port 3000",
       env: {
         NEXT_PUBLIC_API_BASE_URL: "http://127.0.0.1:8000/api/v1",
       },
       url: "http://127.0.0.1:3000",
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       timeout: 120_000,
     },
   ],
