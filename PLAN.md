@@ -85,9 +85,9 @@
 | 服务端有界 transcript 与双 revision | `conversation_revision` 约束消息顺序/恢复；`guide_revision` 只表达偏好、约束或推荐授权语义变化；历史消息只读 | [machine manifest](./artifacts/evidence/chat-first-run-manifest.json) · API/Web 回归 |
 | 关闭重开、AI → PDP → AI、比较恢复 | 浏览器只保存不透明 session id，UI 从服务端权威 snapshot 恢复，不在客户端伪造聊天历史 | [Chat-first E2E](./apps/web/e2e/chat-first.spec.ts) |
 | 安全与原交易链不因减重而弱化 | 安全态移除商业动作；PDP 继续重查 SKU/价格/库存并要求显式确认；价格变化与未知提交仍走 revision/幂等闭环 | [8 条保留交易旅程](./artifacts/evidence/chat-first-verification.md#existing-commerce-journeys-preserved) |
-| 当前 release gate | source `46606d36…`：API 318、Web 280、Foundation eval pytest 15/15、规则 runner 6/6；普通 E2E 39 passed / 31 routed skips / 0 failed，production capture 42 / 28 / 0；两轮 finishing gate 暴露的 readiness race 已经 repeat50 与 interleaved150 复测并独立复审 CLEAN | [验证记录](./artifacts/evidence/chat-first-verification.md) |
+| 当前 release gate | source `65959653…`：API 324、Web 281、Foundation eval pytest 15/15、规则 runner 6/6；普通 E2E 39 passed / 31 routed skips / 0 failed，production capture 42 / 28 / 0；Task 11 已关闭 Safety composer、legacy cart 旧授权、revision 语义、结论层级、本地化、重复披露与真实 200% 字体问题；首轮 API 323/1 的无 snapshot 测试 harness 失败仍保留在验证历史 | [验证记录](./artifacts/evidence/chat-first-verification.md) |
 
-成熟度仍是“冻结合成 fixture 上已实现并在本地 Chromium 评测”。API 进程重启后的持久化、认证、真实 LLM/Hybrid、跨浏览器、真人理解、延迟成本、转化与生产可靠性没有因本切片完成而升级。
+成熟度仍是“冻结合成 fixture 上已实现并在本地 Chromium 评测”。API 进程重启后的持久化、认证、真实 LLM/Hybrid、跨浏览器、真人理解、延迟成本、转化与生产可靠性没有因本切片完成而升级。真实 iOS 非零 safe-area inset 尚未验证；Sheet 没有拖拽交互/提示，开场留白仍是已知 polish 限制。
 
 ### 要验证的产品假设
 

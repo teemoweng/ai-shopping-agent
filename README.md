@@ -119,11 +119,15 @@ flowchart TB
 2026-08-10 的 **Chat-first 轻量导购层**继续保留上述历史证据，并新增：
 
 - 首屏只显示一条商品相关开场、恰好 3 个具体问题和自由输入；普通短答与单一澄清保持 compact，不提前展示推荐矩阵；
-- 条件充分后默认只显示 1 款首选，比较只在用户明确触发后展开；关闭重开与 AI → PDP → AI 均从服务端权威 session 恢复同一 transcript；
-- `conversation_revision` 管消息顺序与恢复，`guide_revision` 只在偏好、约束或推荐授权语义变化时前进；历史 transcript 不授权交易；
-- 新 release gate 实测 318 个 API 测试、280 个 Web 测试、Foundation eval pytest 15/15、规则 runner 6/6；普通 E2E 为 39 passed / 31 intentional routed skips / 0 failed，正式 production capture 为 42 passed / 28 intentional routed skips / 0 failed；
+- 条件充分后先显示一句权威结论，再显示 1 款首选；中文适合点与取舍来自结构化事实且不重复，比较只在用户明确触发后展开；
+- `conversation_revision` 管消息顺序与恢复，`guide_revision` 在偏好、约束或商品级 SKU 推荐授权语义变化时恰好前进一次；历史 transcript、旧 snapshot 与旧 token 都不授权交易；
+- Safety 只保留返回路径，不显示输入框、快捷问题或商业动作；全页只保留 Guide 内一个可展开的 `AI 生成 · 合成原型` 边界说明；
+- source `659596537efe7bd7a879aeb3b49bee17b01f5e73` 的最终 release gate 实测 324 个 API 测试、281 个 Web 测试、Foundation eval pytest 15/15、规则 runner 6/6；普通 E2E 为 39 passed / 31 intentional routed skips / 0 failed，正式 production capture 为 42 passed / 28 intentional routed skips / 0 failed；
 - Task 9 的两轮 finishing gate 先后暴露 1 条与 2 条 loading → final UI 同步竞态；修复后相关三场景交错重复 150/150、最终完整 E2E 39/31/0，并经独立复审 CLEAN。验证记录保留失败与修复历史，不用一次碰绿冒充稳定性；
+- Task 11 首轮全量 API 在 `0228819…` 停于 323/1：旧 trace 测试绕过 `GuideService`，没有保存当前权威 snapshot。测试改走真实公开编排后，第二轮完整 gate 全绿；首轮失败仍保留在验证历史中；
 - 这些数字只证明冻结合成 fixture、本地 Chromium 与当前工程契约，不证明真实 LLM 质量、真人理解、转化、成本或生产可靠性。
+
+界面仍没有拖拽交互或拖拽提示，开场问题与快捷回复之间仍有明显留白；代码虽使用 safe-area 环境变量，但尚未在真实 iOS 非零刘海/底部指示条 inset 上验证。原始紧急健康文本不会进入 retained runtime artifacts；测试源码中的显式合成健康输入 fixture 会保留用于回归。
 
 逐命令耗时、13 条 Chat-first 浏览器契约、8 条保留交易旅程、截图哈希和局限见 [Chat-first 验证记录](./artifacts/evidence/chat-first-verification.md)。
 
