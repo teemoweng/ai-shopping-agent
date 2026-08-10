@@ -314,6 +314,65 @@ describe("GuideChatView", () => {
     expect(onSubviewChange).toHaveBeenLastCalledWith(null);
   });
 
+  it("restores a controller-provided alternatives subview for the matching latest message", () => {
+    const recommendationMessage: TranscriptMessage = {
+      id: "gmsg_restored_alternatives",
+      sequence: 2,
+      role: "ASSISTANT",
+      kind: "RECOMMENDATION",
+      text: "日常通勤更适合 Seoul Shade。",
+      redacted: false,
+      recommendations,
+      evidence: [evidence],
+      quick_replies: [],
+    };
+    const props = {
+      turn: turnWith([openingMessage, recommendationMessage], {
+        state: "PRESENT_RECOMMENDATION" as const,
+        kind: "recommendation" as const,
+        guide_view_kind: "DECISION_READY" as const,
+        recommendations,
+        evidence: [evidence],
+      }),
+      mode: "expanded" as const,
+      initialSubview: {
+        kind: "alternatives" as const,
+        messageId: "gmsg_restored_alternatives",
+      },
+      onSubmit: vi.fn(),
+      onQuickReply: vi.fn(),
+      onClose: vi.fn(),
+    };
+
+    const { rerender } = render(<GuideChatView {...props} />);
+
+    expect(screen.getByRole("region", { name: "其他选择" })).toBeVisible();
+    expect(screen.getByText("Cloud Veil Mineral SPF")).toBeVisible();
+
+    rerender(
+      <GuideChatView
+        {...props}
+        turn={turnWith(
+          [
+            openingMessage,
+            {
+              ...recommendationMessage,
+              id: "gmsg_different_message",
+            },
+          ],
+          {
+            state: "PRESENT_RECOMMENDATION",
+            kind: "recommendation",
+            guide_view_kind: "DECISION_READY",
+            recommendations,
+            evidence: [evidence],
+          },
+        )}
+      />,
+    );
+    expect(screen.queryByRole("region", { name: "其他选择" })).not.toBeInTheDocument();
+  });
+
   it("restores message scroll once per session boundary and reports only user scrolling", () => {
     const onScrollTopChange = vi.fn();
     const props = {
@@ -338,6 +397,7 @@ describe("GuideChatView", () => {
     rerender(
       <GuideChatView
         {...props}
+        initialScrollTop={40}
         turn={turnWith([openingMessage], { conversation_revision: 2 })}
       />,
     );

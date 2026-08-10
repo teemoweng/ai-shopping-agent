@@ -16,6 +16,7 @@ type Subview =
   | { kind: "evidence"; recommendation: Recommendation; messageId: string }
   | { kind: "alternatives"; messageId: string }
   | null;
+type RestorableSubview = Extract<NonNullable<Subview>, { kind: "alternatives" }>;
 
 const COMPOSER_MIN_HEIGHT = 44;
 const COMPOSER_MAX_HEIGHT = 84;
@@ -33,6 +34,7 @@ export interface GuideChatViewProps {
   onCompare?: () => void;
   onShowEvidence?: (productId: string) => void;
   onSubviewChange?: (kind: SubviewKind | null) => void;
+  initialSubview?: RestorableSubview | null;
   initialScrollTop?: number;
   onScrollTopChange?: (scrollTop: number) => void;
   onClose: () => void;
@@ -58,12 +60,13 @@ export function GuideChatView({
   onCompare,
   onShowEvidence,
   onSubviewChange,
+  initialSubview,
   initialScrollTop = 0,
   onScrollTopChange,
   onClose,
 }: GuideChatViewProps) {
   const [draft, setDraft] = useState("");
-  const [subview, setSubview] = useState<Subview>(null);
+  const [subview, setSubview] = useState<Subview>(initialSubview ?? null);
   const composingRef = useRef(false);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const logRef = useRef<HTMLDivElement>(null);
@@ -73,6 +76,7 @@ export function GuideChatView({
   const pendingFocusRestoreRef = useRef<"evidence" | "alternatives" | null>(
     null,
   );
+  const initialScrollTopRef = useRef(initialScrollTop);
   const transcript = turn.transcript ?? [];
   const latestMessage = transcript.at(-1);
   const recommendations = latestMessage?.recommendations ?? [];
@@ -115,10 +119,14 @@ export function GuideChatView({
   }, [safetyTranscript.length]);
 
   useEffect(() => {
+    initialScrollTopRef.current = initialScrollTop;
+  }, [initialScrollTop]);
+
+  useEffect(() => {
     if (logRef.current) {
-      logRef.current.scrollTop = Math.max(0, initialScrollTop);
+      logRef.current.scrollTop = Math.max(0, initialScrollTopRef.current);
     }
-  }, [initialScrollTop, turn.session_id]);
+  }, [turn.session_id]);
 
   useEffect(() => {
     if (activeSubview || !pendingFocusRestoreRef.current) {

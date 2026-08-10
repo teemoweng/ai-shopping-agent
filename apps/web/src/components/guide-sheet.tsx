@@ -22,10 +22,22 @@ type GuideTurn = components["schemas"]["GuideTurnResponse"];
 type GuideAction = components["schemas"]["GuideAction"];
 type EvidenceStatus = components["schemas"]["EvidenceStatus"];
 type ProductRole = "current" | "alternative";
+type RevisionBaseline = {
+  sessionId: string;
+  guideRevision: number;
+  conversationRevision: number;
+};
 type SyncExpectation =
-  | { kind: "comparison-unknown"; sessionId: string }
-  | { kind: "state-conflict"; sessionId: string }
+  | ({ kind: "message-unknown" } & RevisionBaseline)
+  | ({ kind: "comparison-unknown" } & RevisionBaseline)
+  | ({ kind: "state-conflict" } & RevisionBaseline)
   | null;
+type RestorableSubview = {
+  kind: "alternatives";
+  sessionId: string;
+  contextId: string;
+  messageId: string;
+};
 
 const GUIDE_SESSION_LOCATOR_PREFIX = "ai-shopping-guide-session:";
 
@@ -183,11 +195,12 @@ export function GuideSheet({
   const [comparisonPending, setComparisonPending] = useState(false);
   const [comparisonError, setComparisonError] = useState<string | null>(null);
   const [pendingUserText, setPendingUserText] = useState<string | null>(null);
-  const [alternativesExpanded, setAlternativesExpanded] = useState(false);
+  const [restorableSubview, setRestorableSubview] =
+    useState<RestorableSubview | null>(null);
   const [guideFrozen, setGuideFrozen] = useState(false);
   const [syncRequired, setSyncRequired] = useState(false);
   const [syncExpectationKind, setSyncExpectationKind] = useState<
-    "comparison-unknown" | "state-conflict" | null
+    "message-unknown" | "comparison-unknown" | "state-conflict" | null
   >(null);
   const [activeContextId, setActiveContextId] = useState(contentContextId);
   const [lastUsableTurn, setLastUsableTurn] = useState<GuideTurn | null>(null);
@@ -246,7 +259,7 @@ export function GuideSheet({
       resetComparison();
       setTurn(terminalTurn ?? null);
       setPendingUserText(null);
-      setAlternativesExpanded(false);
+      setRestorableSubview(null);
       setPendingLabel(null);
       setTransientError(null);
       setFatalError(terminalTurn ? null : message);
@@ -277,15 +290,33 @@ export function GuideSheet({
         );
         return;
       }
+      const minimumGuideRevision =
+        previous?.guide_revision ?? expectation?.guideRevision;
+      const minimumConversationRevision =
+        previous?.conversation_revision ?? expectation?.conversationRevision;
       if (
-        expectation?.kind === "state-conflict" &&
-        previous &&
-        nextTurn.guide_revision < previous.guide_revision
+        (minimumGuideRevision !== undefined &&
+          nextTurn.guide_revision < minimumGuideRevision) ||
+        (minimumConversationRevision !== undefined &&
+          nextTurn.conversation_revision < minimumConversationRevision)
       ) {
         freezeGuide(true);
         requireSync(true, expectation);
         setTransientError(
           "服务端快照版本早于上次已核验结果；旧结果仅供查看，请重新同步。",
+        );
+        return;
+      }
+      if (
+        expectation &&
+        (expectation.kind === "message-unknown" ||
+          expectation.kind === "comparison-unknown") &&
+        nextTurn.conversation_revision <= expectation.conversationRevision
+      ) {
+        freezeGuide(true);
+        requireSync(true, expectation);
+        setTransientError(
+          "服务端会话版本尚未前进；上次已核验结果仅供查看，请重新同步。",
         );
         return;
       }
@@ -320,9 +351,16 @@ export function GuideSheet({
       comparisonPendingRef.current = false;
       setTurn(nextTurn);
       setPendingUserText(null);
-      if (nextTurn.guide_view_kind === "SAFE_BOUNDARY") {
-        setAlternativesExpanded(false);
-      }
+      const nextMessageId = nextTurn.transcript?.at(-1)?.id;
+      setRestorableSubview((current) =>
+        current &&
+        nextTurn.guide_view_kind !== "SAFE_BOUNDARY" &&
+        current.sessionId === nextTurn.session_id &&
+        current.contextId === nextTurn.context.id &&
+        current.messageId === nextMessageId
+          ? current
+          : null,
+      );
       setComparisonPending(false);
       freezeGuide(false);
       requireSync(false, null);
@@ -378,7 +416,7 @@ export function GuideSheet({
     sessionIdRef.current = null;
     setTurn(null);
     setPendingUserText(null);
-    setAlternativesExpanded(false);
+    setRestorableSubview(null);
     latestScrollTopRef.current = 0;
     openCycleRef.current = false;
     requestVersionRef.current += 1;
@@ -445,6 +483,7 @@ export function GuideSheet({
       onVerifiedTurnChange?.(null);
       setLastUsableTurn(null);
       setTurn(null);
+      setRestorableSubview(null);
       requireSync(false, null);
       resetComparison();
       createdNewSession = true;
@@ -584,10 +623,16 @@ export function GuideSheet({
       submittingRef.current = true;
       freezeGuide(true);
       resetComparison();
-      setAlternativesExpanded(false);
+      setRestorableSubview(null);
       setPendingUserText(text);
       setTransientError(null);
-      requireSync(false, null);
+      const messageExpectation = {
+        kind: "message-unknown",
+        sessionId: currentTurn.session_id,
+        guideRevision: currentTurn.guide_revision,
+        conversationRevision: currentTurn.conversation_revision,
+      } as const;
+      requireSync(false, messageExpectation);
       setPendingLabel("正在核验商品事实与视频说法…");
       const requestVersion = ++requestVersionRef.current;
       const messageId = createClientRequestId("msg", currentTurn.session_id);
@@ -746,11 +791,14 @@ export function GuideSheet({
     comparisonPendingRef.current = true;
     setComparisonPending(true);
     setComparisonError(null);
+    setRestorableSubview(null);
     freezeGuide(true);
     const sessionId = currentTurn.session_id;
     const comparisonExpectation = {
       kind: "comparison-unknown",
       sessionId,
+      guideRevision: currentTurn.guide_revision,
+      conversationRevision: currentTurn.conversation_revision,
     } as const;
     requireSync(false, comparisonExpectation);
     const version = ++comparisonVersionRef.current;
@@ -823,6 +871,8 @@ export function GuideSheet({
             syncExpectationRef.current = {
               kind: "state-conflict",
               sessionId,
+              guideRevision: currentTurn.guide_revision,
+              conversationRevision: currentTurn.conversation_revision,
             };
           }
           if (!isCurrentComparison()) {
@@ -920,6 +970,7 @@ export function GuideSheet({
       onVerifiedTurnChange?.(null);
       setLastUsableTurn(null);
       setTurn(null);
+      setRestorableSubview(null);
       requireSync(false, null);
       resetComparison();
       try {
@@ -992,6 +1043,7 @@ export function GuideSheet({
     freezeGuide(true);
     requireSync(false, null);
     resetComparison();
+    setRestorableSubview(null);
     sessionIdRef.current = null;
     clearSessionLocator(contentContextId);
     verifiedTurnRef.current = null;
@@ -1054,11 +1106,19 @@ export function GuideSheet({
     turn?.guide_view_kind === "COMPARISON_READY" ||
     (turn?.guide_view_kind === "RECOVERY_REQUIRED" &&
       lastUsableTurn?.guide_view_kind === "COMPARISON_READY");
+  const activeAlternativesSubview =
+    restorableSubview &&
+    turn &&
+    restorableSubview.sessionId === turn.session_id &&
+    restorableSubview.contextId === turn.context.id &&
+    restorableSubview.messageId === turn.transcript?.at(-1)?.id
+      ? restorableSubview
+      : null;
   const mode =
     comparisonPending ||
     comparisonExpected ||
     showingComparison ||
-    alternativesExpanded
+    activeAlternativesSubview
       ? "expanded"
       : "compact";
   const statusText = comparisonPending
@@ -1151,6 +1211,14 @@ export function GuideSheet({
             statusText={statusText}
             errorText={errorText}
             initialScrollTop={initialScrollTop}
+            initialSubview={
+              activeAlternativesSubview
+                ? {
+                    kind: "alternatives",
+                    messageId: activeAlternativesSubview.messageId,
+                  }
+                : null
+            }
             onScrollTopChange={(scrollTop) => {
               latestScrollTopRef.current = scrollTop;
               onScrollTopChange?.(scrollTop);
@@ -1160,7 +1228,18 @@ export function GuideSheet({
             onOpenProduct={canOpenProduct ? openProduct : undefined}
             onCompare={canCompare ? handleCompareProducts : undefined}
             onSubviewChange={(kind) => {
-              setAlternativesExpanded(kind === "alternatives");
+              const currentTurn = verifiedTurnRef.current;
+              const messageId = currentTurn?.transcript?.at(-1)?.id;
+              setRestorableSubview(
+                kind === "alternatives" && currentTurn && messageId
+                  ? {
+                      kind,
+                      sessionId: currentTurn.session_id,
+                      contextId: currentTurn.context.id,
+                      messageId,
+                    }
+                  : null,
+              );
             }}
             onClose={handleClose}
           />

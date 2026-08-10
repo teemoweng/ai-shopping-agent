@@ -374,33 +374,6 @@ a:focus-visible {
   }
 }
 
-.guideHeader {
-  position: relative;
-  min-height: 78px;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 12px;
-  padding: 21px 18px 13px;
-  border-bottom: 1px solid #ffffff12;
-}
-
-.sheetHandle {
-  position: absolute;
-  top: 8px;
-  left: 50%;
-  width: 42px;
-  height: 4px;
-  border-radius: 999px;
-  background: #ffffff38;
-  transform: translateX(-50%);
-}
-
-.guideHeader div {
-  min-width: 0;
-}
-
-.guideHeader div > span,
 .sectionHeading > span,
 .decisionPrompt > span,
 .errorPanel > span,
@@ -414,37 +387,6 @@ a:focus-visible {
   font-weight: 720;
   letter-spacing: 0.07em;
   text-transform: uppercase;
-}
-
-.guideHeader h1 {
-  margin: 2px 0 0;
-  font-size: 18px;
-  font-weight: 760;
-  letter-spacing: -0.02em;
-}
-
-.guideClose {
-  width: 38px;
-  height: 38px;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  color: var(--ink);
-  border: 1px solid #ffffff1c;
-  border-radius: 50%;
-  background: var(--panel-2);
-  font-size: 24px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.guideBody {
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 14px 14px 22px;
-  scrollbar-color: #ffffff2b transparent;
-  scrollbar-width: thin;
 }
 
 .contextStrip {
@@ -503,15 +445,6 @@ a:focus-visible {
   background: var(--panel-2);
 }
 
-.statusPulse {
-  width: 9px;
-  height: 9px;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: var(--aqua);
-  box-shadow: 0 0 0 5px #35e0d018;
-}
-
 .openingState p,
 .decisionPrompt p,
 .errorPanel p {
@@ -534,9 +467,6 @@ a:focus-visible {
   line-height: 1.35;
 }
 
-.claimsLedger,
-.guideComposer,
-.recommendationSection,
 .evidencePanel,
 .comparisonPanel,
 .cartConfirmation,
@@ -558,82 +488,6 @@ a:focus-visible {
   font-size: 13px;
   font-weight: 760;
   letter-spacing: 0.01em;
-}
-
-.claimList {
-  overflow: hidden;
-  border: 1px solid #ffffff14;
-  border-radius: 14px;
-  background: #0f1115;
-}
-
-.claimRecord {
-  --claim-color: var(--muted);
-  display: grid;
-  grid-template-columns: 8px minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 8px;
-  padding: 11px;
-}
-
-.claimRecord + .claimRecord {
-  border-top: 1px solid #ffffff0d;
-}
-
-.claimRecord[data-status="SUPPORTED"] {
-  --claim-color: var(--aqua);
-}
-
-.claimRecord[data-status="CONFLICTING"] {
-  --claim-color: var(--coral);
-}
-
-.claimRecord[data-status="INSUFFICIENT_EVIDENCE"] {
-  --claim-color: #d7a75b;
-}
-
-.claimRecord[data-status="SUBJECTIVE_MIXED"] {
-  --claim-color: #a995ed;
-}
-
-.claimMarker {
-  width: 7px;
-  height: 7px;
-  margin-top: 3px;
-  border: 1px solid var(--claim-color);
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--claim-color) 48%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--claim-color) 12%, transparent);
-}
-
-.claimRecord[data-status="CONFLICTING"] .claimMarker {
-  border-radius: 1px;
-  transform: rotate(45deg);
-}
-
-.claimRecord[data-status="INSUFFICIENT_EVIDENCE"] .claimMarker {
-  background: transparent;
-  box-shadow: none;
-}
-
-.claimRecord[data-status="SUBJECTIVE_MIXED"] .claimMarker {
-  border-style: dashed;
-  background: linear-gradient(90deg, var(--claim-color) 50%, transparent 50%);
-}
-
-.claimRecord p {
-  margin: 0;
-  color: #e2e3e1;
-  font-size: 11px;
-  line-height: 1.4;
-}
-
-.claimRecord strong {
-  max-width: 112px;
-  color: var(--claim-color);
-  font-size: 9px;
-  line-height: 1.35;
-  text-align: right;
 }
 
 .quickReplies {
@@ -664,36 +518,18 @@ a:focus-visible {
   border-color: #35e0d069;
 }
 
-.guideComposer {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: 8px;
-  padding: 11px;
-  border: 1px solid #ffffff14;
-  border-radius: 14px;
-  background: var(--panel-2);
-}
-
-.guideComposer .quickReplies {
-  grid-column: 1 / -1;
-}
-
-.guideComposer label,
 .openingInput {
   min-width: 0;
   display: grid;
   gap: 6px;
 }
 
-.guideComposer label > span,
 .openingInput > span {
   color: var(--muted);
   font-size: 10px;
   font-weight: 680;
 }
 
-.guideComposer input,
 .openingInput input,
 .recommendationControls select {
   width: 100%;
@@ -708,24 +544,6 @@ a:focus-visible {
   font-size: 11px;
 }
 
-.guideComposer input::placeholder {
-  color: #7f828a;
-}
-
-.guideComposer > button {
-  min-height: 40px;
-  padding: 0 13px;
-  color: white;
-  border: 0;
-  border-radius: 9px;
-  background: var(--coral);
-  font-size: 11px;
-  font-weight: 760;
-  cursor: pointer;
-}
-
-.guideComposer button:disabled,
-.guideComposer input:disabled,
 .openingInput input:disabled {
   opacity: 0.48;
   cursor: not-allowed;
@@ -767,11 +585,6 @@ a:focus-visible {
   border-color: #a995ed47;
   border-left-color: #a995ed;
   background: #a995ed0a;
-}
-
-.recommendationGrid {
-  display: grid;
-  gap: 10px;
 }
 
 .recommendationCard {
@@ -924,14 +737,6 @@ a:focus-visible {
   font-size: 9px;
 }
 
-.decisionActions {
-  display: grid;
-  grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
-  gap: 8px;
-  margin-top: 11px;
-}
-
-.decisionActions button,
 .confirmSimulatedButton,
 .transactionError button {
   min-height: 42px;
@@ -945,12 +750,6 @@ a:focus-visible {
   cursor: pointer;
 }
 
-.decisionActions button:last-child {
-  border-color: #35e0d04a;
-  background: #35e0d00c;
-}
-
-.decisionActions button:disabled,
 .confirmSimulatedButton:disabled,
 .transactionError button:disabled {
   opacity: 0.45;
@@ -1301,27 +1100,6 @@ a:focus-visible {
   font-size: 9px;
 }
 
-.sheetFooter {
-  display: grid;
-  gap: 3px;
-  padding: 10px 16px max(10px, env(safe-area-inset-bottom));
-  border-top: 1px solid #ffffff10;
-  background: #111318;
-  text-align: center;
-}
-
-.sheetFooter span {
-  color: var(--muted);
-  font-size: 8px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.sheetFooter strong {
-  font-size: 9px;
-  font-weight: 650;
-}
-
 @media (max-width: 520px) {
   .interviewStage {
     padding: 0;
@@ -1376,11 +1154,6 @@ a:focus-visible {
     min-height: 0;
   }
 
-  .guideHeader {
-    min-height: 64px;
-    padding-top: 18px;
-    padding-bottom: 9px;
-  }
 }
 
 @media (orientation: landscape) and (max-width: 960px) and (max-height: 520px) and (pointer: coarse) {
@@ -1418,16 +1191,6 @@ a:focus-visible {
   .askAiButton {
     padding: 0 13px;
     font-size: 13px;
-  }
-
-  .claimRecord {
-    grid-template-columns: 8px minmax(0, 1fr);
-  }
-
-  .claimRecord strong {
-    grid-column: 2;
-    max-width: none;
-    text-align: left;
   }
 
   .decisionColumns {
@@ -2195,196 +1958,7 @@ a:focus-visible {
     linear-gradient(180deg, #17191e 0%, #111318 100%);
 }
 
-.guideHeader {
-  min-height: 68px;
-  padding: 19px 16px 10px;
-}
-
-.guideBody {
-  padding: 12px 14px 24px;
-}
-
-.guideContextCard {
-  display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  min-height: 64px;
-  padding: 8px;
-  border: 1px solid #ffffff15;
-  border-radius: 14px;
-  background: #0c0e12;
-}
-
-.guideContextThumb {
-  width: 48px;
-  height: 48px;
-  display: grid;
-  place-items: center;
-  color: #111318;
-  border-radius: 10px;
-  background:
-    radial-gradient(circle at 31% 29%, #fff 0 8%, transparent 9%),
-    linear-gradient(145deg, #f7edd8, #aee9de 58%, #7ccabb);
-  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-}
-
-.guideContextCopy {
-  min-width: 0;
-  display: grid;
-  gap: 2px;
-}
-
-.guideContextCopy > span,
-.guideStatePanel > span,
-.guideStartingQuestions > span,
-.clarificationView > span,
-.decisionVerdict > span {
-  color: #8f929a;
-  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
-  font-size: 9px;
-  font-weight: 750;
-  letter-spacing: 0.05em;
-}
-
-.guideContextCopy strong {
-  overflow: hidden;
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.guideContextCopy small {
-  overflow: hidden;
-  color: #a5a7ad;
-  font-size: 9px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.contextInheritedBadge {
-  padding: 4px 6px;
-  color: #25f4ee;
-  border: 1px solid #25f4ee42;
-  border-radius: 999px;
-  font-size: 8px;
-  font-weight: 800;
-}
-
-.guideConceptDisclosure {
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-  margin-top: 9px;
-  padding: 8px 9px;
-  color: #d5d6d8;
-  border: 1px solid #25f4ee21;
-  border-radius: 10px;
-  background: #25f4ee08;
-}
-
-.guideConceptDisclosure > span {
-  width: 28px;
-  height: 28px;
-  display: grid;
-  place-items: center;
-  color: #08100f;
-  border-radius: 8px;
-  background: #25f4ee;
-  font-size: 9px;
-  font-weight: 900;
-}
-
-.guideConceptDisclosure p {
-  display: grid;
-  gap: 1px;
-  margin: 0;
-}
-
-.guideConceptDisclosure strong {
-  font-size: 10px;
-}
-
-.guideConceptDisclosure small {
-  color: #91949b;
-  font-size: 8px;
-}
-
-.guideProgress,
-.guideInlineError {
-  margin-top: 10px;
-  padding: 10px 11px;
-  border-radius: 10px;
-  font-size: 10px;
-  line-height: 1.45;
-}
-
-.guideProgress {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  color: #dfe0e2;
-  border: 1px solid #25f4ee26;
-  background: #25f4ee08;
-}
-
-.guideInlineError {
-  color: #f1d49d;
-  border: 1px solid #d7a75b45;
-  border-left: 3px solid #d7a75b;
-  background: #d7a75b0b;
-}
-
-.guideStatePanel,
-.guideStartingQuestions,
-.clarificationView,
-.decisionVerdict {
-  margin-top: 14px;
-  padding: 14px;
-  border: 1px solid #ffffff14;
-  border-radius: 15px;
-  background: #202329;
-}
-
-.guideStatePanel h2,
-.guideStartingQuestions h2,
-.clarificationView h2,
-.decisionVerdict h2 {
-  margin: 4px 0 7px;
-  font-size: 17px;
-  letter-spacing: -0.02em;
-  line-height: 1.3;
-}
-
-.guideStatePanel p,
-.decisionVerdict p {
-  margin: 0;
-  color: #c5c7cb;
-  font-size: 11px;
-  line-height: 1.55;
-}
-
-.guideStatePanel-warning {
-  border-color: #d7a75b42;
-  background: #d7a75b09;
-}
-
-.guideStatePanel-safety {
-  border-color: #a995ed45;
-  background: #a995ed09;
-}
-
-.guideStatePanel-neutral {
-  border-color: #25f4ee26;
-  background: #25f4ee07;
-}
-
 .primaryDecisionButton,
-.secondaryDecisionButton,
 .openProductButton,
 .comparisonProductActions button {
   min-height: 42px;
@@ -2403,102 +1977,6 @@ a:focus-visible {
   margin-top: 11px;
 }
 
-.guideStartingQuestions > div {
-  display: grid;
-  gap: 7px;
-}
-
-.guideStartingQuestions button {
-  min-height: 44px;
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-  padding: 0 12px;
-  color: #f7f7f8;
-  border: 1px solid #ffffff18;
-  border-radius: 11px;
-  background: #111318;
-  font-size: 11px;
-  font-weight: 690;
-  text-align: left;
-  cursor: pointer;
-}
-
-.guideStartingQuestions button > span {
-  width: 24px;
-  height: 24px;
-  display: grid;
-  place-items: center;
-  color: #25f4ee;
-  border: 1px solid #25f4ee38;
-  border-radius: 50%;
-  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
-  font-size: 9px;
-}
-
-.guideStartingQuestions button:disabled {
-  opacity: 0.45;
-}
-
-.clarificationChoices {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 7px;
-}
-
-.clarificationChoices button {
-  min-height: 42px;
-  color: #f7f7f8;
-  border: 1px solid #ffffff1b;
-  border-radius: 10px;
-  background: #111318;
-  font-size: 10px;
-  font-weight: 730;
-  cursor: pointer;
-}
-
-.clarificationChoices button:last-child {
-  color: #b6b8be;
-  border-style: dashed;
-}
-
-.clarificationView > small {
-  display: block;
-  margin-top: 8px;
-  color: #8f9299;
-  font-size: 8px;
-  line-height: 1.45;
-}
-
-.guideComposer {
-  margin-top: 10px;
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-
-.guideComposer input {
-  font-size: 10px;
-}
-
-.decisionVerdict[data-verdict="SUITABLE"] {
-  border-left: 3px solid #25f4ee;
-}
-
-.decisionVerdict[data-verdict="CONDITIONAL"] {
-  border-left: 3px solid #d7a75b;
-}
-
-.decisionVerdict[data-verdict="NOT_RECOMMENDED"] {
-  border-left: 3px solid #ff2d55;
-}
-
-.decisionVerdict small {
-  display: block;
-  margin-top: 8px;
-  color: #8f9299;
-  font-size: 8px;
-}
-
 .candidateRole {
   color: #aeb0b5;
   font-size: 9px;
@@ -2515,60 +1993,51 @@ a:focus-visible {
   margin-top: 10px;
 }
 
-.recommendationEvidence details,
-.evidenceDisclosure {
+.recommendationEvidence details {
   padding: 8px 9px;
   border: 1px solid #ffffff12;
   border-radius: 9px;
   background: #101216;
 }
 
-.recommendationEvidence summary,
-.evidenceDisclosure summary {
+.recommendationEvidence summary {
   color: #dfe0e1;
   font-size: 9px;
   line-height: 1.4;
   cursor: pointer;
 }
 
-.recommendationEvidence summary span,
-.evidenceDisclosure summary span {
+.recommendationEvidence summary span {
   margin-right: 7px;
   color: #25f4ee;
   font-weight: 780;
 }
 
-.recommendationEvidence details[data-status="CONFLICTING"] summary span,
-.evidenceDisclosure[data-status="CONFLICTING"] summary span {
+.recommendationEvidence details[data-status="CONFLICTING"] summary span {
   color: #ff718e;
 }
 
-.recommendationEvidence details[data-status="INSUFFICIENT_EVIDENCE"] summary span,
-.evidenceDisclosure[data-status="INSUFFICIENT_EVIDENCE"] summary span {
+.recommendationEvidence details[data-status="INSUFFICIENT_EVIDENCE"] summary span {
   color: #d7a75b;
 }
 
-.recommendationEvidence details[data-status="SUBJECTIVE_MIXED"] summary span,
-.evidenceDisclosure[data-status="SUBJECTIVE_MIXED"] summary span {
+.recommendationEvidence details[data-status="SUBJECTIVE_MIXED"] summary span {
   color: #b6a9f1;
 }
 
-.recommendationEvidence p,
-.evidenceDisclosure p {
+.recommendationEvidence p {
   margin: 7px 0 4px;
   color: #b7b9be;
   font-size: 9px;
   line-height: 1.5;
 }
 
-.recommendationEvidence a,
-.evidenceDisclosure a {
+.recommendationEvidence a {
   color: #25f4ee;
   font-size: 9px;
 }
 
 .recommendationEvidence small,
-.evidenceDisclosure small,
 .recommendationEvidenceEmpty {
   color: #8f9299;
   font-size: 8px;
@@ -2596,35 +2065,6 @@ a:focus-visible {
 .openProductButton {
   flex: 1 1 auto;
   background: #ff2d55;
-}
-
-.decisionActions {
-  grid-template-columns: 1fr;
-}
-
-.decisionActions button {
-  min-height: 44px;
-  border-color: #25f4ee40;
-  background: #25f4ee0d;
-}
-
-.claimRecord {
-  grid-template-columns: 8px minmax(0, 1fr) auto;
-}
-
-.claimRecord > div {
-  min-width: 0;
-}
-
-.claimRecord > div > small {
-  display: block;
-  margin-top: 5px;
-  color: #858890;
-  font-size: 8px;
-}
-
-.claimRecord .evidenceDisclosure {
-  margin-top: 7px;
 }
 
 .comparisonProductActions {
@@ -3439,23 +2879,6 @@ a:focus-visible {
   }
 }
 
-.secondaryDecisionButton {
-  width: 100%;
-  margin-top: 9px;
-  color: #dfe0e2;
-  border: 1px solid #ffffff18;
-  background: #202329;
-}
-
-.insufficientCandidates {
-  margin-top: 10px;
-}
-
-.sheetFooter {
-  min-height: 48px;
-  padding: 8px 14px max(8px, env(safe-area-inset-bottom));
-}
-
 .guideBackdrop {
   width: min(390px, 100%);
   height: min(844px, calc(100dvh - 32px));
@@ -4046,93 +3469,27 @@ svg[data-demo-icon] {
   border-radius: 24px 24px 0 0;
 }
 
-.guideHeader {
-  min-height: 68px;
-  padding-right: max(15px, var(--safe-right));
-  padding-left: max(15px, var(--safe-left));
-}
-
-.guideHeader h1 {
-  font-size: 1.125rem;
-}
-
-.guideHeader div > span,
-.guideContextCopy > span,
-.guideStatePanel > span,
-.guideStartingQuestions > span,
-.clarificationView > span,
-.decisionVerdict > span {
-  font-size: 0.625rem;
-}
-
-.guideClose {
-  flex: 0 0 auto;
-}
-
-.guideBody {
-  min-width: 0;
-  padding-right: max(14px, var(--safe-right));
-  padding-left: max(14px, var(--safe-left));
-  overflow-x: hidden;
-  overflow-y: auto;
-}
-
-.guideContextCopy strong,
-.guideContextCopy small {
-  overflow-wrap: anywhere;
-  white-space: normal;
-}
-
-.guideContextCopy strong {
-  font-size: 0.75rem;
-}
-
-.guideContextCopy small,
-.guideConceptDisclosure small,
-.decisionVerdict small,
 .recommendationEvidence small,
-.evidenceDisclosure small,
 .recommendationEvidenceEmpty,
 .comparisonFreshnessNote {
   font-size: 0.625rem;
 }
 
-.guideConceptDisclosure strong,
-.guideProgress,
-.guideInlineError,
-.clarificationChoices button,
 .primaryDecisionButton,
-.secondaryDecisionButton,
 .openProductButton,
 .comparisonProductActions button {
   font-size: 0.75rem;
 }
 
-.guideStatePanel h2,
-.guideStartingQuestions h2,
-.clarificationView h2,
-.decisionVerdict h2 {
-  font-size: 1.0625rem;
-}
-
-.guideStatePanel p,
-.decisionVerdict p,
-.guideStartingQuestions button,
 .recommendationEvidence summary,
-.evidenceDisclosure summary,
 .recommendationEvidence p,
-.evidenceDisclosure p,
-.recommendationEvidence a,
-.evidenceDisclosure a {
+.recommendationEvidence a {
   overflow-wrap: anywhere;
   font-size: 0.75rem;
   line-height: 1.55;
 }
 
-.guideStartingQuestions button,
-.clarificationChoices button,
 .primaryDecisionButton,
-.secondaryDecisionButton,
 .openProductButton,
 .comparisonProductActions button {
   height: auto;
@@ -4140,16 +3497,6 @@ svg[data-demo-icon] {
   padding-top: 9px;
   padding-bottom: 9px;
   line-height: 1.35;
-}
-
-.sheetFooter {
-  min-width: 0;
-  min-height: 48px;
-  padding-right: max(14px, var(--safe-right));
-  padding-bottom: max(8px, var(--safe-bottom));
-  padding-left: max(14px, var(--safe-left));
-  overflow-wrap: anywhere;
-  font-size: 0.625rem;
 }
 
 .pdpScreen {
@@ -4352,7 +3699,6 @@ svg[data-demo-icon] {
     display: block;
   }
 
-  .clarificationChoices,
   .pdpSkuSelector {
     grid-template-columns: 1fr;
   }

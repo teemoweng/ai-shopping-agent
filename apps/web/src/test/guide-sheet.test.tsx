@@ -697,6 +697,7 @@ it("reconciles a failed message POST before re-enabling the previous business ac
     snapshot.resolve(
       turnFor("DECISION_READY", {
         guide_revision: 3,
+        conversation_revision: 3,
         text: "已从服务端恢复最新的哑光优先结果",
       }),
     ),
@@ -734,6 +735,7 @@ it("keeps the last verified result read-only when reconciliation fails and retri
   api.getGuideSession.mockResolvedValueOnce(
     turnFor("DECISION_READY", {
       guide_revision: 3,
+      conversation_revision: 3,
       text: "重新同步后的最新结果",
     }),
   );
@@ -885,6 +887,7 @@ it("keeps all old business actions inert while a newer Guide turn is pending", a
     pending.resolve(
       turnFor("SAFE_BOUNDARY", {
         guide_revision: 3,
+        conversation_revision: 3,
         text: "已切换到安全边界",
       }),
     ),
@@ -978,6 +981,7 @@ it("adopts a newer authoritative decision after an action state conflict", async
   const onOpenProduct = vi.fn();
   const updatedDecision = turnFor("DECISION_READY", {
     guide_revision: 3,
+    conversation_revision: 2,
     text: "商品状态变化后，已按服务端最新事实重新推荐。",
     recommendations: [recommendations[2], recommendations[3]],
   });
@@ -1049,6 +1053,7 @@ it("adopts an authoritative safety boundary after a comparison state conflict", 
   api.getGuideSession.mockResolvedValueOnce(
     turnFor("SAFE_BOUNDARY", {
       guide_revision: 3,
+      conversation_revision: 2,
       text: "服务端最新状态要求停止商品比较。",
     }),
   );
@@ -1360,6 +1365,7 @@ it("shows the last usable decision read-only in RECOVERY_REQUIRED and starts a s
   api.sendGuideMessage.mockResolvedValueOnce(
     turnFor("RECOVERY_REQUIRED", {
       guide_revision: 3,
+      conversation_revision: 3,
       text: "当前会话需要恢复",
       recommendations: [],
       evidence: [],
@@ -1393,6 +1399,7 @@ it("enters a clear fatal state when recovery creates an invalid new Guide sessio
   api.sendGuideMessage.mockResolvedValueOnce(
     turnFor("RECOVERY_REQUIRED", {
       guide_revision: 3,
+      conversation_revision: 3,
       text: "当前会话需要恢复",
       recommendations: [],
       evidence: [],
@@ -1419,6 +1426,7 @@ it("keeps recovery retry actionable after a temporary new-session failure", asyn
   api.sendGuideMessage.mockResolvedValueOnce(
     turnFor("RECOVERY_REQUIRED", {
       guide_revision: 3,
+      conversation_revision: 3,
       text: "当前会话需要恢复",
       recommendations: [],
       evidence: [],
@@ -1506,6 +1514,7 @@ it("keeps a verified turn frozen after an invalid message reconciliation GET and
     .mockResolvedValueOnce(
       turnFor("DECISION_READY", {
         guide_revision: 3,
+        conversation_revision: 3,
         text: "重新同步后已确认的最新结果",
       }),
     );
@@ -1522,6 +1531,108 @@ it("keeps a verified turn frozen after an invalid message reconciliation GET and
   expect(await screen.findByText("重新同步后已确认的最新结果")).toBeVisible();
   expect(screen.getAllByRole("button", { name: "看商品" })[0]).toBeEnabled();
   expect(api.getGuideSession).toHaveBeenCalledTimes(2);
+});
+
+describe("dual revision monotonicity", () => {
+  it.each([
+    ["guide revision", { guide_revision: 0, conversation_revision: 2 }],
+    ["conversation revision", { guide_revision: 2, conversation_revision: 0 }],
+    ["non-advancing conversation revision", { guide_revision: 2, conversation_revision: 1 }],
+  ] as const)(
+    "keeps the opening frozen when a message POST returns a stale %s",
+    async (_label, revisions) => {
+      api.sendGuideMessage.mockResolvedValueOnce(
+        turnFor("ANSWER_READY", {
+          ...revisions,
+          text: "这个过期 POST 响应不能成为回答。",
+        }),
+      );
+      const user = userEvent.setup();
+      render(<GuideSheet open onClose={vi.fn()} />);
+      await screen.findByRole("button", { name: "会不会泛白？" });
+
+      await user.click(screen.getByRole("button", { name: "会不会泛白？" }));
+
+      expect(await screen.findByRole("button", { name: "重新同步" })).toBeVisible();
+      const log = screen.getByRole("log", { name: "导购对话" });
+      expect(within(log).getAllByRole("article", { name: "AI" })).toHaveLength(1);
+      expect(within(log).getByRole("article", { name: "你" })).toHaveTextContent(
+        "会不会泛白？",
+      );
+      expect(
+        screen.queryByText("这个过期 POST 响应不能成为回答。"),
+      ).not.toBeInTheDocument();
+      expect(screen.getByLabelText("继续提问")).toBeDisabled();
+    },
+  );
+
+  it.each([
+    ["same conversation revision", { guide_revision: 2, conversation_revision: 1 }],
+    ["lower conversation revision", { guide_revision: 2, conversation_revision: 0 }],
+    ["lower guide revision", { guide_revision: 0, conversation_revision: 2 }],
+  ] as const)(
+    "rejects a message canonical GET with %s without inventing an assistant reply",
+    async (_label, revisions) => {
+      api.sendGuideMessage
+        .mockRejectedValueOnce(new TypeError("network lost"))
+        .mockRejectedValueOnce(new TypeError("network lost"));
+      api.getGuideSession.mockResolvedValueOnce(
+        turnFor("ANSWER_READY", {
+          ...revisions,
+          text: "这个过期 canonical GET 不能成为回答。",
+        }),
+      );
+      const user = userEvent.setup();
+      render(<GuideSheet open onClose={vi.fn()} />);
+      await screen.findByRole("button", { name: "会不会泛白？" });
+
+      await user.click(screen.getByRole("button", { name: "会不会泛白？" }));
+
+      expect(await screen.findByRole("button", { name: "重新同步" })).toBeVisible();
+      const log = screen.getByRole("log", { name: "导购对话" });
+      expect(within(log).getAllByRole("article", { name: "AI" })).toHaveLength(1);
+      expect(within(log).getByRole("article", { name: "你" })).toHaveTextContent(
+        "会不会泛白？",
+      );
+      expect(
+        screen.queryByText("这个过期 canonical GET 不能成为回答。"),
+      ).not.toBeInTheDocument();
+      expect(api.sendGuideMessage).toHaveBeenCalledTimes(2);
+      expect(api.getGuideSession).toHaveBeenCalledWith("ses_guide_1");
+    },
+  );
+
+  it.each([
+    ["guide revision", { guide_revision: 1, conversation_revision: 3 }],
+    ["conversation revision", { guide_revision: 3, conversation_revision: 1 }],
+    ["non-advancing conversation revision", { guide_revision: 3, conversation_revision: 2 }],
+  ] as const)(
+    "keeps the recommendation frozen when comparison canonical GET lowers %s",
+    async (_label, revisions) => {
+      api.getGuideSession.mockResolvedValueOnce({
+        ...comparisonReadyTurn,
+        ...revisions,
+        text: "这个过期比较快照不能覆盖推荐。",
+        transcript: [
+          {
+            ...comparisonReadyTurn.transcript![0]!,
+            text: "这个过期比较快照不能覆盖推荐。",
+          },
+        ],
+      });
+      const user = await reachRecommendations();
+
+      await user.click(screen.getByRole("button", { name: "和另一款比比" }));
+
+      expect(await screen.findByRole("button", { name: "重新同步" })).toBeVisible();
+      expect(screen.getByText(recommendationTurn.text)).toBeVisible();
+      expect(screen.queryByRole("table", { name: "商品对比" })).not.toBeInTheDocument();
+      expect(
+        screen.queryByText("这个过期比较快照不能覆盖推荐。"),
+      ).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "和另一款比比" })).toBeDisabled();
+    },
+  );
 });
 
 describe("sheet lifecycle and snapshot continuity", () => {
@@ -1553,6 +1664,7 @@ describe("sheet lifecycle and snapshot continuity", () => {
     api.getGuideSession.mockResolvedValueOnce(
       turnFor("RECOVERY_REQUIRED", {
         guide_revision: 4,
+        conversation_revision: 3,
         text: "比较后的会话需要恢复",
         recommendations: [],
         evidence: [],
@@ -1632,6 +1744,190 @@ describe("sheet lifecycle and snapshot continuity", () => {
         ),
       ).toBeLessThanOrEqual(2);
     });
+  });
+
+  it.each([
+    ["guide revision", { guide_revision: 1, conversation_revision: 2 }],
+    ["conversation revision", { guide_revision: 2, conversation_revision: 1 }],
+  ] as const)(
+    "keeps the last verified turn frozen when an ordinary reopen GET lowers %s",
+    async (_label, revisions) => {
+      const user = userEvent.setup();
+      render(<OpenHarness />);
+      await user.click(screen.getByRole("button", { name: "问 AI" }));
+      await screen.findByRole("button", { name: "会不会泛白？" });
+      await user.click(screen.getByRole("button", { name: "会不会泛白？" }));
+      await screen.findByRole("article", {
+        name: "Seoul Shade Daily Fluid 商品建议",
+      });
+      await user.click(screen.getByRole("button", { name: "关闭导购" }));
+      api.getGuideSession.mockResolvedValueOnce(
+        turnFor("DECISION_READY", {
+          ...revisions,
+          text: "这个过期 reopen 快照不能覆盖当前结果。",
+        }),
+      );
+
+      await user.click(screen.getByRole("button", { name: "问 AI" }));
+
+      expect(await screen.findByRole("button", { name: "重新同步" })).toBeVisible();
+      expect(screen.getByText(recommendationTurn.text)).toBeVisible();
+      expect(
+        screen.queryByText("这个过期 reopen 快照不能覆盖当前结果。"),
+      ).not.toBeInTheDocument();
+      expect(screen.getAllByRole("button", { name: "看商品" })[0]).toBeDisabled();
+    },
+  );
+
+  it("accepts a same-revision reopen replay without freezing the Guide", async () => {
+    const user = userEvent.setup();
+    render(<OpenHarness />);
+    await user.click(screen.getByRole("button", { name: "问 AI" }));
+    await screen.findByRole("button", { name: "会不会泛白？" });
+    await user.click(screen.getByRole("button", { name: "会不会泛白？" }));
+    await screen.findByRole("article", {
+      name: "Seoul Shade Daily Fluid 商品建议",
+    });
+    await user.click(screen.getByRole("button", { name: "关闭导购" }));
+    api.getGuideSession.mockResolvedValueOnce(recommendationTurn);
+
+    await user.click(screen.getByRole("button", { name: "问 AI" }));
+
+    expect(
+      await screen.findByRole("article", {
+        name: "Seoul Shade Daily Fluid 商品建议",
+      }),
+    ).toBeVisible();
+    expect(screen.queryByRole("button", { name: "重新同步" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "看商品" })[0]).toBeEnabled();
+    expect(api.getGuideSession).toHaveBeenCalledWith("ses_guide_1");
+  });
+
+  it("restores alternatives, transcript, session, mode, and scroll after close/reopen", async () => {
+    function AlternativesHarness() {
+      const [open, setOpen] = useState(false);
+      const [scrollTop, setScrollTop] = useState(0);
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            问 AI
+          </button>
+          <GuideSheet
+            open={open}
+            onClose={() => setOpen(false)}
+            initialScrollTop={scrollTop}
+            onScrollTopChange={setScrollTop}
+          />
+        </>
+      );
+    }
+
+    const user = userEvent.setup();
+    render(<AlternativesHarness />);
+    await user.click(screen.getByRole("button", { name: "问 AI" }));
+    await screen.findByRole("button", { name: "会不会泛白？" });
+    await user.click(screen.getByRole("button", { name: "会不会泛白？" }));
+    await screen.findByRole("article", {
+      name: "Seoul Shade Daily Fluid 商品建议",
+    });
+    await user.click(screen.getByRole("button", { name: "看看其他选择" }));
+    const log = screen.getByRole("log", { name: "导购对话" });
+    Object.defineProperty(log, "scrollTop", {
+      configurable: true,
+      writable: true,
+      value: 211,
+    });
+    fireEvent.scroll(log);
+    await user.click(screen.getByRole("button", { name: "关闭导购" }));
+    api.getGuideSession.mockResolvedValueOnce(recommendationTurn);
+
+    await user.click(screen.getByRole("button", { name: "问 AI" }));
+
+    const dialog = screen.getByRole("dialog", { name: "AI 导购（概念）" });
+    expect(await screen.findByRole("region", { name: "其他选择" })).toBeVisible();
+    expect(dialog).toHaveAttribute("data-mode", "expanded");
+    expect(screen.getByText(recommendationTurn.text)).toBeVisible();
+    expect(sessionStorage.getItem("ai-shopping-guide-session:morning-routine-uv-001")).toBe(
+      "ses_guide_1",
+    );
+    expect(api.createGuideSession).toHaveBeenCalledTimes(1);
+    expect(api.getGuideSession).toHaveBeenCalledWith("ses_guide_1");
+    await waitFor(() =>
+      expect(screen.getByRole("log", { name: "导购对话" }).scrollTop).toBe(211),
+    );
+  });
+
+  it("restores alternatives, transcript, session, mode, and scroll after an alternative PDP return", async () => {
+    function AlternativesPdpHarness() {
+      const [open, setOpen] = useState(true);
+      const [pdp, setPdp] = useState<string | null>(null);
+      const [scrollTop, setScrollTop] = useState(0);
+      return (
+        <>
+          {pdp ? (
+            <button
+              type="button"
+              onClick={() => {
+                setPdp(null);
+                setOpen(true);
+              }}
+            >
+              从 {pdp} 返回 AI
+            </button>
+          ) : null}
+          <GuideSheet
+            open={open}
+            onClose={() => setOpen(false)}
+            initialScrollTop={scrollTop}
+            onScrollTopChange={setScrollTop}
+            onOpenProduct={(productId, role) => {
+              setPdp(`${productId}:${role}`);
+              setOpen(false);
+            }}
+          />
+        </>
+      );
+    }
+
+    const user = userEvent.setup();
+    render(<AlternativesPdpHarness />);
+    await screen.findByRole("button", { name: "会不会泛白？" });
+    await user.click(screen.getByRole("button", { name: "会不会泛白？" }));
+    await screen.findByRole("article", {
+      name: "Seoul Shade Daily Fluid 商品建议",
+    });
+    await user.click(screen.getByRole("button", { name: "看看其他选择" }));
+    const log = screen.getByRole("log", { name: "导购对话" });
+    Object.defineProperty(log, "scrollTop", {
+      configurable: true,
+      writable: true,
+      value: 173,
+    });
+    fireEvent.scroll(log);
+    const alternative = screen
+      .getByRole("heading", { name: "Cloud Veil Mineral SPF" })
+      .closest("article");
+    await user.click(within(alternative!).getByRole("button", { name: "看商品" }));
+    api.getGuideSession.mockResolvedValueOnce(recommendationTurn);
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "从 cloud-veil-mineral:alternative 返回 AI",
+      }),
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "AI 导购（概念）" });
+    expect(await screen.findByRole("region", { name: "其他选择" })).toBeVisible();
+    expect(dialog).toHaveAttribute("data-mode", "expanded");
+    expect(screen.getByText(recommendationTurn.text)).toBeVisible();
+    expect(sessionStorage.getItem("ai-shopping-guide-session:morning-routine-uv-001")).toBe(
+      "ses_guide_1",
+    );
+    expect(api.createGuideSession).toHaveBeenCalledTimes(1);
+    expect(api.getGuideSession).toHaveBeenCalledWith("ses_guide_1");
+    await waitFor(() =>
+      expect(screen.getByRole("log", { name: "导购对话" }).scrollTop).toBe(173),
+    );
   });
 
   it("keeps a visible prior snapshot frozen while a reopen refresh is pending", async () => {
@@ -1742,6 +2038,7 @@ describe("sheet lifecycle and snapshot continuity", () => {
     api.getGuideSession.mockResolvedValueOnce(
       turnFor("DECISION_READY", {
         guide_revision: 3,
+        conversation_revision: 2,
         text: "重开后已采用冲突对应的最新服务端决策。",
         recommendations: [recommendations[2], recommendations[3]],
       }),
