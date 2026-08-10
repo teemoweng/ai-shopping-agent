@@ -3003,7 +3003,7 @@ svg[data-demo-icon] {
   width: 100%;
   min-height: 100dvh;
   display: grid;
-  grid-template-columns: var(--demo-phone-width) minmax(360px, 440px);
+  grid-template-columns: var(--demo-phone-width) minmax(320px, 360px);
   grid-template-rows: var(--demo-phone-height);
   place-content: center;
   align-items: stretch;
@@ -3056,6 +3056,8 @@ svg[data-demo-icon] {
   align-items: flex-end;
   overflow: hidden;
   border-radius: 42px;
+  background: #0506083d;
+  backdrop-filter: none;
   transform: none;
 }
 
@@ -3065,7 +3067,7 @@ svg[data-demo-icon] {
   max-height: var(--demo-phone-height);
   align-self: center;
   overflow: auto;
-  padding: 38px 38px 30px;
+  padding: 30px 28px 24px;
   color: #202126;
   border: 1px solid #d6d3cd;
   border-radius: 30px;
@@ -3087,7 +3089,7 @@ svg[data-demo-icon] {
 .interviewPanel h1 {
   margin: 11px 0 12px;
   color: #111216;
-  font-size: clamp(1.8rem, 2.5vw, 2.6rem);
+  font-size: 1.5rem;
   font-weight: 850;
   letter-spacing: -0.055em;
   line-height: 1.05;
@@ -3103,16 +3105,17 @@ svg[data-demo-icon] {
 .interviewCurrentStep {
   display: grid;
   gap: 7px;
-  margin: 28px 0 20px;
-  padding: 18px 20px;
-  color: #fff;
+  margin: 22px 0 18px;
+  padding: 14px 16px;
+  color: #303238;
+  border: 1px solid #dedbd5;
   border-left: 4px solid var(--demo-cyan);
   border-radius: 8px 18px 18px 8px;
-  background: #17191e;
+  background: #f1f0ec;
 }
 
 .interviewCurrentStep > span {
-  color: #a8abb2;
+  color: #74767c;
 }
 
 .interviewCurrentStep strong {

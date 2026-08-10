@@ -154,6 +154,42 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(metrics.body).toBeLessThanOrEqual(metrics.viewport);
 }
 
+function cssColorChannels(value: string) {
+  const channels = value.match(/[\d.]+/g)?.map(Number) ?? [];
+  if (channels.length < 3) {
+    throw new Error(`Expected an rgb/rgba color, received ${value}`);
+  }
+  return {
+    red: channels[0],
+    green: channels[1],
+    blue: channels[2],
+    alpha: channels[3] ?? 1,
+  };
+}
+
+function relativeLuminance(value: string) {
+  const { red, green, blue } = cssColorChannels(value);
+  const linearize = (channel: number) => {
+    const normalized = channel / 255;
+    return normalized <= 0.04045
+      ? normalized / 12.92
+      : ((normalized + 0.055) / 1.055) ** 2.4;
+  };
+  return (
+    0.2126 * linearize(red) +
+    0.7152 * linearize(green) +
+    0.0722 * linearize(blue)
+  );
+}
+
+function contrastRatio(first: string, second: string) {
+  const firstLuminance = relativeLuminance(first);
+  const secondLuminance = relativeLuminance(second);
+  const lighter = Math.max(firstLuminance, secondLuminance);
+  const darker = Math.min(firstLuminance, secondLuminance);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
 async function expectInsideViewport(locator: Locator) {
   await expect(locator).toBeVisible();
   await expect
@@ -247,6 +283,25 @@ test.describe("chat-first mobile journeys", () => {
     await expect(guide.locator(".guideChatDisclosure")).toHaveCount(1);
     const sheet = await expectInsideViewport(guide);
     expect(sheet.y).toBeGreaterThan(0);
+    await expect(page.locator(".feedVideo").first()).toBeVisible();
+  });
+
+  test("light scrim keeps the source video visually legible behind the compact guide", async ({
+    page,
+  }) => {
+    await openGuide(page);
+    const scrim = await page.locator(".guideBackdrop").evaluate((node) => {
+      const style = getComputedStyle(node);
+      return {
+        backgroundColor: style.backgroundColor,
+        backdropFilter: style.backdropFilter,
+      };
+    });
+
+    expect(cssColorChannels(scrim.backgroundColor).alpha).toBeLessThanOrEqual(
+      0.3,
+    );
+    expect(scrim.backdropFilter).toBe("none");
     await expect(page.locator(".feedVideo").first()).toBeVisible();
   });
 
@@ -510,6 +565,24 @@ test("desktop interview mode keeps the live phone path primary", async ({
   expect(sheet!.x).toBeGreaterThanOrEqual(phone!.x);
   expect(sheet!.x + sheet!.width).toBeLessThanOrEqual(phone!.x + phone!.width);
   expect(panelBox!.x).toBeGreaterThan(phone!.x + phone!.width);
+  expect(panelBox!.width).toBeLessThanOrEqual(phone!.width);
+  const hierarchy = await panel.evaluate((node) => {
+    const panelStyle = getComputedStyle(node);
+    const title = node.querySelector("h1");
+    const currentStep = node.querySelector(".interviewCurrentStep");
+    if (!title || !currentStep) {
+      throw new Error("Desktop explanation hierarchy is incomplete");
+    }
+    return {
+      panelBackground: panelStyle.backgroundColor,
+      titleFontSize: Number.parseFloat(getComputedStyle(title).fontSize),
+      currentStepBackground: getComputedStyle(currentStep).backgroundColor,
+    };
+  });
+  expect(hierarchy.titleFontSize).toBeLessThanOrEqual(24);
+  expect(
+    contrastRatio(hierarchy.panelBackground, hierarchy.currentStepBackground),
+  ).toBeLessThanOrEqual(1.5);
   await expect(panel.getByTestId("current-demo-step")).toHaveText(
     "轻量商品对话",
   );

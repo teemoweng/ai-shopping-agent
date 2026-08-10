@@ -84,11 +84,19 @@ async function openGuide(page: Page) {
   const clarification = (await (await clarificationResponse).json()) as {
     guide_view_kind: string;
     conversation_revision: number;
+    allowed_actions: string[];
   };
   expect(clarification.guide_view_kind).toBe("WAITING_CLARIFICATION");
   expect(clarification.conversation_revision).toBe(
     opening.conversation_revision + 1,
   );
+  expect(clarification.allowed_actions).toEqual([
+    "SEND_MESSAGE",
+    "ANSWER_CLARIFICATION",
+    "SKIP_CLARIFICATION",
+    "UPDATE_CONSTRAINTS",
+    "RETURN_TO_FEED",
+  ]);
   await expect(
     guide.getByText("主要是日常通勤，还是户外出汗或玩水？"),
   ).toBeVisible();
@@ -275,7 +283,9 @@ test.describe("required redesigned journeys", () => {
     await normalFeed.scrollIntoViewIfNeeded();
     await expect(normalFeed).toBeInViewport();
     await expect(normalFeed.getByRole("group", { name: "可购物商品" })).toHaveCount(0);
-    await expect(normalFeed.getByRole("button", { name: /查看商品|问 AI/ })).toHaveCount(0);
+    await expect(
+      normalFeed.getByRole("button", { name: /查看商品|问问这款/ }),
+    ).toHaveCount(0);
 
     if (process.env.CAPTURE_TIKTOK_REDESIGN_EVIDENCE === "1") {
       await stabilizeEvidenceFrame(page);
