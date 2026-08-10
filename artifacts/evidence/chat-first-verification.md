@@ -1,10 +1,10 @@
 # Chat-first Lightweight Guide Verification
 
-> Verification captured 2026-08-10 UTC from clean source commit `add3f885fd0f70a979507c3de795bdc2f6bd1e3c`. This is local deterministic evidence over frozen synthetic fixtures. It is not evidence of a real LLM, real users, conversion, business impact, or production reliability.
+> Verification captured 2026-08-10 UTC from clean source commit `46606d36ae1a046f1e0edd601ae0ccbcbd6ce7b9`. This is local deterministic evidence over frozen synthetic fixtures. It is not evidence of a real LLM, real users, conversion, business impact, or production reliability.
 
 ## Release result
 
-The chat-first slice passed the contract, static, production-build, API, Web, browser, Foundation-eval, artifact, and privacy gates below. The fresh Task 9 browser run collected 70 tests: 39 passed, 31 were intentional project/capture routing skips, and 0 failed. The formal Task 8 production-capture run on the same final source tree collected the same 70 tests: 42 passed, 28 routed skips, and 0 failed; the three-test delta is exactly the opted-in screenshot set.
+The chat-first slice passed the contract, static, production-build, API, Web, browser, Foundation-eval, artifact, and privacy gates below. The final Task 9 browser run collected 70 tests: 39 passed, 31 were intentional project/capture routing skips, and 0 failed. The Task 8 Fix Round 3 production-capture run on the same final source tree collected the same 70 tests: 42 passed, 28 routed skips, and 0 failed; the three-test delta is exactly the opted-in screenshot set.
 
 This evidence upgrades only the narrow engineering maturity to **implemented and evaluated on frozen synthetic fixtures in local Chromium**. It does not close Phase 1's real LLM, Hybrid Retrieval, data-expansion, durable persistence, user-research, deployment, or business-result work.
 
@@ -22,21 +22,33 @@ The worktree was clean before the gates. The evidence documents and README/PLAN/
 | Browser determinism | Fixed browser time `2026-08-10T12:00:00Z`; fonts ready; video paused/seeked; motion and caret disabled |
 | Viewports | Mobile 390×844; desktop interview 1440×1000; additional 320×700 at 200% text browser contract |
 
+## Verification history and readiness stabilization
+
+The release history is intentionally retained because a single green browser run did not prove the original keyboard/readiness paths were stable:
+
+1. The first Task 9 full run on `add3f885…` was green at 39 passed / 31 routed skips / 0 failed. A finishing rerun then failed the reduced-motion focus path: 38 passed / 31 skips / 1 failed. An immediate focused rerun failed again. Task 9 stopped instead of retrying for a green sample.
+2. Task 8 traced the failure to a test-side loading-to-final DOM replacement race. A 50-repeat RED sample was 46 passed / 4 failed; after waiting for authoritative HTTP 201 `OPENING_CONTEXT` and final opening UI, the same sample was 50/50. Independent review of Fix Round 2 was CLEAN.
+3. The next Task 9 full refresh on `c5d28ae…` stopped at 37 passed / 31 skips / 2 failed. The 320×700 composer check sampled during loading-to-final replacement, and the responsive desktop-frame path dispatched Escape before the final Guide dialog was authoritative. Task 9 again stopped without rerunning for green.
+4. Task 8 Fix Round 3 moved the shared browser helpers onto authoritative session readiness and final UI/focus commit. The two new failures plus reduced-motion focus passed an interleaved 150/150 stability run; focused Guide/PDP suites were 10/10; full E2E was 39/31/0 and production capture 42/28/0. Independent review was CLEAN.
+5. Task 9 then ran the complete gate exactly once from clean `46606d3…`. Every gate below exited 0, including final full E2E 39/31/0. This final run, not the earlier green sample, is the accepted release evidence.
+
+The fixes changed E2E readiness synchronization, not product authority or UI behavior. The two mobile screenshot hashes remain byte-identical. The desktop capture changed by 24 pixels / 42 color channels of text antialiasing, maximum channel delta 2; two consecutive production captures produced the same new hash, and original-detail review remained CLEAN.
+
 ## Exact release gates
 
 | Gate | Exact command | Observed result | Duration |
 | --- | --- | --- | ---: |
-| Contracts | `pnpm --dir packages/contracts check` | Exit 0; OpenAPI export and TypeScript generation completed; generated diff empty | 1.129 s |
-| API lint | `uv --directory apps/api run ruff check app tests ../../evals` | Exit 0; `All checks passed!` | 0.05 s |
-| Web lint | `pnpm lint:web` | Exit 0; 0 errors / 0 warnings | 2.928 s |
-| Layout foundation | `pnpm check:layout` | Exit 0; `Foundation layout is valid` | 0.090 s |
-| Web production build | `pnpm --dir apps/web build` | Exit 0; compile, TypeScript, and 2 static routes completed | 4.130 s |
-| Generated integrity | `git diff --exit-code -- packages/contracts/openapi.json packages/contracts/src/api.ts` | Exit 0; 0 changed generated files | 0.00 s |
-| API full | `uv --directory apps/api run pytest tests -q` | 318 passed; 0 failed; 0 skipped; 1 upstream warning | 2.74 s |
-| Web full | `pnpm test:web` | 11 files; 280 passed; 0 failed; 0 skipped | 4.50 s |
-| Browser full | `pnpm test:e2e` | 70 collected; 39 passed; 31 routed skips; 0 failed | 32.3 s |
-| Foundation eval tests | `uv --directory apps/api run pytest tests/eval/test_foundation_eval.py -q` | 15 passed; 0 failed; 0 skipped; 1 upstream warning | 0.34 s |
-| Foundation runner | `uv --directory apps/api run python ../../evals/run_foundation.py` | Deterministic rule scorer 6/6; pass rate 1.0; exit 0 | 0.127 s |
+| Contracts | `pnpm --dir packages/contracts check` | Exit 0; OpenAPI export and TypeScript generation completed; generated diff empty | 1.022 s |
+| API lint | `uv --directory apps/api run ruff check app tests ../../evals` | Exit 0; `All checks passed!` | <0.001 s |
+| Web lint | `pnpm lint:web` | Exit 0; 0 errors / 0 warnings | 2.598 s |
+| Layout foundation | `pnpm check:layout` | Exit 0; `Foundation layout is valid` | 0.106 s |
+| Web production build | `pnpm --dir apps/web build` | Exit 0; compile, TypeScript, and 2 static routes completed | 3.991 s |
+| Generated integrity | `git diff --exit-code -- packages/contracts/openapi.json packages/contracts/src/api.ts` | Exit 0; 0 changed generated files | <0.001 s |
+| API full | `uv --directory apps/api run pytest tests -q` | 318 passed; 0 failed; 0 skipped; 1 upstream warning | 2.58 s |
+| Web full | `pnpm test:web` | 11 files; 280 passed; 0 failed; 0 skipped | 4.52 s |
+| Browser full | `pnpm test:e2e` | 70 collected; 39 passed; 31 routed skips; 0 failed | 31.9 s |
+| Foundation eval tests | `uv --directory apps/api run pytest tests/eval/test_foundation_eval.py -q` | 15 passed; 0 failed; 0 skipped; 1 upstream warning | 0.26 s |
+| Foundation runner | `uv --directory apps/api run python ../../evals/run_foundation.py` | Deterministic rule scorer 6/6; pass rate 1.0; exit 0 | 0.136 s |
 
 `pnpm check:layout` is an asset/layout-foundation gate only. It does not prove visual correctness. The visual claim is bounded to browser geometry assertions plus original-detail inspection of the three production screenshots.
 
@@ -87,7 +99,7 @@ The three files are nonempty and match their declared PNG dimensions. SHA-256 pr
 | --- | ---: | ---: | --- | --- |
 | [`chat-first-opening-mobile.png`](../screenshots/chat-first-opening-mobile.png) | 390×844 | 224,297 | `6552ee74ecffca9c967868d38e08fa89488e33cd007e3b194ea79709f441c204` | Partial-height opening, visible creator/video context, three approved prompts, composer not clipped |
 | [`chat-first-decision-mobile.png`](../screenshots/chat-first-decision-mobile.png) | 390×844 | 233,129 | `489e4990c88fe9074901890a3f811dfabf30b6d66c8f0e75325d9281e86ad02b` | One primary recommendation in compact mode, video context retained, no heavy decision board |
-| [`chat-first-desktop.png`](../screenshots/chat-first-desktop.png) | 1440×1000 | 724,474 | `ec507c6dbd6210868786edfdf13e2f959f5c5b2df9016ec4758be65dc5e0666d` | One live phone remains primary; the narrower low-contrast interview panel is secondary |
+| [`chat-first-desktop.png`](../screenshots/chat-first-desktop.png) | 1440×1000 | 724,473 | `ef2cdadf4133ac468f4eb37a1d8c3e20ef88ed7fbcd39c0e3ad01fa74a613e70` | One live phone remains primary; the narrower low-contrast interview panel is secondary |
 
 Historical `foundation-*` and `tiktok-redesign-*` screenshots and counts were not overwritten.
 

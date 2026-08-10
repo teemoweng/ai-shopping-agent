@@ -122,6 +122,7 @@ flowchart TB
 - 条件充分后默认只显示 1 款首选，比较只在用户明确触发后展开；关闭重开与 AI → PDP → AI 均从服务端权威 session 恢复同一 transcript；
 - `conversation_revision` 管消息顺序与恢复，`guide_revision` 只在偏好、约束或推荐授权语义变化时前进；历史 transcript 不授权交易；
 - 新 release gate 实测 318 个 API 测试、280 个 Web 测试、Foundation eval pytest 15/15、规则 runner 6/6；普通 E2E 为 39 passed / 31 intentional routed skips / 0 failed，正式 production capture 为 42 passed / 28 intentional routed skips / 0 failed；
+- Task 9 的两轮 finishing gate 先后暴露 1 条与 2 条 loading → final UI 同步竞态；修复后相关三场景交错重复 150/150、最终完整 E2E 39/31/0，并经独立复审 CLEAN。验证记录保留失败与修复历史，不用一次碰绿冒充稳定性；
 - 这些数字只证明冻结合成 fixture、本地 Chromium 与当前工程契约，不证明真实 LLM 质量、真人理解、转化、成本或生产可靠性。
 
 逐命令耗时、13 条 Chat-first 浏览器契约、8 条保留交易旅程、截图哈希和局限见 [Chat-first 验证记录](./artifacts/evidence/chat-first-verification.md)。

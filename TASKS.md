@@ -53,7 +53,7 @@
 |---|---|---|---|
 | ✅ DONE | 把重型 AI 决策 Sheet 改为保留视频上下文的渐进式会话 | 点击“问问这款”后先看到约 40% 高度的轻量对话层；系统以一句商品相关开场、3 个具体问题和自由输入承接，每轮最多一个澄清问题；结论、商品、比较与依据按需出现；关闭重开和 PDP 往返从服务端恢复同一会话 | [设计规格](./docs/superpowers/specs/2026-08-10-chat-first-lightweight-guide-design.md) · [实施计划](./docs/superpowers/plans/2026-08-10-chat-first-lightweight-guide.md) · [验证记录](./artifacts/evidence/chat-first-verification.md) · [machine manifest](./artifacts/evidence/chat-first-run-manifest.json) · [Chat-first E2E](./apps/web/e2e/chat-first.spec.ts) · [移动开场](./artifacts/screenshots/chat-first-opening-mobile.png) · [移动结论](./artifacts/screenshots/chat-first-decision-mobile.png) · [桌面面试态](./artifacts/screenshots/chat-first-desktop.png) |
 
-本切片在 source commit `add3f885fd0f70a979507c3de795bdc2f6bd1e3c` 的冻结合成 fixture 上验证：API 318、Web 280、Foundation eval pytest 15/15、规则 runner 6/6；普通 E2E 39 passed / 31 intentional routed skips / 0 failed，production capture 42 passed / 28 routed skips / 0 failed。`NavigationState` / `GuideSession` / `CommerceOperation` 三控制面、硬约束先过滤、证据不足降级、安全退出、交易事实复核、显式确认和幂等对账均保留。这里的 `DONE` 不代表真实 LLM、Hybrid RAG、持久化、用户研究或业务结果完成。
+本切片在 source commit `46606d36ae1a046f1e0edd601ae0ccbcbd6ce7b9` 的冻结合成 fixture 上验证：API 318、Web 280、Foundation eval pytest 15/15、规则 runner 6/6；普通 E2E 39 passed / 31 intentional routed skips / 0 failed，production capture 42 passed / 28 routed skips / 0 failed。两轮 finishing gate 暴露的 readiness race 已在 Task 8 中按根因修复：Fix Round 2 从 repeat50 的 46/4 到 50/50，Fix Round 3 三场景交错 150/150，并经独立复审 CLEAN。`NavigationState` / `GuideSession` / `CommerceOperation` 三控制面、硬约束先过滤、证据不足降级、安全退出、交易事实复核、显式确认和幂等对账均保留。这里的 `DONE` 不代表真实 LLM、Hybrid RAG、持久化、用户研究或业务结果完成。
 
 ## Next — Phase 1 扩展（均未开始）
 
