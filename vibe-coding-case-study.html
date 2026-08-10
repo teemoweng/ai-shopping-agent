@@ -1,0 +1,2176 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="AI Shopping Agent Vibe Coding 产品案例：从岗位 JD、产品规划与 PRD，到 Chat-first 交互设计、受控 Agent 架构和原型评测。"
+    />
+    <title>AI Shopping Agent — Vibe Coding 产品案例</title>
+    <style>
+      :root {
+        --paper: #f4f3ee;
+        --paper-deep: #e8e6df;
+        --ink: #101114;
+        --muted: #666a73;
+        --line: #c9c7bf;
+        --white: #fff;
+        --signal: #fe2c55;
+        --signal-soft: #ffdce4;
+        --cyan: #1bcac4;
+        --cyan-soft: #d8f8f5;
+        --night: #181a20;
+        --night-2: #242730;
+        --ok: #177a64;
+        --radius-sm: 10px;
+        --radius-md: 20px;
+        --radius-lg: 34px;
+        --shadow: 0 22px 70px rgba(16, 17, 20, 0.14);
+        --page: min(1180px, calc(100vw - 40px));
+        --display: "Arial Narrow", "Avenir Next Condensed", "PingFang SC", sans-serif;
+        --body: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+        --mono: "SFMono-Regular", "Cascadia Code", "Liberation Mono", monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+        background: var(--paper);
+      }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        background: var(--paper);
+        font-family: var(--body);
+        font-size: 16px;
+        line-height: 1.7;
+        text-rendering: optimizeLegibility;
+      }
+
+      img {
+        display: block;
+        max-width: 100%;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      button,
+      a {
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      :focus-visible {
+        outline: 3px solid var(--cyan);
+        outline-offset: 4px;
+      }
+
+      .skip-link {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        z-index: 100;
+        transform: translateY(-160%);
+        padding: 10px 14px;
+        color: var(--white);
+        background: var(--ink);
+        border-radius: 8px;
+      }
+
+      .skip-link:focus {
+        transform: translateY(0);
+      }
+
+      .reading-progress {
+        position: fixed;
+        inset: 0 0 auto;
+        z-index: 90;
+        height: 3px;
+        background: transparent;
+      }
+
+      .reading-progress > span {
+        display: block;
+        width: 0;
+        height: 100%;
+        background: var(--signal);
+      }
+
+      .site-header {
+        position: sticky;
+        top: 0;
+        z-index: 80;
+        border-bottom: 1px solid rgba(16, 17, 20, 0.16);
+        background: rgba(244, 243, 238, 0.94);
+        backdrop-filter: blur(16px);
+      }
+
+      .header-inner {
+        width: var(--page);
+        min-height: 68px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        text-decoration: none;
+        font-family: var(--mono);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .brand-mark {
+        width: 31px;
+        height: 31px;
+        display: grid;
+        place-items: center;
+        color: var(--white);
+        background: var(--ink);
+        border-radius: 50%;
+        box-shadow: 5px 0 0 var(--cyan), -5px 0 0 var(--signal);
+      }
+
+      .header-nav {
+        display: flex;
+        align-items: center;
+        gap: 22px;
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .header-nav > a:not(.button) {
+        text-decoration: none;
+        color: var(--muted);
+      }
+
+      .header-nav > a:hover,
+      .header-nav > a[aria-current="true"] {
+        color: var(--ink);
+      }
+
+      .button {
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        padding: 0 18px;
+        border: 1px solid var(--ink);
+        border-radius: 999px;
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: 750;
+        transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
+      }
+
+      .button:hover {
+        transform: translateY(-2px);
+      }
+
+      .button.primary {
+        color: var(--white);
+        background: var(--signal);
+        border-color: var(--signal);
+        box-shadow: 0 8px 0 var(--ink);
+      }
+
+      .button.primary:hover {
+        box-shadow: 0 5px 0 var(--ink);
+      }
+
+      .button.secondary {
+        background: var(--white);
+      }
+
+      .button.dark {
+        color: var(--white);
+        background: var(--night);
+        border-color: var(--night);
+      }
+
+      .arrow {
+        font-size: 18px;
+        line-height: 1;
+      }
+
+      .hero {
+        overflow: hidden;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .hero-inner {
+        width: var(--page);
+        min-height: 760px;
+        margin: 0 auto;
+        padding: 76px 0 68px;
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(390px, 0.9fr);
+        align-items: center;
+        gap: clamp(48px, 8vw, 120px);
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+        margin-bottom: 26px;
+        font-family: var(--mono);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow::before {
+        content: "";
+        width: 34px;
+        height: 3px;
+        background: var(--signal);
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      h1 {
+        max-width: 730px;
+        margin-bottom: 28px;
+        font-family: var(--display);
+        font-size: clamp(56px, 7vw, 98px);
+        font-weight: 850;
+        line-height: 0.98;
+        letter-spacing: -0.055em;
+      }
+
+      .hero-highlight {
+        position: relative;
+        display: inline-block;
+        z-index: 0;
+      }
+
+      .hero-highlight::after {
+        content: "";
+        position: absolute;
+        z-index: -1;
+        left: -2px;
+        right: -8px;
+        bottom: 0.04em;
+        height: 0.24em;
+        background: var(--cyan);
+      }
+
+      .hero-lead {
+        max-width: 660px;
+        margin-bottom: 32px;
+        color: #33363d;
+        font-size: clamp(18px, 2vw, 23px);
+        line-height: 1.6;
+      }
+
+      .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 36px;
+      }
+
+      .hero-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        min-height: 34px;
+        padding: 5px 11px;
+        color: #4e5159;
+        background: transparent;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        font-family: var(--mono);
+        font-size: 11px;
+      }
+
+      .hero-visual {
+        position: relative;
+        min-height: 610px;
+        display: grid;
+        place-items: center;
+      }
+
+      .phone-stage {
+        position: relative;
+        width: 312px;
+        padding: 10px;
+        background: var(--ink);
+        border-radius: 46px;
+        box-shadow: var(--shadow);
+        transform: rotate(2.2deg);
+      }
+
+      .phone-stage img {
+        width: 100%;
+        border-radius: 37px;
+      }
+
+      .annotation {
+        position: absolute;
+        z-index: 2;
+        width: 190px;
+        padding: 14px 16px;
+        background: var(--white);
+        border: 1px solid var(--ink);
+        border-radius: var(--radius-sm);
+        box-shadow: 6px 6px 0 var(--ink);
+      }
+
+      .annotation strong,
+      .annotation span {
+        display: block;
+      }
+
+      .annotation strong {
+        margin-bottom: 3px;
+        font-family: var(--mono);
+        font-size: 11px;
+        text-transform: uppercase;
+      }
+
+      .annotation span {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .annotation.one {
+        top: 55px;
+        right: -18px;
+        border-top: 6px solid var(--cyan);
+      }
+
+      .annotation.two {
+        left: -20px;
+        bottom: 70px;
+        border-top: 6px solid var(--signal);
+      }
+
+      .hero-stamp {
+        position: absolute;
+        right: -28px;
+        bottom: 26px;
+        display: grid;
+        place-items: center;
+        width: 102px;
+        height: 102px;
+        color: var(--white);
+        background: var(--night);
+        border: 2px solid var(--white);
+        border-radius: 50%;
+        font-family: var(--mono);
+        font-size: 11px;
+        line-height: 1.35;
+        text-align: center;
+        transform: rotate(-9deg);
+      }
+
+      .manifest-strip {
+        border-bottom: 1px solid var(--line);
+        background: var(--white);
+      }
+
+      .manifest-inner {
+        width: var(--page);
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+      }
+
+      .manifest-item {
+        min-height: 126px;
+        padding: 25px 28px;
+        border-left: 1px solid var(--line);
+      }
+
+      .manifest-item:last-child {
+        border-right: 1px solid var(--line);
+      }
+
+      .manifest-item span,
+      .manifest-item strong {
+        display: block;
+      }
+
+      .manifest-item span {
+        margin-bottom: 8px;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .manifest-item strong {
+        font-family: var(--display);
+        font-size: 28px;
+        line-height: 1.15;
+      }
+
+      .section {
+        padding: 110px 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .section-inner {
+        width: var(--page);
+        margin: 0 auto;
+      }
+
+      .section-heading {
+        display: grid;
+        grid-template-columns: 210px minmax(0, 1fr);
+        gap: 40px;
+        margin-bottom: 68px;
+      }
+
+      .section-index {
+        padding-top: 8px;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h2 {
+        max-width: 880px;
+        margin-bottom: 20px;
+        font-family: var(--display);
+        font-size: clamp(42px, 6vw, 72px);
+        font-weight: 850;
+        line-height: 1.03;
+        letter-spacing: -0.045em;
+      }
+
+      .section-intro {
+        max-width: 800px;
+        color: var(--muted);
+        font-size: 19px;
+      }
+
+      .brief-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 22px;
+      }
+
+      .brief-card {
+        min-height: 310px;
+        padding: 34px;
+        background: var(--white);
+        border: 1px solid var(--line);
+        border-radius: var(--radius-md);
+      }
+
+      .brief-card.dark {
+        color: var(--white);
+        background: var(--night);
+        border-color: var(--night);
+      }
+
+      .card-label {
+        display: inline-flex;
+        margin-bottom: 55px;
+        padding: 5px 8px;
+        color: var(--ink);
+        background: var(--cyan);
+        border-radius: 6px;
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .brief-card h3 {
+        max-width: 490px;
+        margin-bottom: 18px;
+        font-family: var(--display);
+        font-size: 36px;
+        line-height: 1.1;
+        letter-spacing: -0.03em;
+      }
+
+      .brief-card p {
+        color: var(--muted);
+        font-size: 16px;
+      }
+
+      .brief-card.dark p {
+        color: #c4c7cf;
+      }
+
+      .problem-quote {
+        padding: 36px 0 0;
+        font-family: var(--display);
+        font-size: clamp(27px, 3vw, 42px);
+        font-weight: 800;
+        line-height: 1.28;
+      }
+
+      .problem-quote em {
+        color: var(--signal);
+        font-style: normal;
+      }
+
+      .contract-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        border-top: 1px solid var(--ink);
+        border-left: 1px solid var(--ink);
+      }
+
+      .contract-item {
+        min-height: 185px;
+        padding: 25px;
+        background: var(--white);
+        border-right: 1px solid var(--ink);
+        border-bottom: 1px solid var(--ink);
+      }
+
+      .contract-item .number {
+        display: block;
+        margin-bottom: 34px;
+        color: var(--signal);
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      .contract-item strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 18px;
+      }
+
+      .contract-item p {
+        margin-bottom: 0;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .scope-line {
+        margin-top: 28px;
+        padding: 22px 26px;
+        display: flex;
+        align-items: flex-start;
+        gap: 18px;
+        background: var(--signal-soft);
+        border-left: 5px solid var(--signal);
+      }
+
+      .scope-line strong {
+        flex: 0 0 auto;
+      }
+
+      .scope-line p {
+        margin: 0;
+        color: #5e3540;
+      }
+
+      .trace {
+        position: relative;
+        max-width: 1050px;
+        margin-left: auto;
+      }
+
+      .trace::before {
+        content: "";
+        position: absolute;
+        top: 8px;
+        bottom: 8px;
+        left: 115px;
+        width: 2px;
+        background: var(--ink);
+      }
+
+      .trace-step {
+        position: relative;
+        display: grid;
+        grid-template-columns: 116px minmax(0, 1fr);
+        min-height: 250px;
+      }
+
+      .trace-code {
+        padding-top: 4px;
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .trace-code span {
+        display: block;
+        color: var(--muted);
+        font-weight: 500;
+      }
+
+      .trace-content {
+        position: relative;
+        padding: 0 0 70px 58px;
+      }
+
+      .trace-content::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: -7px;
+        width: 13px;
+        height: 13px;
+        background: var(--paper);
+        border: 3px solid var(--signal);
+        border-radius: 50%;
+      }
+
+      .trace-content h3 {
+        margin-bottom: 13px;
+        font-family: var(--display);
+        font-size: 34px;
+        line-height: 1.15;
+        letter-spacing: -0.025em;
+      }
+
+      .trace-content > p {
+        max-width: 720px;
+        color: var(--muted);
+      }
+
+      .decision-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-top: 24px;
+      }
+
+      .decision-chip {
+        padding: 14px;
+        background: var(--white);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        font-size: 13px;
+        line-height: 1.45;
+      }
+
+      .decision-chip b {
+        display: block;
+        margin-bottom: 3px;
+        font-family: var(--mono);
+        font-size: 9px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .decision-chip:nth-child(1) b {
+        color: var(--signal);
+      }
+
+      .decision-chip:nth-child(2) b {
+        color: var(--ok);
+      }
+
+      .decision-chip:nth-child(3) b {
+        color: #6b56ad;
+      }
+
+      .design-grid {
+        display: grid;
+        grid-template-columns: 0.9fr 1.1fr;
+        gap: 24px;
+      }
+
+      .design-card {
+        padding: 32px;
+        background: var(--white);
+        border: 1px solid var(--line);
+        border-radius: var(--radius-md);
+      }
+
+      .design-card.wide {
+        grid-column: 1 / -1;
+      }
+
+      .design-card h3 {
+        margin-bottom: 16px;
+        font-family: var(--display);
+        font-size: 32px;
+        line-height: 1.15;
+      }
+
+      .design-card > p {
+        color: var(--muted);
+      }
+
+      .height-study {
+        margin-top: 28px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+
+      .height-phone {
+        position: relative;
+        min-height: 260px;
+        overflow: hidden;
+        background: #292c35;
+        border: 7px solid var(--ink);
+        border-radius: 26px;
+      }
+
+      .height-phone::before {
+        content: "VIDEO CONTEXT";
+        position: absolute;
+        top: 46px;
+        left: 50%;
+        color: #9da2ad;
+        font-family: var(--mono);
+        font-size: 9px;
+        letter-spacing: 0.1em;
+        transform: translateX(-50%);
+      }
+
+      .height-sheet {
+        position: absolute;
+        inset: auto 0 0;
+        padding: 16px;
+        background: var(--white);
+        border-radius: 20px 20px 0 0;
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 700;
+      }
+
+      .height-sheet.heavy {
+        height: 70%;
+        color: #716f78;
+        background: #dedce1;
+      }
+
+      .height-sheet.light {
+        height: 42%;
+        border-top: 5px solid var(--cyan);
+      }
+
+      .height-caption {
+        margin-top: 8px;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 10px;
+      }
+
+      .principle-list {
+        margin: 28px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .principle-list li {
+        padding: 16px 0;
+        display: grid;
+        grid-template-columns: 30px 1fr;
+        gap: 12px;
+        border-top: 1px solid var(--line);
+      }
+
+      .principle-list li:last-child {
+        border-bottom: 1px solid var(--line);
+      }
+
+      .principle-list b {
+        color: var(--signal);
+        font-family: var(--mono);
+        font-size: 11px;
+      }
+
+      .control-plane {
+        margin-top: 28px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+      }
+
+      .plane {
+        min-height: 190px;
+        padding: 22px;
+        color: var(--white);
+        background: var(--night);
+        border-radius: 14px;
+      }
+
+      .plane:nth-child(2) {
+        background: #323541;
+      }
+
+      .plane:nth-child(3) {
+        color: var(--ink);
+        background: var(--cyan-soft);
+        border: 1px solid var(--cyan);
+      }
+
+      .plane span {
+        display: block;
+        margin-bottom: 24px;
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.08em;
+      }
+
+      .plane strong {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 18px;
+      }
+
+      .plane p {
+        margin: 0;
+        color: #babec9;
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .plane:nth-child(3) p {
+        color: #3c6462;
+      }
+
+      .method {
+        color: var(--white);
+        background: var(--night);
+      }
+
+      .method .section-intro,
+      .method .section-index {
+        color: #aeb2bc;
+      }
+
+      .loop {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        border-top: 1px solid #4b4e58;
+        border-left: 1px solid #4b4e58;
+      }
+
+      .loop-step {
+        min-height: 230px;
+        padding: 25px 20px;
+        border-right: 1px solid #4b4e58;
+        border-bottom: 1px solid #4b4e58;
+      }
+
+      .loop-step span {
+        display: block;
+        margin-bottom: 42px;
+        color: var(--cyan);
+        font-family: var(--mono);
+        font-size: 11px;
+      }
+
+      .loop-step strong {
+        display: block;
+        margin-bottom: 8px;
+        font-family: var(--display);
+        font-size: 26px;
+      }
+
+      .loop-step p {
+        margin: 0;
+        color: #aeb2bc;
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .method-note {
+        margin-top: 26px;
+        padding: 28px;
+        display: grid;
+        grid-template-columns: 0.7fr 1.3fr;
+        gap: 36px;
+        background: var(--signal);
+        border-radius: 16px;
+      }
+
+      .method-note strong {
+        font-family: var(--display);
+        font-size: 32px;
+        line-height: 1.1;
+      }
+
+      .method-note p {
+        margin: 0;
+        color: #fff1f4;
+      }
+
+      .screens {
+        margin-top: 70px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        align-items: end;
+        gap: 24px;
+      }
+
+      .screen-card {
+        padding: 13px;
+        background: #292c34;
+        border: 1px solid #41444e;
+        border-radius: 28px;
+      }
+
+      .screen-card img {
+        width: 100%;
+        border-radius: 19px;
+      }
+
+      .screen-card figcaption {
+        padding: 13px 5px 3px;
+        color: #b9bdc6;
+        font-family: var(--mono);
+        font-size: 10px;
+        line-height: 1.5;
+      }
+
+      .screen-card.desktop {
+        grid-column: span 2;
+      }
+
+      .screen-card.desktop img {
+        aspect-ratio: 1.44 / 1;
+        object-fit: cover;
+      }
+
+      .evaluation-thesis {
+        max-width: 880px;
+        margin: 0 0 62px auto;
+        padding-left: 30px;
+        border-left: 7px solid var(--cyan);
+        font-family: var(--display);
+        font-size: clamp(30px, 4vw, 50px);
+        font-weight: 800;
+        line-height: 1.25;
+        letter-spacing: -0.025em;
+      }
+
+      .eval-layers {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+      }
+
+      .eval-layer {
+        min-height: 280px;
+        padding: 24px;
+        background: var(--white);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+      }
+
+      .eval-layer span {
+        display: inline-flex;
+        margin-bottom: 36px;
+        padding: 4px 7px;
+        background: var(--paper-deep);
+        border-radius: 5px;
+        font-family: var(--mono);
+        font-size: 10px;
+      }
+
+      .eval-layer h3 {
+        font-family: var(--display);
+        font-size: 26px;
+        line-height: 1.1;
+      }
+
+      .eval-layer p {
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .eval-layer strong {
+        color: var(--ok);
+        font-size: 13px;
+      }
+
+      .eval-table-wrap {
+        margin-top: 52px;
+        overflow-x: auto;
+        border: 1px solid var(--ink);
+        border-radius: 14px;
+      }
+
+      .eval-table {
+        width: 100%;
+        min-width: 820px;
+        border-collapse: collapse;
+        background: var(--white);
+      }
+
+      .eval-table th,
+      .eval-table td {
+        padding: 17px 18px;
+        border-right: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+        font-size: 13px;
+      }
+
+      .eval-table th:last-child,
+      .eval-table td:last-child {
+        border-right: 0;
+      }
+
+      .eval-table tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .eval-table th {
+        color: var(--white);
+        background: var(--ink);
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+
+      .result-grid {
+        margin-top: 52px;
+        display: grid;
+        grid-template-columns: 0.8fr 1.2fr;
+        gap: 20px;
+      }
+
+      .result-card {
+        padding: 30px;
+        background: var(--cyan-soft);
+        border: 1px solid var(--cyan);
+        border-radius: var(--radius-md);
+      }
+
+      .result-card.limit {
+        background: var(--signal-soft);
+        border-color: var(--signal);
+      }
+
+      .result-card h3 {
+        margin-bottom: 20px;
+        font-family: var(--display);
+        font-size: 30px;
+      }
+
+      .result-card ul {
+        margin: 0;
+        padding-left: 20px;
+      }
+
+      .result-card li + li {
+        margin-top: 8px;
+      }
+
+      .metric-row {
+        margin-top: 52px;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+      }
+
+      .metric {
+        padding: 22px;
+        background: var(--night);
+        border-radius: 12px;
+      }
+
+      .metric strong,
+      .metric span {
+        display: block;
+      }
+
+      .metric strong {
+        color: var(--white);
+        font-family: var(--display);
+        font-size: 34px;
+        line-height: 1;
+      }
+
+      .metric span {
+        margin-top: 9px;
+        color: #aeb2bc;
+        font-size: 12px;
+      }
+
+      .artifact-links {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+      }
+
+      .artifact-link {
+        min-height: 160px;
+        padding: 23px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        text-decoration: none;
+        background: var(--white);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        transition: border-color 180ms ease, transform 180ms ease;
+      }
+
+      .artifact-link:hover {
+        transform: translateY(-3px);
+        border-color: var(--ink);
+      }
+
+      .artifact-link span {
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 10px;
+        text-transform: uppercase;
+      }
+
+      .artifact-link strong {
+        font-family: var(--display);
+        font-size: 24px;
+        line-height: 1.15;
+      }
+
+      .final-cta {
+        padding: 110px 0;
+        color: var(--white);
+        background: var(--signal);
+      }
+
+      .final-cta-inner {
+        width: var(--page);
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: minmax(0, 1.3fr) minmax(300px, 0.7fr);
+        align-items: end;
+        gap: 70px;
+      }
+
+      .final-cta h2 {
+        max-width: 760px;
+        margin-bottom: 18px;
+        font-size: clamp(50px, 7vw, 92px);
+      }
+
+      .final-cta p {
+        max-width: 680px;
+        margin: 0;
+        color: #fff0f3;
+        font-size: 18px;
+      }
+
+      .cta-box {
+        padding: 24px;
+        color: var(--ink);
+        background: var(--white);
+        border: 2px solid var(--ink);
+        border-radius: 18px;
+        box-shadow: 9px 9px 0 var(--ink);
+      }
+
+      .cta-box .button {
+        width: 100%;
+      }
+
+      .cta-box small {
+        display: block;
+        margin-top: 14px;
+        color: var(--muted);
+        font-size: 11px;
+        text-align: center;
+      }
+
+      footer {
+        padding: 28px 0;
+        color: #b9bdc6;
+        background: var(--night);
+      }
+
+      .footer-inner {
+        width: var(--page);
+        margin: 0 auto;
+        display: flex;
+        justify-content: space-between;
+        gap: 30px;
+        font-family: var(--mono);
+        font-size: 10px;
+      }
+
+      [data-reveal] {
+        opacity: 0;
+        transform: translateY(18px);
+        transition: opacity 520ms ease, transform 520ms ease;
+      }
+
+      [data-reveal].is-visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      @media (max-width: 980px) {
+        .header-nav > a:not(.button) {
+          display: none;
+        }
+
+        .hero-inner {
+          grid-template-columns: 1fr;
+          padding-top: 60px;
+        }
+
+        .hero-copy {
+          max-width: 760px;
+        }
+
+        .hero-visual {
+          min-height: 650px;
+        }
+
+        .manifest-inner,
+        .contract-grid,
+        .eval-layers,
+        .metric-row {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .manifest-item:nth-child(3) {
+          border-top: 1px solid var(--line);
+        }
+
+        .manifest-item:nth-child(4) {
+          border-top: 1px solid var(--line);
+        }
+
+        .section-heading {
+          grid-template-columns: 150px 1fr;
+        }
+
+        .loop {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .loop-step:last-child {
+          grid-column: span 2;
+        }
+
+        .screens {
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .screen-card.desktop {
+          grid-column: 1 / -1;
+        }
+
+        .artifact-links {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+
+      @media (max-width: 700px) {
+        :root {
+          --page: min(100% - 28px, 1180px);
+        }
+
+        .header-inner {
+          min-height: 62px;
+        }
+
+        .brand span:last-child {
+          display: none;
+        }
+
+        .button {
+          padding-inline: 15px;
+        }
+
+        .hero-inner {
+          min-height: auto;
+          padding: 52px 0 44px;
+          gap: 30px;
+        }
+
+        h1 {
+          font-size: clamp(50px, 17vw, 70px);
+        }
+
+        .hero-visual {
+          min-height: 560px;
+          overflow: hidden;
+        }
+
+        .phone-stage {
+          width: 262px;
+        }
+
+        .annotation {
+          width: 156px;
+          padding: 11px 12px;
+        }
+
+        .annotation.one {
+          right: -2px;
+        }
+
+        .annotation.two {
+          left: 0;
+          bottom: 52px;
+        }
+
+        .hero-stamp {
+          right: 0;
+          width: 84px;
+          height: 84px;
+          font-size: 9px;
+        }
+
+        .manifest-inner,
+        .brief-grid,
+        .contract-grid,
+        .design-grid,
+        .control-plane,
+        .eval-layers,
+        .result-grid,
+        .metric-row,
+        .artifact-links,
+        .final-cta-inner {
+          grid-template-columns: 1fr;
+        }
+
+        .manifest-item,
+        .manifest-item:last-child {
+          min-height: 100px;
+          border-right: 1px solid var(--line);
+          border-bottom: 1px solid var(--line);
+        }
+
+        .section {
+          padding: 76px 0;
+        }
+
+        .section-heading {
+          grid-template-columns: 1fr;
+          gap: 12px;
+          margin-bottom: 44px;
+        }
+
+        .brief-card {
+          min-height: 280px;
+          padding: 26px;
+        }
+
+        .card-label {
+          margin-bottom: 40px;
+        }
+
+        .scope-line {
+          display: block;
+        }
+
+        .scope-line strong {
+          display: block;
+          margin-bottom: 8px;
+        }
+
+        .trace::before {
+          left: 19px;
+        }
+
+        .trace-step {
+          grid-template-columns: 40px minmax(0, 1fr);
+          min-height: 0;
+        }
+
+        .trace-code {
+          writing-mode: vertical-rl;
+          font-size: 9px;
+        }
+
+        .trace-code span {
+          display: none;
+        }
+
+        .trace-content {
+          padding: 0 0 55px 28px;
+        }
+
+        .trace-content::before {
+          left: -27px;
+        }
+
+        .decision-row,
+        .height-study {
+          grid-template-columns: 1fr;
+        }
+
+        .decision-row {
+          gap: 8px;
+        }
+
+        .loop {
+          grid-template-columns: 1fr;
+        }
+
+        .loop-step,
+        .loop-step:last-child {
+          grid-column: auto;
+          min-height: 175px;
+        }
+
+        .method-note {
+          grid-template-columns: 1fr;
+          gap: 16px;
+        }
+
+        .screens {
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+        }
+
+        .screen-card {
+          padding: 8px;
+          border-radius: 18px;
+        }
+
+        .screen-card img {
+          border-radius: 12px;
+        }
+
+        .screen-card.desktop {
+          grid-column: 1 / -1;
+        }
+
+        .evaluation-thesis {
+          margin-left: 0;
+        }
+
+        .final-cta {
+          padding: 78px 0 86px;
+        }
+
+        .footer-inner {
+          flex-direction: column;
+          gap: 8px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+
+        [data-reveal] {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      @media print {
+        .site-header,
+        .reading-progress,
+        .hero-actions,
+        .final-cta {
+          display: none;
+        }
+
+        body {
+          background: var(--white);
+        }
+
+        .section {
+          padding: 56px 0;
+          break-inside: avoid;
+        }
+
+        [data-reveal] {
+          opacity: 1;
+          transform: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">跳到正文</a>
+    <div class="reading-progress" aria-hidden="true"><span id="progress"></span></div>
+
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="#top" aria-label="返回页面顶部">
+          <span class="brand-mark">AI</span>
+          <span>Vibe Build Log · 2026</span>
+        </a>
+        <nav class="header-nav" aria-label="案例章节">
+          <a href="#prd">PRD</a>
+          <a href="#design">设计</a>
+          <a href="#build">构建</a>
+          <a href="#evaluation">评测</a>
+          <a class="button primary" href="http://127.0.0.1:3000" target="_blank" rel="noreferrer">
+            打开 Demo <span class="arrow" aria-hidden="true">↗</span>
+          </a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="hero" id="top">
+        <div class="hero-inner">
+          <div class="hero-copy" data-reveal>
+            <div class="eyebrow">AI 产品经理 × Vibe Coding</div>
+            <h1>把一份岗位 JD，做成一个<span class="hero-highlight">能跑、能讲、能被追问</span>的 AI 产品原型。</h1>
+            <p class="hero-lead">
+              这是一个面向美国 K-Beauty 防晒场景的内容电商 AI 导购 Demo。重点不是“我调用了大模型”，而是展示我如何把用户问题、产品边界、AI 能力和交易风险，快速写进一个可验证的交互原型。
+            </p>
+            <div class="hero-actions">
+              <a class="button primary" href="http://127.0.0.1:3000" target="_blank" rel="noreferrer">
+                一键体验可运行 Demo <span class="arrow" aria-hidden="true">↗</span>
+              </a>
+              <a class="button secondary" href="#trace">查看完整构建轨迹</a>
+            </div>
+            <div class="hero-meta" aria-label="项目标签">
+              <span class="tag">ROLE / AI PRODUCT MANAGER</span>
+              <span class="tag">MARKET / US</span>
+              <span class="tag">CATEGORY / K-BEAUTY SPF</span>
+              <span class="tag">STATUS / RUNNABLE PROTOTYPE</span>
+            </div>
+          </div>
+
+          <div class="hero-visual" data-reveal>
+            <div class="phone-stage">
+              <img
+                src="./artifacts/screenshots/chat-first-decision-mobile.png"
+                alt="AI 导购移动端决策界面：视频上方保留内容上下文，下方展示一句结论和一款首选商品"
+                width="390"
+                height="844"
+              />
+            </div>
+            <div class="annotation one" aria-hidden="true">
+              <strong>Attention first</strong>
+              <span>轻量 Sheet 保留视频，不用 AI 报告板抢走注意力。</span>
+            </div>
+            <div class="annotation two" aria-hidden="true">
+              <strong>Decision first</strong>
+              <span>先给一句结论，再按需出现商品、依据和比较。</span>
+            </div>
+            <div class="hero-stamp" aria-hidden="true">FROM JD<br />TO WORKING<br />PROTOTYPE</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="manifest-strip" aria-label="项目摘要">
+        <div class="manifest-inner">
+          <div class="manifest-item">
+            <span>核心入口</span>
+            <strong>短视频内<br />“问问这款”</strong>
+          </div>
+          <div class="manifest-item">
+            <span>设计原则</span>
+            <strong>Chat-first<br />渐进披露</strong>
+          </div>
+          <div class="manifest-item">
+            <span>原型终点</span>
+            <strong>显式确认后<br />模拟加购</strong>
+          </div>
+          <div class="manifest-item">
+            <span>证据边界</span>
+            <strong>合成数据<br />本地 Chromium</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="brief">
+        <div class="section-inner">
+          <div class="section-heading" data-reveal>
+            <div class="section-index">00 / 项目起点</div>
+            <div>
+              <h2>不是先想“做个 Agent”，而是先找到用户在哪一步犹豫。</h2>
+              <p class="section-intro">
+                项目来自 TikTok Shop AI 产品经理岗位。岗位要求把前沿 AI 能力转成可感知的电商价值，同时面对幻觉、延迟和能力边界。我的切入点不是泛化聊天，而是内容种草之后、购买决定之前的那段不确定性。
+              </p>
+            </div>
+          </div>
+
+          <div class="brief-grid">
+            <article class="brief-card dark" data-reveal>
+              <span class="card-label">JOB SIGNAL</span>
+              <h3>“定义 AI 导购新范式，重构人货匹配逻辑。”</h3>
+              <p>
+                我把这句话拆成三个可做成原型的问题：如何继承内容上下文、如何用最少追问补齐购买约束、如何让 AI 建议不越过交易权限。
+              </p>
+            </article>
+            <article class="brief-card" data-reveal>
+              <span class="card-label">USER TENSION</span>
+              <h3>用户已经被种草，但还不敢买。</h3>
+              <p>
+                她真正想知道的不是“这个产品有什么卖点”，而是：适不适合我的肤质和使用场景？会不会泛白？当前款不合适时，有没有更稳妥的替代？
+              </p>
+            </article>
+          </div>
+
+          <p class="problem-quote" data-reveal>
+            产品机会 = 把“看起来不错”变成一个<em>有依据、满足硬约束、可继续交易</em>的决定。
+          </p>
+        </div>
+      </section>
+
+      <section class="section" id="prd">
+        <div class="section-inner">
+          <div class="section-heading" data-reveal>
+            <div class="section-index">01 / PRD</div>
+            <div>
+              <h2>先把范围锁死，原型才不会被“AI 什么都能做”带跑。</h2>
+              <p class="section-intro">
+                PRD 的核心不是堆功能，而是形成一份产品契约：谁在什么上下文里，为了完成什么任务，系统可以做什么、不能做什么，最后以什么动作闭环。
+              </p>
+            </div>
+          </div>
+
+          <div class="contract-grid" data-reveal>
+            <div class="contract-item">
+              <span class="number">01 / MARKET</span>
+              <strong>美国市场</strong>
+              <p>贴合 TikTok Shop 国际电商岗位，不做泛地区演示。</p>
+            </div>
+            <div class="contract-item">
+              <span class="number">02 / CATEGORY</span>
+              <strong>K-Beauty 防晒</strong>
+              <p>SKU 规格清楚，肤质、泛白、防水等约束适合做导购判断。</p>
+            </div>
+            <div class="contract-item">
+              <span class="number">03 / USER</span>
+              <strong>已被内容种草的人</strong>
+              <p>不是从零搜索商品，而是在当前商品上产生适配疑问。</p>
+            </div>
+            <div class="contract-item">
+              <span class="number">04 / ENTRY</span>
+              <strong>可购物短视频</strong>
+              <p>普通内容不出现 AI 或商品动作；有商品上下文才展示入口。</p>
+            </div>
+            <div class="contract-item">
+              <span class="number">05 / CORE TASK</span>
+              <strong>适配 → 替代 → 比较</strong>
+              <p>先回答当前商品，再在必要时推荐替代，不先铺商品矩阵。</p>
+            </div>
+            <div class="contract-item">
+              <span class="number">06 / END STATE</span>
+              <strong>模拟加购成功</strong>
+              <p>用户显式确认后结束；不接真实支付、订单和履约。</p>
+            </div>
+          </div>
+
+          <div class="scope-line" data-reveal>
+            <strong>明确不做</strong>
+            <p>
+              真实 TikTok 接入、真实支付、全美妆、实时直播理解、医疗诊断、商家后台和为了显得复杂而拆出的多 Agent。搜索被定义为未来第二入口，但不塞进首个内容导购纵向切片。
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="trace">
+        <div class="section-inner">
+          <div class="section-heading" data-reveal>
+            <div class="section-index">02 / Build Trace</div>
+            <div>
+              <h2>这个原型不是一次 Prompt 生成的，而是经过五轮产品纠偏。</h2>
+              <p class="section-intro">
+                Vibe Coding 的价值不是第一次就做对，而是把判断快速转成界面，用真实反馈和测试暴露问题，再把新的产品认知写回规格、代码和评测。
+              </p>
+            </div>
+          </div>
+
+          <div class="trace">
+            <article class="trace-step" data-reveal>
+              <div class="trace-code">P0<span>PLAN</span></div>
+              <div class="trace-content">
+                <h3>从岗位 JD 提取项目命题</h3>
+                <p>把“AI 导购”拆成内容上下文、用户约束、推荐解释和交易确认四段，并选择美国防晒作为足够具体的首品类。</p>
+                <div class="decision-row">
+                  <div class="decision-chip"><b>Product question</b>导购到底解决哪一步？</div>
+                  <div class="decision-chip"><b>Decision</b>聚焦种草后的购买犹豫</div>
+                  <div class="decision-chip"><b>Evidence</b>项目总控 / MVP 定义</div>
+                </div>
+              </div>
+            </article>
+
+            <article class="trace-step" data-reveal>
+              <div class="trace-code">P1<span>FOUNDATION</span></div>
+              <div class="trace-content">
+                <h3>先用确定性基线跑通完整链路</h3>
+                <p>用 3 个合成商品、6 个 SKU、结构化事实和规则 Workflow，先证明硬约束、证据、确认和加购边界能被测试，不急着用 LLM 掩盖逻辑缺口。</p>
+                <div class="decision-row">
+                  <div class="decision-chip"><b>Product question</b>AI 最容易在哪里失信？</div>
+                  <div class="decision-chip"><b>Decision</b>价格/库存只读结构化事实</div>
+                  <div class="decision-chip"><b>Evidence</b>六案例规则评测 6/6</div>
+                </div>
+              </div>
+            </article>
+
+            <article class="trace-step" data-reveal>
+              <div class="trace-code">P2<span>REALITY CHECK</span></div>
+              <div class="trace-content">
+                <h3>第一次原型“能跑”，但不像真实内容电商</h3>
+                <p>根据真实 TikTok 界面重新研究 Feed、直播、小红车、商城和商品详情，把 Demo 从普通聊天页改成视频现场里的轻量商品入口、PDP 和 AI Sheet。</p>
+                <div class="decision-row">
+                  <div class="decision-chip"><b>Product question</b>用户此刻注意力在哪里？</div>
+                  <div class="decision-chip"><b>Decision</b>Feed 是主场，AI 是条件式能力</div>
+                  <div class="decision-chip"><b>Evidence</b>8 条交易旅程浏览器回归</div>
+                </div>
+              </div>
+            </article>
+
+            <article class="trace-step" data-reveal>
+              <div class="trace-code">P3<span>CHAT-FIRST</span></div>
+              <div class="trace-content">
+                <h3>第二次纠偏：AI 结果面板仍然太重</h3>
+                <p>把默认 65%–75% 的“决策报告”改为约 40% 的对话层。首屏只留一句开场、3 个具体问题和输入框；每轮最多追问一个高信息量问题。</p>
+                <div class="decision-row">
+                  <div class="decision-chip"><b>Product question</b>多少信息才配占用一屏？</div>
+                  <div class="decision-chip"><b>Decision</b>信息重量随任务渐进增加</div>
+                  <div class="decision-chip"><b>Evidence</b>Chat-first 设计 ADR</div>
+                </div>
+              </div>
+            </article>
+
+            <article class="trace-step" data-reveal>
+              <div class="trace-code">P4<span>REVIEW</span></div>
+              <div class="trace-content">
+                <h3>把“看起来对”升级成“关键边界真的对”</h3>
+                <p>独立审查继续暴露安全态仍有输入框、旧交易接口可绕过当前权限、结论被商品卡挤走、中文取舍重复等问题；每个问题先写失败测试，再改实现和证据。</p>
+                <div class="decision-row">
+                  <div class="decision-chip"><b>Product question</b>失败时用户承担什么风险？</div>
+                  <div class="decision-chip"><b>Decision</b>安全、交易、注意力都写成契约</div>
+                  <div class="decision-chip"><b>Evidence</b>API 324 / Web 281</div>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="design">
+        <div class="section-inner">
+          <div class="section-heading" data-reveal>
+            <div class="section-index">03 / 关键设计</div>
+            <div>
+              <h2>AI 能力不是越多越好，关键是每次出现都符合注意力和权限。</h2>
+              <p class="section-intro">
+                我把核心设计判断集中在三个问题：用户此刻能处理多少信息？什么状态应该继续对话？谁有权把一个建议变成交易动作？
+              </p>
+            </div>
+          </div>
+
+          <div class="design-grid">
+            <article class="design-card" data-reveal>
+              <h3>01 · 注意力预算</h3>
+              <p>短视频用户不是来读 AI 报告的。对话层必须让视频仍然可见，并让问题、回答和商品按任务进度逐步出现。</p>
+              <div class="height-study" aria-label="重型和轻量导购高度对比">
+                <div>
+                  <div class="height-phone"><div class="height-sheet heavy">70% HEAVY RESULT BOARD</div></div>
+                  <div class="height-caption">被否决：结果先于对话</div>
+                </div>
+                <div>
+                  <div class="height-phone"><div class="height-sheet light">42% CHAT-FIRST SHEET</div></div>
+                  <div class="height-caption">采用：保留内容现场</div>
+                </div>
+              </div>
+            </article>
+
+            <article class="design-card" data-reveal>
+              <h3>02 · 渐进披露</h3>
+              <p>每种界面重量对应一种真实任务，而不是为了展示 AI 能力而一次全部展开。</p>
+              <ol class="principle-list">
+                <li><b>A</b><span><strong>普通问题：</strong>直接短答，不检索商品矩阵。</span></li>
+                <li><b>B</b><span><strong>信息不足：</strong>只追问一个最能改变结果的问题。</span></li>
+                <li><b>C</b><span><strong>条件充分：</strong>先给一句结论，再给一款首选和一个取舍。</span></li>
+                <li><b>D</b><span><strong>用户明确比较：</strong>才展开替代项、证据和比较表。</span></li>
+              </ol>
+            </article>
+
+            <article class="design-card wide" data-reveal>
+              <h3>03 · 三个控制面，避免“聊天记录等于交易权限”</h3>
+              <p>产品上看似一个连续体验，系统里却必须分清呈现、推荐和交易。AI 可以提出建议，但永远不能直接写购物车。</p>
+              <div class="control-plane">
+                <div class="plane">
+                  <span>CONTROL 01</span>
+                  <strong>NavigationState</strong>
+                  <p>只负责 Feed / Sheet / PDP 的打开、返回和焦点，不授权业务动作。</p>
+                </div>
+                <div class="plane">
+                  <span>CONTROL 02</span>
+                  <strong>GuideSession</strong>
+                  <p>维护对话、约束、推荐和比较；旧 transcript 只能读，不能授权交易。</p>
+                </div>
+                <div class="plane">
+                  <span>CONTROL 03</span>
+                  <strong>CommerceOperation</strong>
+                  <p>重查 SKU、价格和库存；只有用户显式确认后才写入模拟购物车。</p>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section method" id="build">
+        <div class="section-inner">
+          <div class="section-heading" data-reveal>
+            <div class="section-index">04 / Vibe Coding</div>
+            <div>
+              <h2>我用 AI 加速产出，但没有把产品判断外包给 AI。</h2>
+              <p class="section-intro">
+                整个项目采用“产品判断先结构化、代码生成后验证”的循环。每轮 Vibe Coding 都有输入、可见产物和退出条件，而不是在聊天框里反复说“再高级一点”。
+              </p>
+            </div>
+          </div>
+
+          <div class="loop" data-reveal>
+            <div class="loop-step">
+              <span>01 / FRAME</span>
+              <strong>写清问题</strong>
+              <p>用户、场景、任务、风险、非目标先进入 PRD 和 ADR。</p>
+            </div>
+            <div class="loop-step">
+              <span>02 / SPEC</span>
+              <strong>定义契约</strong>
+              <p>把界面状态、权限、失败路径和完成条件写成规格。</p>
+            </div>
+            <div class="loop-step">
+              <span>03 / BUILD</span>
+              <strong>生成原型</strong>
+              <p>让 AI 按已确认范围实现组件、数据和交互。</p>
+            </div>
+            <div class="loop-step">
+              <span>04 / BREAK</span>
+              <strong>主动找错</strong>
+              <p>用失败测试、真实浏览器和独立审查打破“看起来没问题”。</p>
+            </div>
+            <div class="loop-step">
+              <span>05 / RECORD</span>
+              <strong>沉淀证据</strong>
+              <p>把修改原因、取舍、测试和局限写回文档与面试索引。</p>
+            </div>
+          </div>
+
+          <div class="method-note" data-reveal>
+            <strong>Vibe Coding 的 PM 含义</strong>
+            <p>
+              不是用自然语言替代工程师，而是缩短“产品假设 → 可交互界面 → 暴露问题 → 形成新判断”的周期。原型越快，越要用范围、事实源、安全边界和评测防止它快速跑偏。
+            </p>
+          </div>
+
+          <div class="screens">
+            <figure class="screen-card" data-reveal>
+              <img
+                src="./artifacts/screenshots/chat-first-opening-mobile.png"
+                alt="Chat-first AI 导购轻量开场界面"
+                width="390"
+                height="844"
+                loading="lazy"
+              />
+              <figcaption>STATE / OPENING · 一句上下文 + 三个具体问题</figcaption>
+            </figure>
+            <figure class="screen-card" data-reveal>
+              <img
+                src="./artifacts/screenshots/chat-first-decision-mobile.png"
+                alt="Chat-first AI 导购决策界面"
+                width="390"
+                height="844"
+                loading="lazy"
+              />
+              <figcaption>STATE / DECISION · 先结论，再出现一款首选</figcaption>
+            </figure>
+            <figure class="screen-card desktop" data-reveal>
+              <img
+                src="./artifacts/screenshots/chat-first-desktop.png"
+                alt="AI 导购桌面面试演示界面，左侧为实时手机原型，右侧为辅助讲解面板"
+                width="1440"
+                height="1000"
+                loading="lazy"
+              />
+              <figcaption>MODE / INTERVIEW · 同一条手机路径为主，讲解面板为辅</figcaption>
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="evaluation">
+        <div class="section-inner">
+          <div class="section-heading" data-reveal>
+            <div class="section-index">05 / 评测思路</div>
+            <div>
+              <h2>原型评测不是给模型打一个总分，而是确认“它值不值得进入下一轮”。</h2>
+              <p class="section-intro">
+                这个项目的首要定位是展示 Vibe Coding 原型能力。因此评测不追求伪装成大规模 Benchmark，而是分层回答：流程能不能走通、体验是否符合场景、关键边界是否可靠，以及哪些产品假设仍必须找真人验证。
+              </p>
+            </div>
+          </div>
+
+          <blockquote class="evaluation-thesis" data-reveal>
+            自动化测试证明“原型按设计运行”；只有用户研究才能回答“这个设计是否真的帮助用户做决定”。二者不能互相冒充。
+          </blockquote>
+
+          <div class="eval-layers">
+            <article class="eval-layer" data-reveal>
+              <span>LAYER 01</span>
+              <h3>任务完整性</h3>
+              <p>从内容入口、提问、澄清、推荐、比较、PDP 到模拟加购，主路径和失败路径是否可重复完成。</p>
+              <strong>方法：E2E 场景回归</strong>
+            </article>
+            <article class="eval-layer" data-reveal>
+              <span>LAYER 02</span>
+              <h3>体验契约</h3>
+              <p>视频是否仍可见？每轮是否只问一个问题？结论是否先于商品卡？200% 字号下动作是否可达？</p>
+              <strong>方法：浏览器几何 + 视觉审查</strong>
+            </article>
+            <article class="eval-layer" data-reveal>
+              <span>LAYER 03</span>
+              <h3>系统边界</h3>
+              <p>硬约束是否先过滤？安全态是否移除输入和交易？旧推荐、旧 token 和历史消息能否绕过当前权限？</p>
+              <strong>方法：API / Contract / Safety Tests</strong>
+            </article>
+            <article class="eval-layer" data-reveal>
+              <span>LAYER 04</span>
+              <h3>产品假设</h3>
+              <p>用户是否更快理解适配性？是否信任依据？入口是否被发现？轻量对话是否比结果面板更低负担？</p>
+              <strong>方法：后续任务型用户研究</strong>
+            </article>
+          </div>
+
+          <div class="eval-table-wrap" data-reveal>
+            <table class="eval-table">
+              <thead>
+                <tr>
+                  <th>代表场景</th>
+                  <th>要验证的产品判断</th>
+                  <th>通过条件</th>
+                  <th>失败时怎么迭代</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>“适合油皮吗？”</td>
+                  <td>信息不足时，系统应该只追问一个高信息量问题。</td>
+                  <td>单一澄清；不提前展示商品矩阵。</td>
+                  <td>调整意图与槽位解析，减少重复追问。</td>
+                </tr>
+                <tr>
+                  <td>“会不会泛白？”</td>
+                  <td>简单事实问题不应该触发重推荐。</td>
+                  <td>短答；不改变推荐权限版本。</td>
+                  <td>把解释问题从推荐路径中分离。</td>
+                </tr>
+                <tr>
+                  <td>“和防水款比比”</td>
+                  <td>比较只有在用户明确表达后才增加界面重量。</td>
+                  <td>当前商品 + 合法替代；Sheet 再展开。</td>
+                  <td>校正比较意图和当前商品锚点。</td>
+                </tr>
+                <tr>
+                  <td>零候选</td>
+                  <td>系统不能为了给答案静默放宽硬约束。</td>
+                  <td>解释冲突；最多提供一个可选放宽。</td>
+                  <td>补约束优先级与恢复动作设计。</td>
+                </tr>
+                <tr>
+                  <td>健康风险输入</td>
+                  <td>安全边界应同时冻结建议、输入和交易。</td>
+                  <td>只剩返回路径；敏感原文不进入运行证据。</td>
+                  <td>修复 action gate 与脱敏契约。</td>
+                </tr>
+                <tr>
+                  <td>价格变化 / 提交未知</td>
+                  <td>AI 决策不能覆盖交易事实变化和幂等要求。</td>
+                  <td>展示差异、重新确认、同一尝试只产生一条回执。</td>
+                  <td>收紧 revision、token 和对账流程。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="result-grid">
+            <article class="result-card" data-reveal>
+              <h3>当前证据可以说明</h3>
+              <ul>
+                <li>冻结合成数据上的产品流程、交互和权限边界可以稳定复跑。</li>
+                <li>Chat-first 设计没有破坏原有 PDP、价格重确认与模拟加购链路。</li>
+                <li>原型具备面试现场可演示、可追问、可回到证据的完成度。</li>
+              </ul>
+            </article>
+            <article class="result-card limit" data-reveal>
+              <h3>当前证据不能说明</h3>
+              <ul>
+                <li>不能证明真实 LLM 推荐质量、幻觉率、延迟或成本。</li>
+                <li>不能证明真实用户更信任、更快决策或带来转化提升。</li>
+                <li>不能证明跨浏览器、真实 iOS 安全区和生产环境可靠性。</li>
+                <li>不能把 6/6 冻结规则案例包装成通用模型能力分数。</li>
+              </ul>
+            </article>
+          </div>
+
+          <div class="metric-row" aria-label="最终工程回归结果">
+            <div class="metric" data-reveal><strong>324 / 324</strong><span>API regression</span></div>
+            <div class="metric" data-reveal><strong>281 / 281</strong><span>Web component</span></div>
+            <div class="metric" data-reveal><strong>39 / 31 / 0</strong><span>E2E pass / routed skip / fail</span></div>
+            <div class="metric" data-reveal><strong>6 / 6</strong><span>Frozen rule cases</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="artifacts">
+        <div class="section-inner">
+          <div class="section-heading" data-reveal>
+            <div class="section-index">06 / 证据索引</div>
+            <div>
+              <h2>面试时，每个判断都能回到一个真实工件。</h2>
+              <p class="section-intro">产品叙事留在案例中，源代码、规格、评测和边界保留在各自的权威文件里，避免只剩一张漂亮效果图。</p>
+            </div>
+          </div>
+
+          <div class="artifact-links">
+            <a class="artifact-link" href="./README.md" target="_blank" rel="noreferrer" data-reveal>
+              <span>Project overview</span><strong>README 与产品边界 ↗</strong>
+            </a>
+            <a
+              class="artifact-link"
+              href="./docs/superpowers/specs/2026-08-10-chat-first-lightweight-guide-design.md"
+              target="_blank"
+              rel="noreferrer"
+              data-reveal
+            >
+              <span>Interaction spec</span><strong>Chat-first 设计规格 ↗</strong>
+            </a>
+            <a
+              class="artifact-link"
+              href="./artifacts/evidence/chat-first-verification.md"
+              target="_blank"
+              rel="noreferrer"
+              data-reveal
+            >
+              <span>Evaluation</span><strong>完整验证记录 ↗</strong>
+            </a>
+            <a
+              class="artifact-link"
+              href="./artifacts/evidence/chat-first-run-manifest.json"
+              target="_blank"
+              rel="noreferrer"
+              data-reveal
+            >
+              <span>Machine evidence</span><strong>运行 Manifest ↗</strong>
+            </a>
+            <a class="artifact-link" href="./PLAN.md" target="_blank" rel="noreferrer" data-reveal>
+              <span>Roadmap</span><strong>阶段计划与后续范围 ↗</strong>
+            </a>
+            <a class="artifact-link" href="./TASKS.md" target="_blank" rel="noreferrer" data-reveal>
+              <span>Delivery ledger</span><strong>任务与完成证据 ↗</strong>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section class="final-cta" id="demo">
+        <div class="final-cta-inner">
+          <div data-reveal>
+            <div class="eyebrow">RUN THE PROTOTYPE</div>
+            <h2>别只看案例，直接走一遍导购。</h2>
+            <p>从视频里的“问问这款”进入对话，尝试油皮、泛白、防水比较、安全边界、PDP 与模拟加购路径。</p>
+          </div>
+          <div class="cta-box" data-reveal>
+            <a class="button dark" href="http://127.0.0.1:3000" target="_blank" rel="noreferrer">
+              打开本地 Demo <span class="arrow" aria-hidden="true">↗</span>
+            </a>
+            <small>需要本机 Web 运行于 127.0.0.1:3000</small>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="footer-inner">
+        <span>AI SHOPPING AGENT · VIBE CODING CASE STUDY</span>
+        <span>CONCEPT PROTOTYPE · SYNTHETIC DATA · NOT TIKTOK OFFICIAL</span>
+      </div>
+    </footer>
+
+    <script>
+      (() => {
+        const progress = document.querySelector("#progress");
+        const navLinks = [...document.querySelectorAll('.header-nav a[href^="#"]')];
+        const sections = navLinks
+          .map((link) => document.querySelector(link.getAttribute("href")))
+          .filter(Boolean);
+
+        const updateProgress = () => {
+          const height = document.documentElement.scrollHeight - window.innerHeight;
+          const ratio = height > 0 ? Math.min(1, Math.max(0, window.scrollY / height)) : 0;
+          progress.style.width = `${ratio * 100}%`;
+        };
+
+        const revealObserver = new IntersectionObserver(
+          (entries, observer) => {
+            entries.forEach((entry) => {
+              if (!entry.isIntersecting) return;
+              entry.target.classList.add("is-visible");
+              observer.unobserve(entry.target);
+            });
+          },
+          { threshold: 0.1 }
+        );
+
+        document.querySelectorAll("[data-reveal]").forEach((item) => revealObserver.observe(item));
+
+        const sectionObserver = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (!entry.isIntersecting) return;
+              navLinks.forEach((link) => {
+                link.removeAttribute("aria-current");
+                if (link.getAttribute("href") === `#${entry.target.id}`) {
+                  link.setAttribute("aria-current", "true");
+                }
+              });
+            });
+          },
+          { rootMargin: "-30% 0px -60%", threshold: 0 }
+        );
+
+        sections.forEach((section) => sectionObserver.observe(section));
+        updateProgress();
+        window.addEventListener("scroll", updateProgress, { passive: true });
+      })();
+    </script>
+  </body>
+</html>
