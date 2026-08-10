@@ -126,6 +126,7 @@ def test_claim_statuses_and_derived_query_intents_are_stable() -> None:
 
 def test_guide_action_values_are_complete_and_stable() -> None:
     assert [action.value for action in contracts.GuideAction] == [
+        "SEND_MESSAGE",
         "CONFIRM_CONTEXT",
         "ANSWER_CLARIFICATION",
         "SKIP_CLARIFICATION",
@@ -151,6 +152,7 @@ def test_guide_status_values_are_complete_and_stable() -> None:
 def test_guide_view_kind_values_are_complete_and_stable() -> None:
     assert [kind.value for kind in contracts.GuideViewKind] == [
         "OPENING_CONTEXT",
+        "ANSWER_READY",
         "CONTEXT_CONFIRMATION",
         "WAITING_CLARIFICATION",
         "VERIFYING_FACTS",

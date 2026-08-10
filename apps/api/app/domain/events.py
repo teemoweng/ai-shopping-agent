@@ -1,3 +1,4 @@
+import re
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from types import MappingProxyType
@@ -23,11 +24,44 @@ from app.domain.contracts import (
 
 _FORBIDDEN_TRACE_PAYLOAD_KEYS = frozenset(
     {
+        "account_id",
+        "actor_id",
+        "api_key",
+        "caller_account_id",
+        "caller_id",
+        "caller_identifier",
+        "caller_user_id",
         "chain_of_thought",
-        "raw_message",
-        "message_text",
         "client_message_id",
+        "confirmation_token",
+        "confirm_token",
+        "raw_message",
         "conversation_transcript",
+        "customer_id",
+        "email",
+        "health_description",
+        "idempotency_key",
+        "input",
+        "input_text",
+        "message",
+        "message_id",
+        "message_identifier",
+        "message_text",
+        "phone_number",
+        "private_reasoning",
+        "prompt",
+        "query",
+        "raw_input",
+        "raw_message_id",
+        "raw_text",
+        "reasoning",
+        "request_message_id",
+        "secret",
+        "text",
+        "transcript",
+        "user_id",
+        "user_input",
+        "user_message_id",
     }
 )
 type JsonPrimitive = str | int | float | bool | None
@@ -36,14 +70,25 @@ type FrozenJsonValue = (
 )
 
 
+def _normalize_trace_payload_key(key: str) -> str:
+    with_word_boundaries = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", key)
+    return re.sub(
+        r"[^a-z0-9]+",
+        "_",
+        with_word_boundaries.casefold(),
+    ).strip("_")
+
+
 def _freeze_trace_payload(value: object) -> FrozenJsonValue:
     if isinstance(value, Mapping):
         if not all(isinstance(key, str) for key in value):
             raise ValueError("trace payload keys must be strings")
-        if any(
-            isinstance(key, str) and key in _FORBIDDEN_TRACE_PAYLOAD_KEYS for key in value
-        ):
-            raise ValueError("trace payload must not contain chain_of_thought")
+        for key in value:
+            normalized_key = _normalize_trace_payload_key(key)
+            if normalized_key in _FORBIDDEN_TRACE_PAYLOAD_KEYS:
+                raise ValueError(
+                    f"trace payload must not contain {normalized_key}"
+                )
         return MappingProxyType(
             {key: _freeze_trace_payload(item) for key, item in value.items()}
         )

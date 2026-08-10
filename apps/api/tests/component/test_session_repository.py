@@ -65,25 +65,53 @@ def test_trace_event_is_written_without_private_reasoning(tmp_path) -> None:
 
 @pytest.mark.parametrize(
     "sensitive_key",
-    ["raw_message", "message_text", "client_message_id", "conversation_transcript"],
+    [
+        "text",
+        "message",
+        "raw_message",
+        "message_text",
+        "message_id",
+        "messageId",
+        "client_message_id",
+        "clientMessageId",
+        "client-message-id",
+        "health_description",
+        "healthDescription",
+        "confirmation_token",
+        "confirmationToken",
+        "idempotency_key",
+        "idempotency-key",
+        "conversation_transcript",
+        "conversationTranscript",
+        "transcript",
+    ],
 )
-def test_trace_event_rejects_conversation_content_and_identifiers(
+def test_trace_event_rejects_nested_conversation_secrets_and_aliases(
     tmp_path,
     sensitive_key: str,
 ) -> None:
     trace_path = tmp_path / "trace.jsonl"
     repository = SessionRepository(trace_path=trace_path)
     session = repository.create(EntryPoint.CONTENT, "morning-routine-uv-001", None)
+    repository.append_event(
+        session,
+        event_type="state_transition",
+        state=WorkflowState.UNDERSTAND,
+        payload={"from": "ENTRY_INGEST", "to": "UNDERSTAND"},
+    )
+    before_trace = trace_path.read_bytes()
+    before_events = repository.events_for_trace(session.trace_id)
 
     with pytest.raises(ValidationError):
         repository.append_event(
             session,
             event_type="state_transition",
             state=WorkflowState.UNDERSTAND,
-            payload={sensitive_key: "must-not-persist"},
+            payload={"metadata": {sensitive_key: "must-not-persist"}},
         )
 
-    assert not trace_path.exists()
+    assert repository.events_for_trace(session.trace_id) == before_events
+    assert trace_path.read_bytes() == before_trace
 
 
 def test_trace_event_is_immutable_after_append(tmp_path) -> None:

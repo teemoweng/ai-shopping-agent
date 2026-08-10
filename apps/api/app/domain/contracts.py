@@ -658,39 +658,29 @@ class GuideTurnResponse(BaseModel):
                 for previous, current in pairwise(transcript_sequences)
             ):
                 raise ValueError("transcript sequences must strictly increase")
-            last_assistant = next(
-                (
-                    message
-                    for message in reversed(self.transcript)
-                    if message.role is GuideTranscriptRole.ASSISTANT
-                ),
-                None,
-            )
-            if last_assistant is not None:
-                compatible_views = {
-                    GuideTranscriptKind.OPENING: {GuideViewKind.OPENING_CONTEXT},
-                    GuideTranscriptKind.QUESTION: {
-                        GuideViewKind.CONTEXT_CONFIRMATION,
-                        GuideViewKind.WAITING_CLARIFICATION,
-                    },
-                    GuideTranscriptKind.ANSWER: {GuideViewKind.ANSWER_READY},
-                    GuideTranscriptKind.RECOMMENDATION: {
-                        GuideViewKind.DECISION_READY,
-                        GuideViewKind.INSUFFICIENT_EVIDENCE,
-                    },
-                    GuideTranscriptKind.COMPARISON: {
-                        GuideViewKind.COMPARISON_READY
-                    },
-                    GuideTranscriptKind.NO_MATCH: {GuideViewKind.NO_MATCH},
-                    GuideTranscriptKind.SAFETY: {GuideViewKind.SAFE_BOUNDARY},
-                    GuideTranscriptKind.RECOVERY: {
-                        GuideViewKind.RECOVERY_REQUIRED
-                    },
-                }
-                if self.guide_view_kind not in compatible_views[last_assistant.kind]:
-                    raise ValueError(
-                        "last assistant transcript message must match guide view"
-                    )
+            last_message = self.transcript[-1]
+            if last_message.role is not GuideTranscriptRole.ASSISTANT:
+                raise ValueError("non-empty transcript must end with an assistant")
+            compatible_views = {
+                GuideTranscriptKind.OPENING: {GuideViewKind.OPENING_CONTEXT},
+                GuideTranscriptKind.QUESTION: {
+                    GuideViewKind.CONTEXT_CONFIRMATION,
+                    GuideViewKind.WAITING_CLARIFICATION,
+                },
+                GuideTranscriptKind.ANSWER: {GuideViewKind.ANSWER_READY},
+                GuideTranscriptKind.RECOMMENDATION: {
+                    GuideViewKind.DECISION_READY,
+                    GuideViewKind.INSUFFICIENT_EVIDENCE,
+                },
+                GuideTranscriptKind.COMPARISON: {GuideViewKind.COMPARISON_READY},
+                GuideTranscriptKind.NO_MATCH: {GuideViewKind.NO_MATCH},
+                GuideTranscriptKind.SAFETY: {GuideViewKind.SAFE_BOUNDARY},
+                GuideTranscriptKind.RECOVERY: {GuideViewKind.RECOVERY_REQUIRED},
+            }
+            if self.guide_view_kind not in compatible_views[last_message.kind]:
+                raise ValueError(
+                    "last assistant transcript message must match guide view"
+                )
         is_comparison = self.guide_view_kind is GuideViewKind.COMPARISON_READY
         if is_comparison and self.comparison is None:
             raise ValueError("COMPARISON_READY requires comparison")

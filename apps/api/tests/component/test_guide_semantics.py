@@ -74,8 +74,8 @@ def test_every_guide_view_has_explicit_server_actions() -> None:
     } == expected
 
 
-def test_guide_turn_transcript_contract_requires_ordered_matching_messages() -> None:
-    opening = contracts.GuideTranscriptMessage(
+def _opening_transcript_message() -> contracts.GuideTranscriptMessage:
+    return contracts.GuideTranscriptMessage(
         id="gmsg_1",
         sequence=1,
         role=contracts.GuideTranscriptRole.ASSISTANT,
@@ -83,6 +83,49 @@ def test_guide_turn_transcript_contract_requires_ordered_matching_messages() -> 
         text="我看到你在看 Seoul Shade。你最想确认什么？",
         quick_replies=["适合油皮吗？", "会不会泛白？", "和防水款比比"],
     )
+
+
+def _opening_turn(
+    transcript: list[contracts.GuideTranscriptMessage],
+) -> contracts.GuideTurnResponse:
+    opening = _opening_transcript_message()
+    return contracts.GuideTurnResponse(
+        session_id="ses_1",
+        trace_id="trc_1",
+        locale="zh-CN",
+        state=WorkflowState.UNDERSTAND,
+        kind="opening",
+        text=opening.text,
+        context={
+            "id": "context_1",
+            "anchor_product_id": "seoul-shade-daily-fluid",
+            "anchor_product_name": "Seoul Shade Daily Fluid",
+            "creator_handle": "@creator",
+            "caption": "caption",
+            "claims": [],
+        },
+        guide_status=GuideStatus.WAITING_USER,
+        guide_view_kind=GuideViewKind.OPENING_CONTEXT,
+        guide_revision=1,
+        facts_snapshot_at=datetime.now(UTC),
+        allowed_actions=[GuideAction.RETURN_TO_FEED],
+        conversation_revision=1,
+        transcript=transcript,
+    )
+
+
+def _user_transcript_message() -> contracts.GuideTranscriptMessage:
+    return contracts.GuideTranscriptMessage(
+        id="gmsg_2",
+        sequence=2,
+        role=contracts.GuideTranscriptRole.USER,
+        kind=contracts.GuideTranscriptKind.USER_TEXT,
+        text="适合油皮吗？",
+    )
+
+
+def test_guide_turn_transcript_contract_requires_ordered_matching_messages() -> None:
+    opening = _opening_transcript_message()
     valid_recommendation = RecommendationCard(
         product_id="seoul-shade-daily-fluid",
         brand="Seoul Shade",
@@ -105,40 +148,12 @@ def test_guide_turn_transcript_contract_requires_ordered_matching_messages() -> 
             recommendations=[valid_recommendation],
         )
 
-    response = contracts.GuideTurnResponse(
-        session_id="ses_1",
-        trace_id="trc_1",
-        locale="zh-CN",
-        state=WorkflowState.UNDERSTAND,
-        kind="opening",
-        text=opening.text,
-        context={
-            "id": "context_1",
-            "anchor_product_id": "seoul-shade-daily-fluid",
-            "anchor_product_name": "Seoul Shade Daily Fluid",
-            "creator_handle": "@creator",
-            "caption": "caption",
-            "claims": [],
-        },
-        guide_status=GuideStatus.WAITING_USER,
-        guide_view_kind=GuideViewKind.OPENING_CONTEXT,
-        guide_revision=1,
-        facts_snapshot_at=datetime.now(UTC),
-        allowed_actions=[GuideAction.RETURN_TO_FEED],
-        conversation_revision=1,
-        transcript=[opening],
-    )
+    response = _opening_turn([opening])
 
     assert response.conversation_revision == 1
     assert response.transcript == [opening]
 
-    user_message = contracts.GuideTranscriptMessage(
-        id="gmsg_2",
-        sequence=2,
-        role=contracts.GuideTranscriptRole.USER,
-        kind=contracts.GuideTranscriptKind.USER_TEXT,
-        text="适合油皮吗？",
-    )
+    user_message = _user_transcript_message()
     with pytest.raises(ValueError):
         contracts.GuideTurnResponse.model_validate(
             response.model_dump()
@@ -165,6 +180,18 @@ def test_guide_turn_transcript_contract_requires_ordered_matching_messages() -> 
         contracts.GuideTurnResponse.model_validate(
             response.model_dump() | {"guide_view_kind": GuideViewKind.ANSWER_READY}
         )
+
+
+def test_guide_turn_rejects_a_user_only_transcript() -> None:
+    user_message = _user_transcript_message().model_copy(update={"sequence": 1})
+
+    with pytest.raises(ValueError):
+        _opening_turn([user_message])
+
+
+def test_guide_turn_rejects_a_trailing_user_message() -> None:
+    with pytest.raises(ValueError):
+        _opening_turn([_opening_transcript_message(), _user_transcript_message()])
 
 
 @pytest.mark.parametrize("failure_mode", ["blank", "exception"])

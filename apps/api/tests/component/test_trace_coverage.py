@@ -43,6 +43,7 @@ FORBIDDEN_TRACE_KEYS = {
     "raw_message",
     "message_text",
     "conversation_transcript",
+    "transcript",
     "raw_text",
     "input",
     "raw_input",
@@ -55,6 +56,8 @@ FORBIDDEN_TRACE_KEYS = {
     "reasoning",
     "confirmation_token",
     "confirm_token",
+    "idempotency_key",
+    "health_description",
     "api_key",
     "secret",
     "caller_id",
@@ -458,13 +461,34 @@ def test_committed_trace_validator_rejects_nested_caller_and_message_identifiers
 
 @pytest.mark.parametrize(
     "sensitive_key",
-    ["raw_message", "message_text", "client_message_id", "conversation_transcript"],
+    [
+        "text",
+        "message",
+        "raw_message",
+        "message_text",
+        "message_id",
+        "messageId",
+        "client_message_id",
+        "clientMessageId",
+        "client-message-id",
+        "health_description",
+        "healthDescription",
+        "confirmation_token",
+        "confirmationToken",
+        "idempotency_key",
+        "idempotency-key",
+        "conversation_transcript",
+        "conversationTranscript",
+        "transcript",
+    ],
 )
 def test_committed_trace_validator_rejects_conversation_sensitive_keys(
     sensitive_key: str,
 ) -> None:
     records = deepcopy(_load_committed_trace_records())
-    records[3]["payload"]["argument_summary"][sensitive_key] = "must-not-persist"
+    records[3]["payload"]["argument_summary"]["metadata"] = {
+        sensitive_key: "must-not-persist"
+    }
 
     with pytest.raises(AssertionError):
         _validate_committed_trace_records(records)
