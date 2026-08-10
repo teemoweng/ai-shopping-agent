@@ -54,35 +54,45 @@ async function openGuide(page: Page) {
       new URL(response.url()).pathname.endsWith("/guide/sessions"),
   );
   await page
-    .getByRole("button", { name: /问 AI：Seoul Shade Daily Fluid/ })
+    .getByRole("button", { name: /问问这款：Seoul Shade Daily Fluid/ })
     .click();
   const response = await sessionResponse;
   expect(response.status()).toBe(201);
-  const clarification = (await response.json()) as {
+  const opening = (await response.json()) as {
     guide_view_kind: string;
     guide_revision: number;
+    conversation_revision: number;
     allowed_actions: string[];
   };
-  expect(clarification.guide_view_kind).toBe("WAITING_CLARIFICATION");
-  expect(clarification.guide_revision).toBe(1);
-  expect(clarification.allowed_actions).toEqual([
-    "ANSWER_CLARIFICATION",
-    "SKIP_CLARIFICATION",
-    "UPDATE_CONSTRAINTS",
-    "RETURN_TO_FEED",
-  ]);
+  expect(opening.guide_view_kind).toBe("OPENING_CONTEXT");
+  expect(opening.guide_revision).toBe(1);
+  expect(opening.conversation_revision).toBe(1);
+  expect(opening.allowed_actions).toEqual(["SEND_MESSAGE", "RETURN_TO_FEED"]);
   const guide = page.getByRole("dialog", { name: "AI 导购（概念）" });
   await expect(guide).toBeVisible();
   await expect(
-    guide.getByRole("heading", { name: "你最想先确认什么？" }),
+    guide.getByText("我看到你在看 Seoul Shade。你最想确认什么？"),
   ).toBeVisible();
-  await guide.getByRole("button", { name: "这款适合我吗？" }).click();
+  const clarificationResponse = page.waitForResponse(
+    (candidate) =>
+      candidate.request().method() === "POST" &&
+      /\/guide\/sessions\/[^/]+\/messages$/.test(
+        new URL(candidate.url()).pathname,
+      ),
+  );
+  await guide.getByRole("button", { name: "适合油皮吗？" }).click();
+  const clarification = (await (await clarificationResponse).json()) as {
+    guide_view_kind: string;
+    conversation_revision: number;
+  };
+  expect(clarification.guide_view_kind).toBe("WAITING_CLARIFICATION");
+  expect(clarification.conversation_revision).toBe(
+    opening.conversation_revision + 1,
+  );
   await expect(
-    guide.getByRole("heading", {
-      name: "主要是日常通勤，还是需要 40/80 分钟防水？",
-    }),
+    guide.getByText("主要是日常通勤，还是户外出汗或玩水？"),
   ).toBeVisible();
-  await expect(guide.getByLabel("补充你的条件")).toBeEnabled();
+  await expect(guide.getByLabel("继续提问")).toBeEnabled();
   return guide;
 }
 
@@ -90,22 +100,28 @@ async function reachDecision(
   guide: Locator,
   constraints = "预算20美元以内、无香精、自然妆效、日常通勤",
 ) {
-  await guide.getByLabel("补充你的条件").fill(constraints);
+  await guide.getByLabel("继续提问").fill(constraints);
   const responsePromise = guide.page().waitForResponse(
     (response) =>
       response.request().method() === "POST" &&
       /\/guide\/sessions\/[^/]+\/messages$/.test(new URL(response.url()).pathname),
   );
-  await guide.getByRole("button", { name: "发送" }).click();
+  await guide.getByRole("button", { name: "发送消息" }).click();
   const response = await responsePromise;
   expect(response.status()).toBe(200);
   const body = (await response.json()) as {
     guide_view_kind: string;
     guide_revision: number;
+    conversation_revision: number;
   };
   expect(body.guide_view_kind).toBe("DECISION_READY");
   expect(body.guide_revision).toBeGreaterThan(0);
-  await expect(guide.getByText("AI 决策 · 基于已验证资料")).toBeVisible();
+  expect(body.conversation_revision).toBeGreaterThan(2);
+  await expect(
+    guide.getByRole("article", {
+      name: "Seoul Shade Daily Fluid 商品建议",
+    }),
+  ).toBeVisible();
   return body;
 }
 
@@ -207,10 +223,11 @@ test.describe("required redesigned journeys", () => {
     await gotoFeed(page);
     const guide = await openGuide(page);
     const decision = await reachDecision(guide);
+    await guide.getByRole("button", { name: "看看其他选择" }).click();
     const alternative = guide.getByRole("article", {
       name: "Cloud Veil Mineral SPF 商品建议",
     });
-    await alternative.getByRole("button", { name: "查看商品" }).click();
+    await alternative.getByRole("button", { name: "看商品" }).click();
 
     const pdp = page.getByRole("region", { name: "商品详情" });
     await expect(pdp.getByRole("heading", { name: "Cloud Veil Mineral SPF" })).toBeVisible();
@@ -218,11 +235,17 @@ test.describe("required redesigned journeys", () => {
     await pdp.getByRole("button", { name: "返回内容流" }).click();
 
     const restored = page.getByRole("dialog", { name: "AI 导购（概念）" });
-    await expect(restored.getByText("AI 决策 · 基于已验证资料")).toBeVisible();
-    await expect(restored.getByRole("article", { name: "Cloud Veil Mineral SPF 商品建议" })).toBeVisible();
+    await expect(restored.getByRole("region", { name: "其他选择" })).toBeVisible();
+    await expect(
+      restored.getByRole("article", {
+        name: "Cloud Veil Mineral SPF 商品建议",
+      }),
+    ).toBeVisible();
     expect(decision.guide_revision).toBeGreaterThan(0);
-    await restored.getByRole("button", { name: "关闭 AI 导购" }).click();
-    await expect(page.getByRole("button", { name: /问 AI：Seoul Shade/ })).toBeVisible();
+    await restored.getByRole("button", { name: "关闭导购" }).click();
+    await expect(
+      page.getByRole("button", { name: /问问这款：Seoul Shade/ }),
+    ).toBeVisible();
   });
 
   test("3. AI recommended product → PDP → one receipt", async ({ page }) => {
@@ -232,7 +255,7 @@ test.describe("required redesigned journeys", () => {
     const recommended = guide.getByRole("article", {
       name: "Seoul Shade Daily Fluid 商品建议",
     });
-    await recommended.getByRole("button", { name: "查看商品" }).click();
+    await recommended.getByRole("button", { name: "看商品" }).click();
     await expect(page.getByRole("region", { name: "商品详情" })).toContainText("AI 建议商品");
 
     const preview = await previewCommerce(page);
@@ -267,41 +290,48 @@ test.describe("required redesigned journeys", () => {
   test("5. zero match has no cart action and recovers after one relaxation", async ({ page }) => {
     await gotoFeed(page);
     const guide = await openGuide(page);
-    await guide.getByLabel("补充你的条件").fill("预算15美元以内、无香精、80分钟防水");
+    await guide.getByLabel("继续提问").fill("预算15美元以内、无香精、80分钟防水");
     const noMatchResponse = page.waitForResponse(
       (response) => response.request().method() === "POST" && /\/messages$/.test(new URL(response.url()).pathname),
     );
-    await guide.getByRole("button", { name: "发送" }).click();
+    await guide.getByRole("button", { name: "发送消息" }).click();
     const noMatch = (await (await noMatchResponse).json()) as {
       guide_view_kind: string;
       guide_revision: number;
       allowed_actions: string[];
     };
     expect(noMatch.guide_view_kind).toBe("NO_MATCH");
-    expect(noMatch.allowed_actions).toEqual(["RELAX_CONSTRAINT", "RETURN_TO_FEED"]);
-    await expect(guide.getByRole("button", { name: /查看商品|比较已选|模拟加入购物车/ })).toHaveCount(0);
+    expect(noMatch.allowed_actions).toEqual([
+      "SEND_MESSAGE",
+      "RELAX_CONSTRAINT",
+      "RETURN_TO_FEED",
+    ]);
+    await expect(
+      guide.getByRole("button", { name: /看商品|比比|模拟加入购物车/ }),
+    ).toHaveCount(0);
 
     const relaxedResponse = page.waitForResponse(
       (response) => response.request().method() === "POST" && /\/messages$/.test(new URL(response.url()).pathname),
     );
-    await guide.getByRole("button", { name: "放宽防水要求" }).click();
+    await guide.getByLabel("继续提问").fill("防水不限");
+    await guide.getByRole("button", { name: "发送消息" }).click();
     const relaxed = (await (await relaxedResponse).json()) as {
       guide_view_kind: string;
       guide_revision: number;
     };
     expect(relaxed.guide_view_kind).toBe("DECISION_READY");
     expect(relaxed.guide_revision).toBe(noMatch.guide_revision + 1);
-    await expect(guide.getByRole("button", { name: "查看商品" }).first()).toBeEnabled();
+    await expect(guide.getByRole("button", { name: "看商品" })).toBeEnabled();
   });
 
   test("6. safety boundary exposes no comparison, product, or cart business actions", async ({ page }) => {
     await gotoFeed(page);
     const guide = await openGuide(page);
-    await guide.getByLabel("补充你的条件").fill("脸部肿胀并且呼吸困难");
+    await guide.getByLabel("继续提问").fill("脸部肿胀并且呼吸困难");
     const responsePromise = page.waitForResponse(
       (response) => response.request().method() === "POST" && /\/messages$/.test(new URL(response.url()).pathname),
     );
-    await guide.getByRole("button", { name: "发送" }).click();
+    await guide.getByRole("button", { name: "发送消息" }).click();
     const response = await responsePromise;
     expect(response.status()).toBe(200);
     const safety = (await response.json()) as {
@@ -312,8 +342,10 @@ test.describe("required redesigned journeys", () => {
     expect(safety.guide_view_kind).toBe("SAFE_BOUNDARY");
     expect(safety.guide_revision).toBeGreaterThan(0);
     expect(safety.allowed_actions).toEqual(["RETURN_TO_FEED"]);
-    await expect(guide.getByRole("heading", { name: "安全边界" })).toBeVisible();
-    await expect(guide.getByRole("button", { name: /查看商品|比较|加购/ })).toHaveCount(0);
+    await expect(guide.getByLabel("安全提示")).toBeVisible();
+    await expect(
+      guide.getByRole("button", { name: /看商品|比比|加购/ }),
+    ).toHaveCount(0);
   });
 
   test("7. price change diff → accept → new revision/token → success", async ({ page }) => {
@@ -430,7 +462,7 @@ test("captures the 1440×1000 AI decision Sheet and interview panel", async ({ p
   await expectInViewport(page.getByRole("complementary", { name: "演示说明" }));
   await expect(
     page.getByRole("complementary", { name: "演示说明" }).getByTestId("current-demo-step"),
-  ).toHaveText("AI 导购决策支持");
+  ).toHaveText("轻量商品对话");
   await page.screenshot({
     path: resolve(SCREENSHOT_DIR, "tiktok-redesign-desktop.png"),
     fullPage: false,

@@ -1,7 +1,8 @@
 import { defineConfig } from "@playwright/test";
 
 const captureFormalEvidence =
-  process.env.CAPTURE_TIKTOK_REDESIGN_EVIDENCE === "1";
+  process.env.CAPTURE_TIKTOK_REDESIGN_EVIDENCE === "1" ||
+  process.env.CAPTURE_CHAT_FIRST_EVIDENCE === "1";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -17,7 +18,7 @@ export default defineConfig({
   webServer: [
     {
       command:
-        "uv --directory ../api run uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-access-log",
+        "uv --directory ../api run uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-access-log --workers 1",
       url: "http://127.0.0.1:8000/api/v1/health",
       reuseExistingServer: false,
       timeout: 120_000,

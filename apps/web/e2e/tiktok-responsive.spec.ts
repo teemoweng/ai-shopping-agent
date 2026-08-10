@@ -117,7 +117,7 @@ test("390×844 is a true full-bleed phone with no outside frame", async ({ page 
 test("1440×1000 keeps one 390×844 live phone and an outside panel", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/?scenario=normal");
-  await expect(page.getByRole("button", { name: /问 AI/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /问问这款/ })).toBeVisible();
 
   const phoneLocator = page.locator(".phoneFrame");
   const panelLocator = page.getByRole("complementary", { name: "演示说明" });
@@ -133,7 +133,7 @@ test("1440×1000 keeps one 390×844 live phone and an outside panel", async ({ p
   await expect(page.locator(".feedSurface")).toHaveCount(1);
   await expectNoHorizontalOverflow(page);
 
-  const askAi = page.getByRole("button", { name: /问 AI/ });
+  const askAi = page.getByRole("button", { name: /问问这款/ });
   await askAi.click();
   const dialog = page.getByRole("dialog", { name: "AI 导购（概念）" });
   await expect(dialog).toBeVisible();
@@ -141,7 +141,7 @@ test("1440×1000 keeps one 390×844 live phone and an outside panel", async ({ p
   expect(overlay).toEqual(phone);
   expect(await dialog.evaluate((node) => node.closest("[inert]") === null)).toBe(true);
   await expect(panelLocator.getByTestId("current-demo-step")).toHaveText(
-    "AI 导购决策支持",
+    "轻量商品对话",
   );
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
@@ -186,7 +186,7 @@ test("320×700 at 200% text size reflows without trapping product actions", asyn
   expect(badgeToTabsGap).toBeGreaterThanOrEqual(2);
   expect(badgeToTabsGap).toBeLessThanOrEqual(4);
   const product = page.getByRole("button", { name: /查看商品/ });
-  const askAi = page.getByRole("button", { name: /问 AI/ });
+  const askAi = page.getByRole("button", { name: /问问这款/ });
   await expect(product).toBeVisible();
   await expect(askAi).toBeVisible();
   await expect(page.locator(".prototypeBadge")).toHaveText("合成原型");
@@ -225,16 +225,16 @@ test("320×700 at 200% text size reflows without trapping product actions", asyn
   );
   expect(Math.max(...navLabelBottoms)).toBeLessThanOrEqual(700);
 
-  await tabTo(page, "问 AI");
+  await tabTo(page, "问问这款");
   await expect(askAi).toBeFocused();
   await page.keyboard.press("Enter");
   const dialog = page.getByRole("dialog", { name: "AI 导购（概念）" });
   await expect(dialog).toBeVisible();
   const overlay = await page.locator(".guideBackdrop").boundingBox();
   expect(overlay).toEqual({ x: 0, y: 0, width: 320, height: 700 });
-  await expect(page.getByRole("button", { name: "关闭 AI 导购" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "关闭导购" })).toBeVisible();
   const lastQuickAction = dialog.getByRole("button", {
-    name: /帮我找更合适的替代/,
+    name: "和防水款比比",
   });
   await lastQuickAction.scrollIntoViewIfNeeded();
   await expect(lastQuickAction).toBeVisible();
