@@ -1,0 +1,83 @@
+# Task 3 Report — Route Each Question to the Lightest Valid Answer
+
+## Status
+
+DONE_WITH_CONCERNS
+
+## Changes
+
+- Added the internal deterministic `GuideQuestionIntent` enum and lexical `classify_question()` baseline for fit, white-cast claim, comparison, recommendation/constraint, and general questions. This is not an LLM classifier.
+- Changed session creation to a true `UNDERSTAND` / `OPENING_CONTEXT` opening with the approved Chinese copy, exactly three quick questions, `SEND_MESSAGE`, and no pre-question retrieval.
+- Routed `适合油皮吗？` to one commute-versus-outdoor clarification, storing `skin_type="oily"` and incrementing `guide_revision` exactly once.
+- Routed `会不会泛白？` to a recommendation-free `ANSWER_READY` response that separates the structured low-risk product fact from the unsupported creator claim covering all complexions, without changing `guide_revision` or running retrieval.
+- Routed commute and outdoor/water replies through the existing hard-filter-before-ranking recommendation path; outdoor/water now applies a 40-minute water-resistance hard constraint.
+- Routed explicit comparison intent through a valid recommendation state containing the anchor and a water-resistant candidate for Task 4.
+- Added `SEND_MESSAGE` to nonterminal conversational views while preserving safety/fatal action removal, hard filtering, evidence/verdict validation, deterministic fallback copy, and current server `allowed_actions` authority.
+- With coordinator approval, updated only the Foundation opening oracle from `["UNDERSTAND", "CLARIFY"]` to `["UNDERSTAND"]`. The six case IDs, expected verdicts/products, forbidden tools/products, tool-event requirements, and pass criteria are unchanged.
+
+## RED Evidence
+
+The brief's focused command after adding the approved opening and exact Chinese route tests, before implementation:
+
+```text
+uv --directory apps/api run pytest tests/component/test_workflow.py tests/component/test_guide_semantics.py tests/api/test_guide_api.py -q
+# 9 failed, 77 passed, 1 warning
+```
+
+Failures were the intended missing behaviors: the old opening ended at `CLARIFY`, the oil-skin question immediately ran the full recommendation path, and nonterminal conversational views lacked `SEND_MESSAGE`.
+
+The outdoor/water clarification was independently proven RED before adding its hard-constraint mapping:
+
+```text
+uv --directory apps/api run pytest tests/component/test_workflow.py -q
+# 1 failed, 28 passed
+```
+
+After the true opening implementation, the previously frozen Foundation oracle was deliberately run unchanged:
+
+```text
+uv --directory apps/api run pytest tests/component/test_workflow.py tests/component/test_guide_semantics.py tests/api/test_guide_api.py tests/eval/test_foundation_eval.py -q
+# 4 failed, 96 passed, 1 warning
+```
+
+The runner reported only 1/6 because it still required the obsolete transient `CLARIFY` opening state. The product specification now requires opening to remain in `UNDERSTAND`, so the oracle had to change with the specified behavior; retaining `[UNDERSTAND, CLARIFY]` would reward the behavior Task 3 removes. The authorized update narrows only the opening-state expectation and does not weaken any Foundation case scoring meaning.
+
+## GREEN / Final Verification
+
+Fresh focused and Foundation pytest on the implementation commit:
+
+```text
+uv --directory apps/api run pytest tests/component/test_workflow.py tests/component/test_guide_semantics.py tests/api/test_guide_api.py tests/eval/test_foundation_eval.py -q
+# 101 passed, 1 warning
+```
+
+Fresh Foundation runner:
+
+```text
+uv --directory apps/api run python ../../evals/run_foundation.py
+# 6 passed / 6 total; pass_rate 1.0
+```
+
+Additional full API and static verification:
+
+```text
+uv --directory apps/api run pytest tests -q
+# 288 passed, 1 warning
+
+uv --directory apps/api run ruff check app tests ../../evals
+# All checks passed!
+
+git diff --check
+# Passed with no output
+```
+
+## Commit
+
+- Implementation commit: `4448685` — `feat: route guide questions progressively`
+- Final report commit: the commit containing this report; its exact hash is returned as the final Task 3 HEAD because a commit cannot include its own hash.
+
+## Concerns
+
+- The classifier is intentionally a narrow deterministic Foundation baseline. It does not provide broad natural-language coverage and must not be presented as an LLM.
+- The sole test warning is the pre-existing Starlette TestClient/httpx deprecation warning.
+- Task 4 still owns recoverable comparison request IDs, comparison idempotency, comparison conversation revision, and continued conversation after `COMPARISON_READY`.
