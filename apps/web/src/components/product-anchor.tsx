@@ -49,10 +49,10 @@ export function ProductAnchor({
         className="askAiTextButton"
         type="button"
         style={{ minHeight: 44 }}
-        aria-label={`问 AI：${product.name}`}
+        aria-label={`问问这款：${product.name}`}
         onClick={onAskAi}
       >
-        问 AI
+        问问这款
       </button>
     </section>
   );

@@ -9,15 +9,15 @@ test.beforeEach(async ({ page }) => {
 async function openGuide(page: import("@playwright/test").Page) {
   await page.goto("/?scenario=normal");
   const askAi = page.getByRole("button", {
-    name: /问 AI：Seoul Shade Daily Fluid/,
+    name: /问问这款：Seoul Shade Daily Fluid/,
   });
   await expect(askAi).toBeVisible();
   await askAi.click();
   const guide = page.getByRole("dialog", { name: "AI 导购（概念）" });
   await expect(guide).toBeVisible();
-  await expect(
-    guide.getByRole("region", { name: "已继承的视频与商品上下文" }),
-  ).toContainText("Seoul Shade Daily Fluid");
+  await expect(guide.getByLabel("当前视频商品")).toContainText(
+    "Seoul Shade Daily Fluid",
+  );
   return guide;
 }
 
@@ -25,20 +25,35 @@ test("Foundation content context still produces a cited, actionable decision", a
   page,
 }) => {
   const guide = await openGuide(page);
-  await guide
-    .getByLabel("补充你的条件")
-    .fill("预算20美元以内、无香精、自然妆效、日常通勤");
-  await guide.getByRole("button", { name: "发送" }).click();
+  await guide.getByLabel("继续提问").fill(
+    "预算20美元以内、无香精、自然妆效、日常通勤",
+  );
+  const messageRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "POST" &&
+      /\/guide\/sessions\/[^/]+\/messages$/.test(request.url()),
+  );
+  await guide.getByRole("button", { name: "发送消息" }).click();
+  const requestBody = (await messageRequest).postDataJSON() as {
+    message_id: string;
+    expected_conversation_revision: number;
+  };
+  expect(requestBody.message_id).toMatch(/^msg_/);
+  expect(requestBody.expected_conversation_revision).toBe(1);
 
-  await expect(guide.getByText("AI 决策 · 基于已验证资料")).toBeVisible();
   const recommendation = guide.getByRole("article", {
     name: "Seoul Shade Daily Fluid 商品建议",
   });
-  await expect(recommendation).toContainText("为什么适合");
-  await expect(recommendation).toContainText("需要接受的取舍");
-  await expect(recommendation.getByText("有公开依据").first()).toBeVisible();
-  await expect(recommendation.getByRole("button", { name: "查看商品" })).toBeEnabled();
-  await expect(guide.getByText("视频宣称核验")).toBeVisible();
+  await expect(recommendation).toContainText("适合点");
+  await expect(recommendation).toContainText("取舍");
+  await expect(recommendation.getByRole("button", { name: "看商品" })).toBeEnabled();
+  await recommendation.getByRole("button", { name: /查看 \d+ 条依据/ }).click();
+  const evidence = guide.getByRole("region", {
+    name: "Seoul Shade Daily Fluid 的依据",
+  });
+  await expect(evidence).toContainText("FDA");
+  await expect(evidence.getByRole("article").first()).toBeVisible();
+  await expect(guide).toHaveAttribute("data-mode", "compact");
 });
 
 test("Foundation zero match remains explicit and recoverable by one relaxation", async ({
@@ -46,15 +61,37 @@ test("Foundation zero match remains explicit and recoverable by one relaxation",
 }) => {
   const guide = await openGuide(page);
   await guide
-    .getByLabel("补充你的条件")
+    .getByLabel("继续提问")
     .fill("预算15美元以内、无香精、80分钟防水");
-  await guide.getByRole("button", { name: "发送" }).click();
+  const noMatchRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "POST" &&
+      /\/guide\/sessions\/[^/]+\/messages$/.test(request.url()),
+  );
+  await guide.getByRole("button", { name: "发送消息" }).click();
+  expect(
+    ((await noMatchRequest).postDataJSON() as {
+      expected_conversation_revision: number;
+    }).expected_conversation_revision,
+  ).toBe(1);
 
   await expect(
-    guide.getByRole("heading", { name: "没有找到同时满足条件的商品" }),
+    guide.getByText(/不会悄悄放宽条件/),
   ).toBeVisible();
-  await expect(guide.getByRole("button", { name: /查看商品/ })).toHaveCount(0);
-  await guide.getByRole("button", { name: "放宽防水要求" }).click();
-  await expect(guide.getByText("AI 决策 · 基于已验证资料")).toBeVisible();
-  await expect(guide.getByRole("button", { name: "查看商品" }).first()).toBeEnabled();
+  await expect(guide.getByRole("button", { name: /看商品/ })).toHaveCount(0);
+  await expect(guide).toHaveAttribute("data-mode", "compact");
+  const relaxRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "POST" &&
+      /\/guide\/sessions\/[^/]+\/messages$/.test(request.url()),
+  );
+  await guide.getByLabel("继续提问").fill("防水不限");
+  await guide.getByRole("button", { name: "发送消息" }).click();
+  expect(
+    ((await relaxRequest).postDataJSON() as {
+      expected_conversation_revision: number;
+    }).expected_conversation_revision,
+  ).toBe(2);
+  await expect(guide.getByRole("article", { name: /商品建议/ })).toBeVisible();
+  await expect(guide.getByRole("button", { name: "看商品" })).toBeEnabled();
 });

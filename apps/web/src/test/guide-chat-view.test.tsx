@@ -271,6 +271,89 @@ describe("GuideChatView", () => {
     expect(onOpenProduct).toHaveBeenCalledWith("seoul-shade-daily-fluid", "current");
   });
 
+  it("reports evidence and alternatives subviews without deciding the parent mode", async () => {
+    const user = userEvent.setup();
+    const onSubviewChange = vi.fn();
+    const recommendationMessage: TranscriptMessage = {
+      id: "gmsg_subview_contract",
+      sequence: 2,
+      role: "ASSISTANT",
+      kind: "RECOMMENDATION",
+      text: "日常通勤更适合 Seoul Shade。",
+      redacted: false,
+      recommendations,
+      evidence: [evidence],
+      quick_replies: [],
+    };
+
+    render(
+      <GuideChatView
+        turn={turnWith([openingMessage, recommendationMessage], {
+          state: "PRESENT_RECOMMENDATION",
+          kind: "recommendation",
+          guide_view_kind: "DECISION_READY",
+          recommendations,
+          evidence: [evidence],
+        })}
+        mode="compact"
+        onSubmit={vi.fn()}
+        onQuickReply={vi.fn()}
+        onSubviewChange={onSubviewChange}
+        onClose={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "查看 1 条依据" }));
+    expect(onSubviewChange).toHaveBeenLastCalledWith("evidence");
+    await user.click(screen.getByRole("button", { name: "返回推荐" }));
+    expect(onSubviewChange).toHaveBeenLastCalledWith(null);
+
+    await user.click(screen.getByRole("button", { name: "看看其他选择" }));
+    expect(onSubviewChange).toHaveBeenLastCalledWith("alternatives");
+    await user.click(screen.getByRole("button", { name: "返回首选" }));
+    expect(onSubviewChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it("restores message scroll once per session boundary and reports only user scrolling", () => {
+    const onScrollTopChange = vi.fn();
+    const props = {
+      mode: "compact" as const,
+      initialScrollTop: 126,
+      onScrollTopChange,
+      onSubmit: vi.fn(),
+      onQuickReply: vi.fn(),
+      onClose: vi.fn(),
+    };
+    const { rerender } = render(
+      <GuideChatView {...props} turn={turnWith([openingMessage])} />,
+    );
+    const log = screen.getByRole("log", { name: "导购对话" });
+    expect(log.scrollTop).toBe(126);
+    expect(onScrollTopChange).not.toHaveBeenCalled();
+
+    log.scrollTop = 191;
+    fireEvent.scroll(log);
+    expect(onScrollTopChange).toHaveBeenLastCalledWith(191);
+
+    rerender(
+      <GuideChatView
+        {...props}
+        turn={turnWith([openingMessage], { conversation_revision: 2 })}
+      />,
+    );
+    expect(log.scrollTop).toBe(191);
+    expect(onScrollTopChange).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <GuideChatView
+        {...props}
+        turn={turnWith([openingMessage], { session_id: "ses_restored" })}
+      />,
+    );
+    expect(log.scrollTop).toBe(126);
+    expect(onScrollTopChange).toHaveBeenCalledTimes(1);
+  });
+
   it("renders a semantic two-product comparison only in expanded mode", () => {
     const comparisonMessage: TranscriptMessage = {
       id: "gmsg_comparison",

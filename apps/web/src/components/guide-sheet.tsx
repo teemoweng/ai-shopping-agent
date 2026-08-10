@@ -7,15 +7,9 @@ import {
   useRef,
   useState,
 } from "react";
-import type {
-  FormEvent,
-  KeyboardEvent,
-  MouseEvent,
-  ReactNode,
-} from "react";
+import type { KeyboardEvent } from "react";
 
-import { ComparisonTable } from "@/components/comparison-table";
-import { RecommendationCard } from "@/components/recommendation-card";
+import { GuideChatView } from "@/components/guide-chat-view";
 import {
   ApiError,
   compareProducts,
@@ -27,18 +21,11 @@ import {
 type GuideTurn = components["schemas"]["GuideTurnResponse"];
 type GuideAction = components["schemas"]["GuideAction"];
 type EvidenceStatus = components["schemas"]["EvidenceStatus"];
-type EvidenceReference = components["schemas"]["EvidenceReference"];
 type ProductRole = "current" | "alternative";
 type SyncExpectation =
   | { kind: "comparison-unknown"; sessionId: string }
   | { kind: "state-conflict"; sessionId: string }
   | null;
-
-const STARTING_QUESTIONS = [
-  "这款适合我吗？",
-  "视频里的说法可信吗？",
-  "帮我找更合适的替代",
-] as const;
 
 const GUIDE_SESSION_LOCATOR_PREFIX = "ai-shopping-guide-session:";
 
@@ -113,13 +100,6 @@ const claimStatusLabels = {
   SUBJECTIVE_MIXED: "主观体验分歧",
 } satisfies Record<EvidenceStatus, string>;
 
-const verdictLabels = {
-  SUITABLE: "适合",
-  CONDITIONAL: "有条件适合",
-  NOT_RECOMMENDED: "不建议",
-  INSUFFICIENT_EVIDENCE: "信息不足",
-} as const;
-
 export function claimStatusLabel(status: EvidenceStatus) {
   return claimStatusLabels[status];
 }
@@ -177,121 +157,6 @@ function isUsableResult(turn: GuideTurn) {
   ].includes(turn.guide_view_kind);
 }
 
-function safePublicSourceUrl(evidence: EvidenceReference) {
-  if (evidence.synthetic || evidence.source_kind !== "public_rule") {
-    return null;
-  }
-  try {
-    const url = new URL(evidence.url);
-    return url.protocol === "https:" ? url.toString() : null;
-  } catch {
-    return null;
-  }
-}
-
-function EvidenceDisclosure({ evidence }: { evidence: EvidenceReference }) {
-  const sourceUrl = safePublicSourceUrl(evidence);
-  return (
-    <details className="evidenceDisclosure" data-status={evidence.status}>
-      <summary>
-        <span>{claimStatusLabel(evidence.status)}</span>
-        {evidence.title}
-      </summary>
-      <p>{evidence.summary}</p>
-      {evidence.synthetic ? (
-        <small>合成评测证据 · 不是外部用户研究</small>
-      ) : sourceUrl ? (
-        <a href={sourceUrl} target="_blank" rel="noopener noreferrer">
-          {evidence.title}
-          <span aria-hidden="true"> ↗</span>
-        </a>
-      ) : (
-        <small>来源地址未通过安全校验，本页不提供跳转</small>
-      )}
-    </details>
-  );
-}
-
-function ContextMiniCard({ turn }: { turn: GuideTurn }) {
-  return (
-    <section className="guideContextCard" aria-label="已继承的视频与商品上下文">
-      <div className="guideContextThumb" aria-hidden="true">
-        <span>SPF</span>
-      </div>
-      <div className="guideContextCopy">
-        <span>关于视频中的商品</span>
-        <strong>{turn.context.anchor_product_name}</strong>
-        <small>
-          <span>{turn.context.creator_handle}</span>
-          <span aria-hidden="true"> · </span>
-          <span>{turn.context.caption}</span>
-        </small>
-      </div>
-      <span className="contextInheritedBadge">已继承</span>
-    </section>
-  );
-}
-
-function ClaimEvidence({ turn }: { turn: GuideTurn }) {
-  if (turn.context.claims.length === 0) {
-    return null;
-  }
-  const evidenceById = new Map(
-    (turn.evidence ?? []).map((item) => [item.evidence_id, item]),
-  );
-  return (
-    <section className="claimsLedger" aria-labelledby="claims-heading">
-      <div className="sectionHeading">
-        <span>{turn.context.claims.length} 条视频说法</span>
-        <h2 id="claims-heading">视频宣称核验</h2>
-      </div>
-      <div className="claimList">
-        {turn.context.claims.map((claim) => {
-          const claimEvidence = evidenceById.get(claim.evidence_id);
-          return (
-            <article
-              className="claimRecord"
-              data-status={claim.status}
-              key={claim.claim_id}
-            >
-              <span className="claimMarker" aria-hidden="true" />
-              <div>
-                <p>{claim.text}</p>
-                {claimEvidence ? (
-                  <EvidenceDisclosure evidence={claimEvidence} />
-                ) : (
-                  <small>当前没有可进一步展开的来源</small>
-                )}
-              </div>
-              <strong>{claimStatusLabel(claim.status)}</strong>
-            </article>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function StatePanel({
-  tone,
-  eyebrow,
-  title,
-  children,
-}: {
-  tone?: "warning" | "safety" | "neutral";
-  eyebrow: string;
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className={`guideStatePanel ${tone ? `guideStatePanel-${tone}` : ""}`}>
-      <span>{eyebrow}</span>
-      <h2>{title}</h2>
-      <div>{children}</div>
-    </section>
-  );
-}
-
 export interface GuideSheetProps {
   open: boolean;
   onClose: () => void;
@@ -312,21 +177,23 @@ export function GuideSheet({
   onVerifiedTurnChange,
 }: GuideSheetProps) {
   const [turn, setTurn] = useState<GuideTurn | null>(null);
-  const [showStartingQuestions, setShowStartingQuestions] = useState(true);
-  const [input, setInput] = useState("");
   const [pendingLabel, setPendingLabel] = useState<string | null>(null);
   const [transientError, setTransientError] = useState<string | null>(null);
   const [fatalError, setFatalError] = useState<string | null>(null);
-  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [comparisonPending, setComparisonPending] = useState(false);
   const [comparisonError, setComparisonError] = useState<string | null>(null);
+  const [pendingUserText, setPendingUserText] = useState<string | null>(null);
+  const [alternativesExpanded, setAlternativesExpanded] = useState(false);
   const [guideFrozen, setGuideFrozen] = useState(false);
   const [syncRequired, setSyncRequired] = useState(false);
+  const [syncExpectationKind, setSyncExpectationKind] = useState<
+    "comparison-unknown" | "state-conflict" | null
+  >(null);
   const [activeContextId, setActiveContextId] = useState(contentContextId);
   const [lastUsableTurn, setLastUsableTurn] = useState<GuideTurn | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
-  const bodyRef = useRef<HTMLDivElement>(null);
+  const latestScrollTopRef = useRef(initialScrollTop);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const verifiedTurnRef = useRef<GuideTurn | null>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -345,7 +212,6 @@ export function GuideSheet({
   const resetComparison = useCallback(() => {
     comparisonVersionRef.current += 1;
     comparisonPendingRef.current = false;
-    setSelectedProductIds([]);
     setComparisonPending(false);
     setComparisonError(null);
   }, []);
@@ -360,6 +226,7 @@ export function GuideSheet({
       syncRequiredRef.current = required;
       if (expectation !== undefined) {
         syncExpectationRef.current = expectation;
+        setSyncExpectationKind(expectation?.kind ?? null);
       }
       setSyncRequired(required);
     },
@@ -378,6 +245,8 @@ export function GuideSheet({
       freezeGuide(false);
       resetComparison();
       setTurn(terminalTurn ?? null);
+      setPendingUserText(null);
+      setAlternativesExpanded(false);
       setPendingLabel(null);
       setTransientError(null);
       setFatalError(terminalTurn ? null : message);
@@ -388,7 +257,6 @@ export function GuideSheet({
   const applyVerifiedTurn = useCallback(
     (
       nextTurn: GuideTurn,
-      fromNewSession = false,
       expectedSessionId?: string,
     ) => {
       const previous = verifiedTurnRef.current;
@@ -451,25 +319,22 @@ export function GuideSheet({
       writeSessionLocator(contentContextId, nextTurn.session_id);
       comparisonPendingRef.current = false;
       setTurn(nextTurn);
+      setPendingUserText(null);
+      if (nextTurn.guide_view_kind === "SAFE_BOUNDARY") {
+        setAlternativesExpanded(false);
+      }
       setComparisonPending(false);
       freezeGuide(false);
       requireSync(false, null);
       setFatalError(null);
       setTransientError(null);
-      if (fromNewSession) {
-        setShowStartingQuestions(
-          nextTurn.guide_view_kind === "WAITING_CLARIFICATION",
-        );
-      } else if (nextTurn.guide_view_kind !== "WAITING_CLARIFICATION") {
-        setShowStartingQuestions(false);
-      }
     },
     [contentContextId, enterTerminalState, freezeGuide, onVerifiedTurnChange, requireSync, resetComparison],
   );
 
   const saveScrollPosition = useCallback(() => {
-    const scrollTop = bodyRef.current?.scrollTop;
-    if (typeof scrollTop === "number" && Number.isFinite(scrollTop)) {
+    const scrollTop = latestScrollTopRef.current;
+    if (Number.isFinite(scrollTop)) {
       onScrollTopChange?.(Math.max(0, scrollTop));
     }
   }, [onScrollTopChange]);
@@ -512,8 +377,9 @@ export function GuideSheet({
     setLastUsableTurn(null);
     sessionIdRef.current = null;
     setTurn(null);
-    setShowStartingQuestions(true);
-    setInput("");
+    setPendingUserText(null);
+    setAlternativesExpanded(false);
+    latestScrollTopRef.current = 0;
     openCycleRef.current = false;
     requestVersionRef.current += 1;
     submittingRef.current = false;
@@ -523,6 +389,10 @@ export function GuideSheet({
     setFatalError(null);
     resetComparison();
   }, [contentContextId, freezeGuide, onVerifiedTurnChange, requireSync, resetComparison]);
+
+  useEffect(() => {
+    latestScrollTopRef.current = Math.max(0, initialScrollTop);
+  }, [initialScrollTop]);
 
   useEffect(() => {
     if (!open) {
@@ -611,7 +481,6 @@ export function GuideSheet({
         ) {
           applyVerifiedTurn(
             nextTurn,
-            createdNewSession,
             createdNewSession ? undefined : existingSessionId ?? undefined,
           );
         }
@@ -669,7 +538,12 @@ export function GuideSheet({
     }
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    closeRef.current?.focus();
+    const closeButton =
+      closeRef.current ??
+      dialogRef.current?.querySelector<HTMLButtonElement>(
+        'button[aria-label="关闭导购"]',
+      );
+    closeButton?.focus();
 
     return () => {
       document.body.style.overflow = previousOverflow;
@@ -680,21 +554,16 @@ export function GuideSheet({
   }, [open]);
 
   useEffect(() => {
-    if (!open) {
+    if (!open || !turn?.session_id) {
       return;
     }
-    const restore = () => {
-      if (bodyRef.current) {
-        bodyRef.current.scrollTop = Math.max(0, initialScrollTop);
-      }
-    };
-    if (typeof window.requestAnimationFrame === "function") {
-      const frame = window.requestAnimationFrame(restore);
-      return () => window.cancelAnimationFrame(frame);
+    const activeElement = document.activeElement as HTMLElement | null;
+    if (!dialogRef.current?.contains(activeElement)) {
+      dialogRef.current
+        ?.querySelector<HTMLButtonElement>('button[aria-label="关闭导购"]')
+        ?.focus();
     }
-    const timer = window.setTimeout(restore, 0);
-    return () => window.clearTimeout(timer);
-  }, [initialScrollTop, open, turn?.session_id]);
+  }, [open, turn?.session_id]);
 
   const submitMessage = useCallback(
     (rawText: string) => {
@@ -705,6 +574,7 @@ export function GuideSheet({
         !text ||
         submittingRef.current ||
         guideFrozenRef.current ||
+        !hasAction(currentTurn, "SEND_MESSAGE") ||
         !openCycleRef.current ||
         lastContextIdRef.current !== contentContextId
       ) {
@@ -714,7 +584,8 @@ export function GuideSheet({
       submittingRef.current = true;
       freezeGuide(true);
       resetComparison();
-      setShowStartingQuestions(false);
+      setAlternativesExpanded(false);
+      setPendingUserText(text);
       setTransientError(null);
       requireSync(false, null);
       setPendingLabel("正在核验商品事实与视频说法…");
@@ -749,8 +620,7 @@ export function GuideSheet({
               );
             }
             if (isCurrentRequest()) {
-              setInput("");
-              applyVerifiedTurn(nextTurn, false, currentTurn.session_id);
+              applyVerifiedTurn(nextTurn, currentTurn.session_id);
             }
             return;
           } catch (error: unknown) {
@@ -770,8 +640,7 @@ export function GuideSheet({
           try {
             const snapshot = await getGuideSession(currentTurn.session_id);
             if (isCurrentRequest()) {
-              setInput("");
-              applyVerifiedTurn(snapshot, false, currentTurn.session_id);
+              applyVerifiedTurn(snapshot, currentTurn.session_id);
             }
           } catch (error: unknown) {
             if (!isCurrentRequest()) {
@@ -809,30 +678,6 @@ export function GuideSheet({
     ],
   );
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    submitMessage(input);
-  }
-
-  function handleStartingQuestionClick(event: MouseEvent<HTMLButtonElement>) {
-    if (
-      guideFrozenRef.current ||
-      !openCycleRef.current ||
-      lastContextIdRef.current !== contentContextId
-    ) {
-      return;
-    }
-    if (event.currentTarget.dataset.firstQuestion === "true") {
-      setShowStartingQuestions(false);
-      return;
-    }
-    submitMessage(event.currentTarget.value);
-  }
-
-  function handleMessageButtonClick(event: MouseEvent<HTMLButtonElement>) {
-    submitMessage(event.currentTarget.value);
-  }
-
   function handleDialogKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === "Escape") {
       event.preventDefault();
@@ -845,7 +690,7 @@ export function GuideSheet({
 
     const focusable = Array.from(
       dialogRef.current?.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), input:not([disabled]), a[href], summary, [tabindex]:not([tabindex="-1"])',
+        'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), a[href], summary, [tabindex]:not([tabindex="-1"])',
       ) ?? [],
     ).filter((element) => {
       if (element.getAttribute("aria-hidden") === "true") {
@@ -872,33 +717,25 @@ export function GuideSheet({
     }
   }
 
-  function handleCompareChange(productId: string, selected: boolean) {
-    if (
-      guideFrozenRef.current ||
-      !openCycleRef.current ||
-      lastContextIdRef.current !== contentContextId ||
-      comparisonPendingRef.current
-    ) {
-      return;
-    }
-    setSelectedProductIds((current) => {
-      if (selected) {
-        return current.includes(productId) || current.length >= 3
-          ? current
-          : [...current, productId];
-      }
-      return current.filter((id) => id !== productId);
-    });
-    setComparisonError(null);
-  }
-
   function handleCompareProducts() {
     const currentTurn = verifiedTurnRef.current;
+    const currentRecommendations =
+      currentTurn?.transcript?.at(-1)?.recommendations ??
+      currentTurn?.recommendations ??
+      [];
+    const anchor = currentRecommendations.find(
+      (item) => item.product_id === currentTurn?.context.anchor_product_id,
+    );
+    const alternative = currentRecommendations.find(
+      (item) => item.product_id !== currentTurn?.context.anchor_product_id,
+    );
+    const productIds = [anchor?.product_id, alternative?.product_id].filter(
+      (productId): productId is string => Boolean(productId),
+    );
     if (
       !currentTurn ||
       !hasAction(currentTurn, "REQUEST_COMPARISON") ||
-      selectedProductIds.length < 2 ||
-      selectedProductIds.length > 3 ||
+      productIds.length !== 2 ||
       guideFrozenRef.current ||
       !openCycleRef.current ||
       lastContextIdRef.current !== contentContextId ||
@@ -917,7 +754,6 @@ export function GuideSheet({
     } as const;
     requireSync(false, comparisonExpectation);
     const version = ++comparisonVersionRef.current;
-    const productIds = [...selectedProductIds];
     const requestId = createClientRequestId("cmp", sessionId);
     const expectedConversationRevision = currentTurn.conversation_revision;
     const isCurrentComparison = () =>
@@ -1001,7 +837,7 @@ export function GuideSheet({
         if (!isCurrentComparison()) {
           return;
         }
-        applyVerifiedTurn(snapshot, false, sessionId);
+        applyVerifiedTurn(snapshot, sessionId);
       } catch (error: unknown) {
         if (!isCurrentComparison()) {
           return;
@@ -1089,7 +925,7 @@ export function GuideSheet({
       try {
         const nextTurn = await createGuideSession(contentContextId, "zh-CN");
         if (isCurrentRequest() && sessionIdRef.current === null) {
-          applyVerifiedTurn(nextTurn, true);
+          applyVerifiedTurn(nextTurn);
         }
       } catch {
         if (isCurrentRequest() && sessionIdRef.current === null) {
@@ -1131,7 +967,7 @@ export function GuideSheet({
           await replaceConfirmedStaleSession();
           return;
         }
-        applyVerifiedTurn(nextTurn, false, currentSessionId);
+        applyVerifiedTurn(nextTurn, currentSessionId);
       } finally {
         if (isCurrentRequest()) {
           submittingRef.current = false;
@@ -1170,7 +1006,7 @@ export function GuideSheet({
           isOpenRef.current &&
           requestVersionRef.current === requestVersion
         ) {
-          applyVerifiedTurn(nextTurn, true);
+          applyVerifiedTurn(nextTurn);
         }
       })
       .catch((error: unknown) => {
@@ -1212,510 +1048,185 @@ export function GuideSheet({
   const isSubmitting = Boolean(pendingLabel);
   const businessFrozen =
     guideFrozen || activeContextId !== contentContextId;
-  const recommendations = (turn?.recommendations ?? []).slice(0, 3);
-  const evidenceById = new Map(
-    (turn?.evidence ?? []).map((item) => [item.evidence_id, item]),
-  );
-  const productNames = Object.fromEntries(
-    recommendations.map((item) => [item.product_id, item.name]),
-  );
-
-  function renderComposer(currentTurn: GuideTurn) {
-    if (!hasAction(currentTurn, "UPDATE_CONSTRAINTS")) {
-      return null;
-    }
-    return (
-      <form className="guideComposer" onSubmit={handleSubmit}>
-        <label>
-          <span>补充你的条件</span>
-          <input
-            id="guide-constraints"
-            name="guide-constraints"
-            type="text"
-            value={input}
-            disabled={businessFrozen}
-            placeholder="例如：油敏皮、深肤色、去夏威夷，预算 30 美元以内"
-            onChange={(event) => setInput(event.target.value)}
-          />
-        </label>
-        <button type="submit" disabled={businessFrozen || !input.trim()}>
-          {isSubmitting ? "正在核验" : "发送"}
-        </button>
-      </form>
-    );
-  }
-
-  function renderDecision(
-    currentTurn: GuideTurn,
-    { readOnly = false }: { readOnly?: boolean } = {},
-  ) {
-    const verdict = currentTurn.verdict ?? "INSUFFICIENT_EVIDENCE";
-    const currentRecommendations = (currentTurn.recommendations ?? []).slice(
-      0,
-      3,
-    );
-    const currentEvidenceById = new Map(
-      (currentTurn.evidence ?? []).map((item) => [item.evidence_id, item]),
-    );
-    const controlsDisabled = readOnly || businessFrozen || comparisonPending;
-    const comparisonEnabled =
-      !readOnly && hasAction(currentTurn, "REQUEST_COMPARISON");
-    const productOpeningEnabled = hasAction(currentTurn, "OPEN_PRODUCT");
-
-    if (readOnly && currentTurn.comparison) {
-      const currentProductNames = Object.fromEntries(
-        currentRecommendations.map((item) => [item.product_id, item.name]),
-      );
-      return (
-        <section className="guideComparisonView">
-          <strong className="readOnlyResultLabel">
-            上次可用结果（只读）
-          </strong>
-          <ComparisonTable
-            comparison={currentTurn.comparison}
-            productNames={currentProductNames}
-            anchorProductId={currentTurn.context.anchor_product_id}
-            onOpenProduct={productOpeningEnabled ? openProduct : undefined}
-            disabled
-          />
-        </section>
-      );
-    }
-
-    return (
-      <>
-        {readOnly ? (
-          <strong className="readOnlyResultLabel">上次可用结果（只读）</strong>
-        ) : null}
-        <section className="decisionVerdict" data-verdict={verdict}>
-          <span>AI 决策 · 基于已验证资料</span>
-          <h2>{verdictLabels[verdict]}</h2>
-          <p>{currentTurn.text}</p>
-          {currentTurn.degraded ? (
-            <small>已使用确定性降级文案，商品与证据结构未变化</small>
-          ) : null}
-        </section>
-        <section className="recommendationSection" aria-labelledby="recommendations-heading">
-          <div className="sectionHeading">
-            <span>最多 3 款</span>
-            <h2 id="recommendations-heading">商品建议</h2>
-          </div>
-          <div className="recommendationGrid">
-            {currentRecommendations.map((recommendation, index) => {
-              const role: ProductRole =
-                recommendation.product_id ===
-                currentTurn.context.anchor_product_id
-                  ? "current"
-                  : "alternative";
-              return (
-                <RecommendationCard
-                  key={recommendation.product_id}
-                  recommendation={recommendation}
-                  index={index}
-                  role={role}
-                  evidence={recommendation.evidence_ids.flatMap((evidenceId) => {
-                    const item = currentEvidenceById.get(evidenceId);
-                    return item ? [item] : [];
-                  })}
-                  comparisonEnabled={comparisonEnabled}
-                  selectedForCompare={selectedProductIds.includes(
-                    recommendation.product_id,
-                  )}
-                  compareDisabled={
-                    controlsDisabled ||
-                    (selectedProductIds.length >= 3 &&
-                      !selectedProductIds.includes(recommendation.product_id))
-                  }
-                  disabled={controlsDisabled}
-                  onCompareChange={handleCompareChange}
-                  onOpenProduct={productOpeningEnabled ? openProduct : undefined}
-                />
-              );
-            })}
-          </div>
-          {comparisonEnabled ? (
-            <div className="decisionActions" aria-label="比较操作">
-              <button
-                type="button"
-                disabled={
-                  selectedProductIds.length < 2 ||
-                  selectedProductIds.length > 3 ||
-                  comparisonPending || businessFrozen
-                }
-                onClick={handleCompareProducts}
-              >
-                {comparisonPending
-                  ? "正在生成比较"
-                  : `比较已选 ${selectedProductIds.length} 款`}
-              </button>
-            </div>
-          ) : null}
-          {comparisonError ? (
-            <div className="guideInlineError" role="alert">
-              {comparisonError}
-            </div>
-          ) : null}
-        </section>
-        <ClaimEvidence turn={currentTurn} />
-        {!readOnly ? renderComposer(currentTurn) : null}
-      </>
-    );
-  }
-
-  function renderView(currentTurn: GuideTurn) {
-    if (
-      currentTurn.guide_view_kind === "WAITING_CLARIFICATION" &&
-      showStartingQuestions
-    ) {
-      const canAnswer = hasAction(currentTurn, "ANSWER_CLARIFICATION");
-      return (
-        <>
-          <section className="guideStartingQuestions">
-            <span>从一个问题开始</span>
-            <h2>你最想先确认什么？</h2>
-            <div>
-              {STARTING_QUESTIONS.map((question, index) => (
-                <button
-                  type="button"
-                  key={question}
-                  value={question}
-                  data-first-question={index === 0 ? "true" : "false"}
-                  disabled={businessFrozen || !canAnswer}
-                  onClick={handleStartingQuestionClick}
-                >
-                  <span aria-hidden="true">{index + 1}</span>
-                  {question}
-                </button>
-              ))}
-            </div>
-          </section>
-          {renderComposer(currentTurn)}
-        </>
-      );
-    }
-
-    switch (currentTurn.guide_view_kind) {
-      case "OPENING_CONTEXT":
-        return (
-          <StatePanel
-            tone="neutral"
-            eyebrow="上下文读取中"
-            title="正在读取当前视频和商品"
-          >
-            <p>{currentTurn.text}</p>
-          </StatePanel>
-        );
-      case "CONTEXT_CONFIRMATION":
-        return (
-          <StatePanel eyebrow="需要你的确认" title="请确认视频中的商品">
-            <p>{currentTurn.text}</p>
-            {hasAction(currentTurn, "CONFIRM_CONTEXT") ? (
-              <button
-                type="button"
-                className="primaryDecisionButton"
-                value="确认是视频里的商品"
-                disabled={businessFrozen}
-                onClick={handleMessageButtonClick}
-              >
-                确认是这款商品
-              </button>
-            ) : null}
-          </StatePanel>
-        );
-      case "WAITING_CLARIFICATION": {
-        const canAnswer = hasAction(currentTurn, "ANSWER_CLARIFICATION");
-        const canSkip = hasAction(currentTurn, "SKIP_CLARIFICATION");
-        return (
-          <>
-            <section className="clarificationView">
-              <span>只问一个会改变结果的问题</span>
-              <h2>{currentTurn.text}</h2>
-              <div className="clarificationChoices">
-                {(currentTurn.quick_replies ?? []).slice(0, 4).map((reply) => {
-                  const isSkip = reply === "跳过";
-                  if ((isSkip && !canSkip) || (!isSkip && !canAnswer)) {
-                    return null;
-                  }
-                  return (
-                    <button
-                      key={reply}
-                      type="button"
-                      value={reply}
-                      disabled={businessFrozen}
-                      onClick={handleMessageButtonClick}
-                    >
-                      {reply}
-                    </button>
-                  );
-                })}
-              </div>
-              <small>跳过按日常通勤继续，不会暗中添加防水硬约束。</small>
-            </section>
-            {renderComposer(currentTurn)}
-          </>
-        );
+  const comparisonExpected =
+    syncRequired && syncExpectationKind === "comparison-unknown";
+  const showingComparison =
+    turn?.guide_view_kind === "COMPARISON_READY" ||
+    (turn?.guide_view_kind === "RECOVERY_REQUIRED" &&
+      lastUsableTurn?.guide_view_kind === "COMPARISON_READY");
+  const mode =
+    comparisonPending ||
+    comparisonExpected ||
+    showingComparison ||
+    alternativesExpanded
+      ? "expanded"
+      : "compact";
+  const statusText = comparisonPending
+    ? "正在核对商品信息…"
+    : pendingLabel
+      ? pendingUserText
+        ? "正在核对商品信息…"
+        : "正在恢复回答…"
+      : syncRequired
+        ? "正在恢复回答…"
+        : null;
+  const errorText = [transientError, comparisonError]
+    .filter((message): message is string => Boolean(message))
+    .join(" ") || null;
+  const recoveryTurn =
+    turn?.guide_view_kind === "RECOVERY_REQUIRED" && lastUsableTurn
+      ? lastUsableTurn
+      : turn;
+  const isFatalTurn = turn?.guide_view_kind === "FATAL_ERROR";
+  const displayTurn =
+    recoveryTurn && pendingUserText
+      ? {
+          ...recoveryTurn,
+          transcript: [
+            ...(recoveryTurn.transcript ?? []),
+            {
+              id: `pending_${recoveryTurn.session_id}`,
+              sequence:
+                (recoveryTurn.transcript?.at(-1)?.sequence ?? 0) + 1,
+              role: "USER" as const,
+              kind: "USER_TEXT" as const,
+              text: pendingUserText,
+              redacted: false,
+            },
+          ],
+        }
+      : recoveryTurn;
+  const chatTurn = displayTurn
+    ? {
+        ...displayTurn,
+        recommendations: (displayTurn.recommendations ?? []).slice(0, 3),
+        transcript: (displayTurn.transcript ?? []).map((message) => ({
+          ...message,
+          recommendations: message.recommendations?.slice(0, 3),
+        })),
       }
-      case "VERIFYING_FACTS":
-        return (
-          <StatePanel
-            tone="neutral"
-            eyebrow="可验证进度"
-            title="正在核验商品事实与视频说法"
-          >
-            <p>{currentTurn.text}</p>
-          </StatePanel>
-        );
-      case "DECISION_READY":
-        return renderDecision(currentTurn);
-      case "NO_MATCH":
-        return (
-          <StatePanel
-            tone="warning"
-            eyebrow="硬性条件未被放宽"
-            title="没有找到同时满足条件的商品"
-          >
-            <p>{currentTurn.text}</p>
-            {hasAction(currentTurn, "RELAX_CONSTRAINT") ? (
-              <button
-                type="button"
-                className="primaryDecisionButton"
-                value="防水不限"
-                disabled={businessFrozen}
-                onClick={handleMessageButtonClick}
-              >
-                放宽防水要求
-              </button>
-            ) : null}
-          </StatePanel>
-        );
-      case "INSUFFICIENT_EVIDENCE":
-        return (
-          <>
-            <StatePanel
-              tone="warning"
-              eyebrow="事实与未知项分开显示"
-              title="当前证据不足"
-            >
-              <p>{currentTurn.text}</p>
-              {hasAction(currentTurn, "CONTINUE_WITH_KNOWN") ? (
-                <button
-                  type="button"
-                  className="primaryDecisionButton"
-                  value="继续使用已知信息"
-                  disabled={businessFrozen}
-                  onClick={handleMessageButtonClick}
-                >
-                  仅基于已知信息继续
-                </button>
-              ) : null}
-            </StatePanel>
-            {recommendations.length > 0 && hasAction(currentTurn, "OPEN_PRODUCT") ? (
-              <section className="recommendationGrid insufficientCandidates">
-                {recommendations.map((recommendation, index) => (
-                  <RecommendationCard
-                    key={recommendation.product_id}
-                    recommendation={recommendation}
-                    index={index}
-                    role={
-                      recommendation.product_id ===
-                      currentTurn.context.anchor_product_id
-                        ? "current"
-                        : "alternative"
-                    }
-                    evidence={recommendation.evidence_ids.flatMap((id) => {
-                      const item = evidenceById.get(id);
-                      return item ? [item] : [];
-                    })}
-                    comparisonEnabled={false}
-                    selectedForCompare={false}
-                    disabled={businessFrozen || comparisonPending}
-                    onCompareChange={handleCompareChange}
-                    onOpenProduct={openProduct}
-                  />
-                ))}
-              </section>
-            ) : null}
-            <ClaimEvidence turn={currentTurn} />
-          </>
-        );
-      case "COMPARISON_READY":
-        return currentTurn.comparison ? (
-          <section className="guideComparisonView">
-            <ComparisonTable
-              comparison={currentTurn.comparison}
-              productNames={productNames}
-              anchorProductId={currentTurn.context.anchor_product_id}
-              disabled={businessFrozen}
-              onOpenProduct={
-                hasAction(currentTurn, "OPEN_PRODUCT")
-                  ? openProduct
-                  : undefined
-              }
-            />
-          </section>
-        ) : (
-          <StatePanel
-            tone="warning"
-            eyebrow="比较快照不可用"
-            title="比较结果"
-          >
-            <p>服务端没有返回可验证的比较结构，请退出后重新进入。</p>
-          </StatePanel>
-        );
-      case "SAFE_BOUNDARY":
-        return (
-          <StatePanel
-            tone="safety"
-            eyebrow="只提供商品事实帮助"
-            title="安全边界"
-          >
-            <p>{currentTurn.text}</p>
-          </StatePanel>
-        );
-      case "RECOVERY_REQUIRED":
-        return (
-          <>
-            <StatePanel
-              tone="warning"
-              eyebrow="保留上次已验证结果"
-              title="需要恢复导购"
-            >
-              <p>{currentTurn.text}</p>
-              {hasAction(currentTurn, "RETRY_GUIDE_OPERATION") ? (
-                <button
-                  type="button"
-                  className="primaryDecisionButton"
-                  disabled={isSubmitting}
-                  onClick={retryRecoverySession}
-                >
-                  重试恢复
-                </button>
-              ) : null}
-            </StatePanel>
-            {lastUsableTurn
-              ? renderDecision(lastUsableTurn, { readOnly: true })
-              : null}
-          </>
-        );
-      case "FATAL_ERROR":
-        return (
-          <StatePanel
-            tone="warning"
-            eyebrow="不可恢复错误"
-            title="导购暂时不可用"
-          >
-            <p>{currentTurn.text}</p>
-          </StatePanel>
-        );
-    }
-  }
+    : null;
+  const currentRecommendations =
+    turn?.transcript?.at(-1)?.recommendations ?? turn?.recommendations ?? [];
+  const canCompare =
+    Boolean(turn && hasAction(turn, "REQUEST_COMPARISON")) &&
+    currentRecommendations.some(
+      (item) => item.product_id === turn?.context.anchor_product_id,
+    ) &&
+    currentRecommendations.some(
+      (item) => item.product_id !== turn?.context.anchor_product_id,
+    );
+  const canOpenProduct = Boolean(turn && hasAction(turn, "OPEN_PRODUCT"));
+  const needsRecoveryAction = Boolean(
+    syncRequired ||
+      (turn?.guide_view_kind === "RECOVERY_REQUIRED" &&
+        hasAction(turn, "RETRY_GUIDE_OPERATION")),
+  );
 
   return (
     <div className="guideBackdrop">
       <div
         ref={dialogRef}
-        className="guideSheet"
+        className="guideSheet guideSheetChat"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="guide-title"
-        aria-busy={Boolean(pendingLabel) || comparisonPending}
+        aria-label="AI 导购（概念）"
+        aria-busy={Boolean(statusText) || comparisonPending}
+        data-mode={mode}
+        style={{
+          height:
+            mode === "expanded" ? "min(74dvh, 670px)" : "min(44dvh, 390px)",
+          minHeight: 0,
+          gridTemplateRows: "minmax(0, 1fr)",
+        }}
         onKeyDown={handleDialogKeyDown}
       >
-        <header className="guideHeader">
-          <span className="sheetHandle" aria-hidden="true" />
-          <div>
-            <span>关于视频中的商品</span>
-            <h1 id="guide-title">AI 导购（概念）</h1>
-          </div>
-          <button
-            ref={closeRef}
-            className="guideClose"
-            type="button"
-            aria-label="关闭 AI 导购"
-            onClick={handleClose}
+        {chatTurn && !isFatalTurn ? (
+          <GuideChatView
+            turn={chatTurn}
+            mode={mode}
+            disabled={
+              businessFrozen || turn?.guide_view_kind === "RECOVERY_REQUIRED"
+            }
+            statusText={statusText}
+            errorText={errorText}
+            initialScrollTop={initialScrollTop}
+            onScrollTopChange={(scrollTop) => {
+              latestScrollTopRef.current = scrollTop;
+              onScrollTopChange?.(scrollTop);
+            }}
+            onSubmit={submitMessage}
+            onQuickReply={submitMessage}
+            onOpenProduct={canOpenProduct ? openProduct : undefined}
+            onCompare={canCompare ? handleCompareProducts : undefined}
+            onSubviewChange={(kind) => {
+              setAlternativesExpanded(kind === "alternatives");
+            }}
+            onClose={handleClose}
+          />
+        ) : (
+          <section
+            className="guideChatView"
+            data-mode="compact"
+            aria-label="AI 商品导购"
           >
-            <span aria-hidden="true">×</span>
-          </button>
-        </header>
-
-        <div
-          ref={bodyRef}
-          className="guideBody"
-          role="region"
-          aria-label="AI 导购内容"
-          onScroll={(event) =>
-            onScrollTopChange?.(event.currentTarget.scrollTop)
-          }
-        >
-          {turn ? <ContextMiniCard turn={turn} /> : null}
-
-          <div className="guideConceptDisclosure">
-            <span aria-hidden="true">AI</span>
-            <p>
-              <strong>基于合成商品数据和公开资料快照</strong>
-              <small>未接入真实 TikTok、开放域大模型或支付</small>
-            </p>
-          </div>
-
-          {pendingLabel ? (
-            <div className="guideProgress" role="status" aria-live="polite">
-              <span className="statusPulse" aria-hidden="true" />
-              {pendingLabel}
-            </div>
-          ) : null}
-          {transientError ? (
-            <div className="guideInlineError" role="alert">
-              {transientError}
-            </div>
-          ) : null}
-          {syncRequired ? (
-            <StatePanel
-              tone="warning"
-              eyebrow="操作结果待对账"
-              title="服务端状态尚未同步"
-            >
-              <p>
-                {turn
-                  ? "上次已核验内容会继续显示，但所有商品动作保持冻结。"
-                  : "已保留当前会话定位；恢复完成前所有商品动作保持冻结。"}
-              </p>
+            <header className="guideChatHeader">
+              <strong>
+                {fatalError || isFatalTurn ? "导购暂时不可用" : "正在打开导购"}
+              </strong>
               <button
+                ref={closeRef}
                 type="button"
-                className="primaryDecisionButton"
-                disabled={isSubmitting}
-                onClick={retryGuideSnapshot}
+                className="guideChatClose"
+                aria-label="关闭导购"
+                onClick={handleClose}
               >
-                重新同步
+                ×
               </button>
-            </StatePanel>
-          ) : null}
+            </header>
+            <div className="guideChatMessages">
+              {fatalError || isFatalTurn ? (
+                <div className="guideChatError" role="alert">
+                  <h2>导购暂时不可用</h2>
+                  <p>{fatalError ?? turn?.text}</p>
+                </div>
+              ) : (
+                <div className="guideChatStatus" role="status">
+                  正在读取当前视频和商品…
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
-          {fatalError ? (
-            <StatePanel
-              tone="warning"
-              eyebrow="无法建立导购会话"
-              title="导购暂时不可用"
+        {needsRecoveryAction ? (
+          <div
+            className="guideRecoveryAction"
+            style={{
+              position: "absolute",
+              right: 16,
+              bottom: "max(70px, env(safe-area-inset-bottom))",
+              zIndex: 2,
+            }}
+          >
+            <button
+              type="button"
+              className="primaryDecisionButton"
+              disabled={isSubmitting}
+              onClick={
+                turn?.guide_view_kind === "RECOVERY_REQUIRED"
+                  ? retryRecoverySession
+                  : retryGuideSnapshot
+              }
             >
-              <p>{fatalError}</p>
-            </StatePanel>
-          ) : turn ? (
-            renderView(turn)
-          ) : !pendingLabel ? (
-            <StatePanel
-              tone="neutral"
-              eyebrow="上下文读取中"
-              title="正在读取当前视频和商品"
-            >
-              <p>正在建立受控导购会话。</p>
-            </StatePanel>
-          ) : null}
-        </div>
-
-        <footer className="sheetFooter">
-          <span>交易市场：美国 · 演示语言：简体中文</span>
-          <strong>AI 可能出错，请以商品标签与 PDP 复核为准</strong>
-        </footer>
+              {turn?.guide_view_kind === "RECOVERY_REQUIRED"
+                ? "重新开始导购"
+                : "重新同步"}
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );
+
 }

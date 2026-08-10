@@ -139,10 +139,10 @@ describe("single live phone interview frame", () => {
       "短视频内容流",
     );
     await user.click(
-      await screen.findByRole("button", { name: /问 AI：Seoul Shade/ }),
+      await screen.findByRole("button", { name: /问问这款：Seoul Shade/ }),
     );
     expect(within(panel).getByTestId("current-demo-step")).toHaveTextContent(
-      "AI 导购决策支持",
+      "轻量商品对话",
     );
     const dialog = screen.getByRole("dialog", { name: "AI 导购（概念）" });
     expect(dialog.closest("[inert]")).toBeNull();
@@ -160,7 +160,7 @@ describe("single live phone interview frame", () => {
       ],
     ).toEqual([
       "短视频内容流",
-      "AI 导购决策支持",
+      "轻量商品对话",
       "商品详情与规格选择",
       "价格库存复核与确认",
       "模拟加购回执",

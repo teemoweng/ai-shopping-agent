@@ -80,7 +80,7 @@ export function interviewStepFor(state: {
   baseSurface: BaseSurface;
   overlay: Overlay;
 }): string {
-  if (state.overlay === "ai-sheet") return "AI 导购决策支持";
+  if (state.overlay === "ai-sheet") return "轻量商品对话";
   if (state.overlay === "cart-confirm") return "价格库存复核与确认";
   if (state.overlay === "receipt") return "模拟加购回执";
   if (state.baseSurface === "pdp") return "商品详情与规格选择";
@@ -484,7 +484,7 @@ export function DemoShell() {
           <span>PORTFOLIO WALKTHROUGH</span>
           <h1>内容电商 AI 导购概念原型</h1>
           <p>
-            面向美国 K-Beauty 防晒决策；手机内是同一条实时产品路径，不是静态截图或第二套桌面 App。
+            面向美国 K-Beauty 防晒决策；手机内用轻量对话逐步展开答案、推荐与比较，不是静态截图或第二套桌面 App。
           </p>
         </header>
         <section className="interviewCurrentStep" aria-labelledby="current-step-title">

@@ -19,6 +19,7 @@ import {
   getFeed,
   getGuideSession,
   getProduct,
+  sendGuideMessage,
 } from "@/lib/api-client";
 
 vi.mock("@/lib/api-client", async (importOriginal) => {
@@ -29,6 +30,7 @@ vi.mock("@/lib/api-client", async (importOriginal) => {
     getFeed: vi.fn(),
     getGuideSession: vi.fn(),
     getProduct: vi.fn(),
+    sendGuideMessage: vi.fn(),
   };
 });
 
@@ -231,6 +233,53 @@ const GUIDE_DECISION: components["schemas"]["GuideTurnResponse"] = {
   ],
 };
 
+const GUIDE_OPENING: components["schemas"]["GuideTurnResponse"] = {
+  ...GUIDE_DECISION,
+  state: "CLARIFY",
+  kind: "clarification",
+  text: "我看到你在看 Seoul Shade。你最想确认什么？",
+  quick_replies: ["会不会泛白？"],
+  guide_status: "WAITING_USER",
+  guide_view_kind: "WAITING_CLARIFICATION",
+  guide_revision: GUIDE_DECISION.guide_revision,
+  conversation_revision: 1,
+  recommendations: [],
+  evidence: [],
+  transcript: [
+    {
+      id: "gmsg_feed_opening",
+      sequence: 1,
+      role: "ASSISTANT",
+      kind: "OPENING",
+      text: "我看到你在看 Seoul Shade。你最想确认什么？",
+      quick_replies: ["会不会泛白？"],
+      redacted: false,
+    },
+  ],
+};
+
+const GUIDE_DECISION_AFTER_REPLY: components["schemas"]["GuideTurnResponse"] = {
+  ...GUIDE_DECISION,
+  conversation_revision: 2,
+  transcript: [
+    ...(GUIDE_OPENING.transcript ?? []),
+    {
+      id: "gmsg_feed_question",
+      sequence: 2,
+      role: "USER",
+      kind: "USER_TEXT",
+      text: "会不会泛白？",
+      redacted: false,
+    },
+    {
+      ...GUIDE_DECISION.transcript![0]!,
+      sequence: 3,
+      recommendations: GUIDE_DECISION.recommendations,
+      evidence: GUIDE_DECISION.evidence,
+    },
+  ],
+};
+
 function renderFeed(
   overrides: Partial<React.ComponentProps<typeof ShortVideoFeed>> = {},
 ) {
@@ -391,7 +440,7 @@ describe("Chinese short-video Feed", () => {
       name: /查看商品 Seoul Shade Daily Fluid/,
     });
     const askAi = screen.getByRole("button", {
-      name: /问 AI：Seoul Shade Daily Fluid/,
+      name: /问问这款：Seoul Shade Daily Fluid/,
     });
     expect(product).not.toBe(askAi);
     expect(product).toHaveStyle({ minHeight: "44px" });
@@ -686,7 +735,7 @@ describe("Chinese short-video Feed", () => {
     ).toHaveAttribute("src", "/demo/feed-commerce-poster.jpg");
     expect(onNotice).toHaveBeenCalledWith("视频暂时无法播放，已显示同源封面");
     expect(screen.getByRole("button", { name: /查看商品/ })).toBeEnabled();
-    expect(screen.getByRole("button", { name: /问 AI/ })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /问问这款/ })).toBeEnabled();
   });
 });
 
@@ -879,11 +928,11 @@ describe("DemoShell", () => {
     Object.defineProperty(video, "pause", { configurable: true, value: pause });
     Object.defineProperty(video, "play", { configurable: true, value: play });
 
-    await user.click(screen.getByRole("button", { name: /问 AI：/ }));
+    await user.click(screen.getByRole("button", { name: /问问这款：/ }));
     expect(await screen.findByRole("dialog", { name: "AI 导购（概念）" })).toBeVisible();
     expect(pause).toHaveBeenCalledOnce();
 
-    await user.click(screen.getByRole("button", { name: "关闭 AI 导购" }));
+    await user.click(screen.getByRole("button", { name: "关闭导购" }));
     await waitFor(() => expect(play).toHaveBeenCalledOnce());
     expect(Math.abs(video.currentTime - 6.5)).toBeLessThanOrEqual(0.25);
     expect(video.muted).toBe(false);
@@ -913,12 +962,17 @@ describe("DemoShell", () => {
           value: true,
         });
       });
-      vi.mocked(createGuideSession).mockReset().mockResolvedValue(GUIDE_DECISION);
-      vi.mocked(getGuideSession).mockReset().mockResolvedValue(GUIDE_DECISION);
+      vi.mocked(createGuideSession).mockReset().mockResolvedValue(GUIDE_OPENING);
+      vi.mocked(sendGuideMessage)
+        .mockReset()
+        .mockResolvedValue(GUIDE_DECISION_AFTER_REPLY);
+      vi.mocked(getGuideSession)
+        .mockReset()
+        .mockResolvedValue(GUIDE_DECISION_AFTER_REPLY);
       const { container } = render(<DemoShell />);
 
       const originalAskAi = await screen.findByRole("button", {
-        name: /问 AI：Seoul Shade Daily Fluid/,
+        name: /问问这款：Seoul Shade Daily Fluid/,
       });
       const originalVideo = (await screen.findAllByTestId(
         "feed-video",
@@ -940,11 +994,15 @@ describe("DemoShell", () => {
       expect(phoneFrame).toHaveAttribute("aria-hidden", "true");
       await waitFor(() => expect(originalVideo.paused).toBe(true));
 
+      await user.click(
+        await screen.findByRole("button", { name: "会不会泛白？" }),
+      );
+
       const recommendation = await screen.findByRole("article", {
         name: "Seoul Shade Daily Fluid 商品建议",
       });
       await user.click(
-        within(recommendation).getByRole("button", { name: "查看商品" }),
+        within(recommendation).getByRole("button", { name: "看商品" }),
       );
       const pdp = screen.getByRole("region", { name: "商品详情" });
       await user.click(within(pdp).getByRole("button", { name: "返回内容流" }));
@@ -966,7 +1024,7 @@ describe("DemoShell", () => {
         play.mock.contexts.filter((video) => video === backgroundVideo),
       ).toHaveLength(0);
 
-      await user.click(screen.getByRole("button", { name: "关闭 AI 导购" }));
+      await user.click(screen.getByRole("button", { name: "关闭导购" }));
       await waitFor(() => {
         expect(
           screen.queryByRole("dialog", { name: "AI 导购（概念）" }),
@@ -978,7 +1036,7 @@ describe("DemoShell", () => {
         expect(backgroundVideo.muted).toBe(false);
         expect(
           screen.getByRole("button", {
-            name: /问 AI：Seoul Shade Daily Fluid/,
+            name: /问问这款：Seoul Shade Daily Fluid/,
           }),
         ).toHaveFocus();
         expect(phoneFrame).not.toHaveAttribute("inert");

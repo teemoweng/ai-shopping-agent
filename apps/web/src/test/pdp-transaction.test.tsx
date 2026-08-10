@@ -203,6 +203,53 @@ const GUIDE_DECISION: GuideTurn = {
   ],
 };
 
+const GUIDE_OPENING: GuideTurn = {
+  ...GUIDE_DECISION,
+  state: "CLARIFY",
+  kind: "clarification",
+  text: "我看到你在看 Seoul Shade。你最想确认什么？",
+  quick_replies: ["会不会泛白？"],
+  guide_status: "WAITING_USER",
+  guide_view_kind: "WAITING_CLARIFICATION",
+  guide_revision: GUIDE_DECISION.guide_revision,
+  conversation_revision: 1,
+  recommendations: [],
+  evidence: [],
+  transcript: [
+    {
+      id: "gmsg_pdp_opening",
+      sequence: 1,
+      role: "ASSISTANT",
+      kind: "OPENING",
+      text: "我看到你在看 Seoul Shade。你最想确认什么？",
+      quick_replies: ["会不会泛白？"],
+      redacted: false,
+    },
+  ],
+};
+
+const GUIDE_DECISION_AFTER_REPLY: GuideTurn = {
+  ...GUIDE_DECISION,
+  conversation_revision: 2,
+  transcript: [
+    ...(GUIDE_OPENING.transcript ?? []),
+    {
+      id: "gmsg_pdp_question",
+      sequence: 2,
+      role: "USER",
+      kind: "USER_TEXT",
+      text: "会不会泛白？",
+      redacted: false,
+    },
+    {
+      ...GUIDE_DECISION.transcript![0]!,
+      sequence: 3,
+      recommendations: GUIDE_DECISION.recommendations,
+      evidence: GUIDE_DECISION.evidence,
+    },
+  ],
+};
+
 function awaitingConfirmation(
   overrides: Partial<CommerceOperation> = {},
 ): CommerceOperation {
@@ -472,8 +519,9 @@ describe("PDP transaction flow", () => {
 
   it("revalidates an exact live Guide revision before showing and sending AI provenance", async () => {
     const user = userEvent.setup();
-    api.createGuideSession.mockResolvedValue(GUIDE_DECISION);
-    api.getGuideSession.mockResolvedValue(GUIDE_DECISION);
+    api.createGuideSession.mockResolvedValue(GUIDE_OPENING);
+    api.sendGuideMessage.mockResolvedValue(GUIDE_DECISION_AFTER_REPLY);
+    api.getGuideSession.mockResolvedValue(GUIDE_DECISION_AFTER_REPLY);
     api.previewCommerce.mockResolvedValue(
       awaitingConfirmation({
         purchase_origin: "AI",
@@ -494,12 +542,15 @@ describe("PDP transaction flow", () => {
     render(<DemoShell />);
 
     await user.click(
-      await screen.findByRole("button", { name: /问 AI：Seoul Shade Daily Fluid/ }),
+      await screen.findByRole("button", { name: /问问这款：Seoul Shade Daily Fluid/ }),
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "会不会泛白？" }),
     );
     const recommendation = await screen.findByRole("article", {
       name: "Seoul Shade Daily Fluid 商品建议",
     });
-    await user.click(within(recommendation).getByRole("button", { name: "查看商品" }));
+    await user.click(within(recommendation).getByRole("button", { name: "看商品" }));
 
     const pdp = await screen.findByRole("region", { name: "商品详情" });
     expect(await within(pdp).findByText("AI 建议商品 · 当前款")).toBeVisible();
@@ -520,20 +571,24 @@ describe("PDP transaction flow", () => {
 
   it("downgrades a stale Guide revision to an unattributed Feed purchase", async () => {
     const user = userEvent.setup();
-    api.createGuideSession.mockResolvedValue(GUIDE_DECISION);
+    api.createGuideSession.mockResolvedValue(GUIDE_OPENING);
+    api.sendGuideMessage.mockResolvedValue(GUIDE_DECISION_AFTER_REPLY);
     api.getGuideSession.mockResolvedValue({
-      ...GUIDE_DECISION,
+      ...GUIDE_DECISION_AFTER_REPLY,
       guide_revision: GUIDE_DECISION.guide_revision + 1,
     });
     render(<DemoShell />);
 
     await user.click(
-      await screen.findByRole("button", { name: /问 AI：Seoul Shade Daily Fluid/ }),
+      await screen.findByRole("button", { name: /问问这款：Seoul Shade Daily Fluid/ }),
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "会不会泛白？" }),
     );
     const recommendation = await screen.findByRole("article", {
       name: "Seoul Shade Daily Fluid 商品建议",
     });
-    await user.click(within(recommendation).getByRole("button", { name: "查看商品" }));
+    await user.click(within(recommendation).getByRole("button", { name: "看商品" }));
 
     const pdp = await screen.findByRole("region", { name: "商品详情" });
     expect(
@@ -1180,8 +1235,9 @@ describe("PDP transaction flow", () => {
 
   it("continues from an AI receipt to the saved Feed media without reopening Guide", async () => {
     const user = userEvent.setup();
-    api.createGuideSession.mockResolvedValue(GUIDE_DECISION);
-    api.getGuideSession.mockResolvedValue(GUIDE_DECISION);
+    api.createGuideSession.mockResolvedValue(GUIDE_OPENING);
+    api.sendGuideMessage.mockResolvedValue(GUIDE_DECISION_AFTER_REPLY);
+    api.getGuideSession.mockResolvedValue(GUIDE_DECISION_AFTER_REPLY);
     api.previewCommerce.mockResolvedValue(
       awaitingConfirmation({
         purchase_origin: "AI",
@@ -1216,12 +1272,15 @@ describe("PDP transaction flow", () => {
     originalVideo.muted = false;
 
     await user.click(
-      screen.getByRole("button", { name: /问 AI：Seoul Shade Daily Fluid/ }),
+      screen.getByRole("button", { name: /问问这款：Seoul Shade Daily Fluid/ }),
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "会不会泛白？" }),
     );
     const recommendation = await screen.findByRole("article", {
       name: "Seoul Shade Daily Fluid 商品建议",
     });
-    await user.click(within(recommendation).getByRole("button", { name: "查看商品" }));
+    await user.click(within(recommendation).getByRole("button", { name: "看商品" }));
     await user.click(await screen.findByRole("button", { name: "模拟加入购物车" }));
     await user.click(
       within(await screen.findByRole("dialog", { name: "复核模拟加购" })).getByRole(

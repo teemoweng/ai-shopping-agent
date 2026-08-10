@@ -11,6 +11,7 @@ type EvidenceReference = components["schemas"]["EvidenceReference"];
 type Recommendation = components["schemas"]["RecommendationCard"];
 type ProductRole = "current" | "alternative";
 type GuideMode = "compact" | "expanded";
+type SubviewKind = "evidence" | "alternatives";
 type Subview =
   | { kind: "evidence"; recommendation: Recommendation; messageId: string }
   | { kind: "alternatives"; messageId: string }
@@ -31,6 +32,9 @@ export interface GuideChatViewProps {
   onOpenProduct?: (productId: string, role: ProductRole) => void;
   onCompare?: () => void;
   onShowEvidence?: (productId: string) => void;
+  onSubviewChange?: (kind: SubviewKind | null) => void;
+  initialScrollTop?: number;
+  onScrollTopChange?: (scrollTop: number) => void;
   onClose: () => void;
 }
 
@@ -53,6 +57,9 @@ export function GuideChatView({
   onOpenProduct,
   onCompare,
   onShowEvidence,
+  onSubviewChange,
+  initialScrollTop = 0,
+  onScrollTopChange,
   onClose,
 }: GuideChatViewProps) {
   const [draft, setDraft] = useState("");
@@ -108,6 +115,12 @@ export function GuideChatView({
   }, [safetyTranscript.length]);
 
   useEffect(() => {
+    if (logRef.current) {
+      logRef.current.scrollTop = Math.max(0, initialScrollTop);
+    }
+  }, [initialScrollTop, turn.session_id]);
+
+  useEffect(() => {
     if (activeSubview || !pendingFocusRestoreRef.current) {
       return;
     }
@@ -122,6 +135,7 @@ export function GuideChatView({
   function closeSubview() {
     pendingFocusRestoreRef.current = activeSubview?.kind ?? null;
     setSubview(null);
+    onSubviewChange?.(null);
   }
 
   function submitDraft() {
@@ -178,6 +192,7 @@ export function GuideChatView({
           allowEvidence && recommendationEvidence.length > 0
             ? (productId) => {
                 setSubview({ kind: "evidence", recommendation, messageId });
+                onSubviewChange?.("evidence");
                 onShowEvidence?.(productId);
               }
             : undefined
@@ -229,6 +244,7 @@ export function GuideChatView({
           const node = event.currentTarget;
           nearBottomRef.current =
             node.scrollHeight - node.scrollTop - node.clientHeight <= 48;
+          onScrollTopChange?.(Math.max(0, node.scrollTop));
         }}
       >
         {safetyTranscript.map((message) => (
@@ -314,6 +330,7 @@ export function GuideChatView({
                       return;
                     }
                     setSubview({ kind: "alternatives", messageId });
+                    onSubviewChange?.("alternatives");
                   }}
                 >
                   看看其他选择
