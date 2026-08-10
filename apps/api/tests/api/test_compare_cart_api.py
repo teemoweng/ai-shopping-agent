@@ -392,6 +392,111 @@ def test_preview_then_confirm_adds_one_simulated_item() -> None:
     assert added.json()["simulated"] is True
 
 
+def test_safety_snapshot_rejects_legacy_preview_without_side_effects() -> None:
+    session_id = recommended_session()
+    session = service.sessions.get(session_id)
+    assert "seoul-shade-50" in {
+        sku_id
+        for sku_ids in session.eligible_sku_ids_by_product.values()
+        for sku_id in sku_ids
+    }
+    safety = client.post(
+        f"/api/v1/guide/sessions/{session_id}/messages",
+        json={
+            "message_id": "legacy_preview_after_safety",
+            "text": "脸部肿胀并且呼吸困难",
+        },
+    )
+    assert safety.status_code == 200
+    assert safety.json()["allowed_actions"] == ["RETURN_TO_FEED"]
+    before_snapshot = client.get(f"/api/v1/guide/sessions/{session_id}").json()
+    before_events = service.sessions.events_for_trace(session.trace_id)
+    before_previews = dict(service.previews)
+
+    rejected = client.post(
+        f"/api/v1/guide/sessions/{session_id}/cart/preview",
+        json={"sku_id": "seoul-shade-50", "quantity": 1},
+    )
+
+    assert rejected.status_code == 409
+    assert rejected.json()["detail"]["code"] == "ACTION_NOT_ALLOWED"
+    assert "confirmation_token" not in rejected.json()
+    assert service.previews == before_previews
+    assert service.sessions.events_for_trace(session.trace_id) == before_events
+    assert client.get(f"/api/v1/guide/sessions/{session_id}").json() == before_snapshot
+
+
+def test_safety_snapshot_invalidates_a_legacy_confirmation_token() -> None:
+    session_id = recommended_session()
+    preview = client.post(
+        f"/api/v1/guide/sessions/{session_id}/cart/preview",
+        json={"sku_id": "seoul-shade-50", "quantity": 1},
+    )
+    assert preview.status_code == 200
+    token = preview.json()["confirmation_token"]
+    session = service.sessions.get(session_id)
+    safety = client.post(
+        f"/api/v1/guide/sessions/{session_id}/messages",
+        json={
+            "message_id": "legacy_add_after_safety",
+            "text": "脸部肿胀并且呼吸困难",
+        },
+    )
+    assert safety.status_code == 200
+    assert safety.json()["allowed_actions"] == ["RETURN_TO_FEED"]
+    before_snapshot = client.get(f"/api/v1/guide/sessions/{session_id}").json()
+    before_events = service.sessions.events_for_trace(session.trace_id)
+
+    rejected = client.post(
+        f"/api/v1/guide/sessions/{session_id}/cart/items",
+        json={"confirmation_token": token},
+    )
+
+    assert rejected.status_code == 409
+    assert rejected.json()["detail"]["code"] == "ACTION_NOT_ALLOWED"
+    assert token not in session.consumed_confirmation_tokens
+    assert service.previews[token].model_dump(mode="json") == preview.json()
+    assert service.sessions.events_for_trace(session.trace_id) == before_events
+    assert client.get(f"/api/v1/guide/sessions/{session_id}").json() == before_snapshot
+
+
+def test_legacy_confirmation_token_is_bound_to_its_guide_revision() -> None:
+    session_id = recommended_session("预算25美元以内、无香精、日常通勤")
+    decision = client.get(f"/api/v1/guide/sessions/{session_id}").json()
+    preview = client.post(
+        f"/api/v1/guide/sessions/{session_id}/cart/preview",
+        json={"sku_id": "seoul-shade-30", "quantity": 1},
+    )
+    assert preview.status_code == 200
+    token = preview.json()["confirmation_token"]
+    revised = client.post(
+        f"/api/v1/guide/sessions/{session_id}/messages",
+        json={
+            "message_id": "legacy_token_new_guide_revision",
+            "text": "预算30美元以内",
+            "expected_conversation_revision": decision["conversation_revision"],
+        },
+    )
+    assert revised.status_code == 200
+    assert revised.json()["guide_revision"] == decision["guide_revision"] + 1
+    assert any(
+        "seoul-shade-30" in card["eligible_sku_ids"]
+        for card in revised.json()["recommendations"]
+    )
+    session = service.sessions.get(session_id)
+    before_events = service.sessions.events_for_trace(session.trace_id)
+
+    rejected = client.post(
+        f"/api/v1/guide/sessions/{session_id}/cart/items",
+        json={"confirmation_token": token},
+    )
+
+    assert rejected.status_code == 409
+    assert rejected.json()["detail"]["code"] == "ACTION_NOT_ALLOWED"
+    assert token not in session.consumed_confirmation_tokens
+    assert service.sessions.events_for_trace(session.trace_id) == before_events
+
+
 def test_confirmation_token_cannot_be_replayed() -> None:
     session_id = recommended_session()
     token = client.post(

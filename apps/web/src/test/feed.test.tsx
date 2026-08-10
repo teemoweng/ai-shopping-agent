@@ -384,6 +384,7 @@ describe("Chinese short-video Feed", () => {
     }
     expect(items[0]).toHaveAttribute("data-commerce-status", "available");
     expect(items[1]).toHaveAttribute("data-commerce-status", "none");
+    expect(document.querySelector(".prototypeBadge")).toBeNull();
   });
 
   it("renders configured chrome with 推荐 active and keeps future LIVE behind the concept boundary", async () => {

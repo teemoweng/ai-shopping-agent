@@ -12,7 +12,7 @@ from app.domain.contracts import (
     GuideViewKind,
     WorkflowState,
 )
-from app.domain.events import ProcessedGuideRequest
+from app.domain.events import GuideSession, ProcessedGuideRequest
 from app.repositories.fixture_repository import FixtureRepository
 from app.repositories.session_repository import SessionRepository
 from app.services.guide_conversation import (
@@ -35,6 +35,25 @@ class CartService:
         self.fixtures = fixtures
         self.sessions = sessions
         self.previews: dict[str, CartPreviewResponse] = {}
+        self.preview_guide_revisions: dict[str, int] = {}
+
+    @staticmethod
+    def _require_current_sku_authority(
+        session: GuideSession,
+        sku_id: str,
+    ) -> None:
+        snapshot = session.latest_response
+        if (
+            snapshot is None
+            or GuideAction.OPEN_PRODUCT not in snapshot.allowed_actions
+            or snapshot.guide_revision != session.guide_revision
+        ):
+            raise CartConflict("ACTION_NOT_ALLOWED")
+        if not any(
+            sku_id in card.eligible_sku_ids
+            for card in snapshot.recommendations
+        ):
+            raise CartConflict("SKU_NOT_RECOMMENDED")
 
     def compare(self, session_id: str, request: CompareRequest) -> CompareResponse:
         with self.sessions.transaction():
@@ -150,13 +169,7 @@ class CartService:
     ) -> CartPreviewResponse:
         with self.sessions.transaction():
             session = self.sessions.get(session_id)
-            eligible_sku_ids = {
-                sku_id
-                for sku_ids in session.eligible_sku_ids_by_product.values()
-                for sku_id in sku_ids
-            }
-            if request.sku_id not in eligible_sku_ids:
-                raise CartConflict("SKU_NOT_RECOMMENDED")
+            self._require_current_sku_authority(session, request.sku_id)
 
             sku = self.fixtures.get_sku(request.sku_id)
             if not sku.in_stock or sku.inventory_units < request.quantity:
@@ -179,6 +192,7 @@ class CartService:
                 simulated=True,
             )
             self.previews[token] = response
+            self.preview_guide_revisions[token] = session.guide_revision
             try:
                 self.sessions.append_event(
                     session,
@@ -192,6 +206,7 @@ class CartService:
                 )
             except Exception:
                 self.previews.pop(token, None)
+                self.preview_guide_revisions.pop(token, None)
                 session.state = previous_state
                 self.sessions.save(session)
                 raise
@@ -206,6 +221,10 @@ class CartService:
             preview = self.previews.get(token)
             if preview is None or preview.session_id != session_id:
                 raise CartConflict("INVALID_CONFIRMATION_TOKEN")
+            source_guide_revision = self.preview_guide_revisions.get(token)
+            if source_guide_revision != session.guide_revision:
+                raise CartConflict("ACTION_NOT_ALLOWED")
+            self._require_current_sku_authority(session, preview.sku_id)
 
             current_sku = self.fixtures.get_sku(preview.sku_id)
             if (

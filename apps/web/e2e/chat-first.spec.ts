@@ -168,6 +168,12 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(metrics.body).toBeLessThanOrEqual(metrics.viewport);
 }
 
+async function computedFontSize(locator: Locator) {
+  return locator.evaluate((node) =>
+    Number.parseFloat(getComputedStyle(node).fontSize),
+  );
+}
+
 function cssColorChannels(value: string) {
   const channels = value.match(/[\d.]+/g)?.map(Number) ?? [];
   if (channels.length < 3) {
@@ -229,6 +235,25 @@ async function expectInsideViewport(locator: Locator) {
   expect(box!.x + box!.width).toBeLessThanOrEqual(viewport!.width + 1);
   expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height + 1);
   return box!;
+}
+
+async function expectFullyVisibleInMessageLog(guide: Locator, target: Locator) {
+  const log = guide.locator(".guideChatMessages");
+  await expect(target).toBeVisible();
+  await expect
+    .poll(async () => {
+      const [logBox, targetBox] = await Promise.all([
+        log.boundingBox(),
+        target.boundingBox(),
+      ]);
+      return Boolean(
+        logBox &&
+          targetBox &&
+          targetBox.y >= logBox.y - 1 &&
+          targetBox.y + targetBox.height <= logBox.y + logBox.height + 1,
+      );
+    })
+    .toBe(true);
 }
 
 async function stabilizeEvidenceFrame(page: Page) {
@@ -295,6 +320,24 @@ test.describe("chat-first mobile journeys", () => {
       "问问这款商品…",
     );
     await expect(guide.locator(".guideChatDisclosure")).toHaveCount(1);
+    await expect(
+      guide.getByText("AI 生成 · 合成原型", { exact: true }),
+    ).toHaveCount(1);
+    await expect(guide.locator(".guideChatDisclosure")).toContainText(
+      "商品、内容与使用场景均为合成",
+    );
+    await expect(guide.locator(".guideChatDisclosure")).toContainText(
+      "未接入 TikTok、真实 LLM、支付或真实库存",
+    );
+    await expect(guide.locator(".guideChatDisclosure")).toContainText(
+      "未做真实用户或业务效果验证",
+    );
+    await expect(guide.locator(".guideChatDisclosure")).toContainText(
+      "价格与库存会在商品页再次核验",
+    );
+    await expect(page.locator(".prototypeBadge")).toHaveCount(0);
+    const panel = page.locator(".interviewPanel");
+    await expect(panel).not.toContainText(/概念原型|未来能力|未验证|真实 LLM/);
     const sheet = await expectInsideViewport(guide);
     expect(sheet.y).toBeGreaterThan(0);
     await expect(page.locator(".feedVideo").first()).toBeVisible();
@@ -361,9 +404,19 @@ test.describe("chat-first mobile journeys", () => {
     page,
   }) => {
     const { guide, opening } = await openGuide(page);
-    await reachDecision(guide, opening);
+    const decision = await reachDecision(guide, opening);
 
+    await expectFullyVisibleInMessageLog(
+      guide,
+      guide.getByText(decision.transcript.at(-1)!.text, { exact: true }),
+    );
     await expect(guide.getByRole("article", { name: /商品建议/ })).toHaveCount(1);
+    const primaryCard = guide.getByRole("article", {
+      name: "Seoul Shade Daily Fluid 商品建议",
+    });
+    await expect(primaryCard).toContainText("自然妆效符合偏好");
+    await expect(primaryCard).toContainText("未标注防水，出汗或玩水场景需换防水款");
+    await expect(primaryCard).not.toContainText("natural finish");
     await expect(
       guide.getByRole("heading", { name: "Cloud Veil Mineral SPF" }),
     ).toHaveCount(0);
@@ -477,6 +530,8 @@ test.describe("chat-first mobile journeys", () => {
     await expect(
       guide.getByRole("button", { name: /看商品|比比|加购/ }),
     ).toHaveCount(0);
+    await expect(guide.getByRole("textbox", { name: "继续提问" })).toHaveCount(0);
+    await expect(guide.getByRole("button", { name: "发送消息" })).toHaveCount(0);
     await expect(guide).toHaveAttribute("data-mode", "compact");
   });
 
@@ -494,16 +549,30 @@ test.describe("chat-first mobile journeys", () => {
     await expectNoHorizontalOverflow(page);
   });
 
-  test("320×700 at 200 percent text keeps close, latest message, and composer reachable", async ({
+  test("320×700 at 200 percent text scales real Guide copy and keeps decision controls reachable", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 320, height: 700 });
-    await page.goto("/?scenario=normal");
-    await expect(
-      page.getByRole("button", {
-        name: /问问这款：Seoul Shade Daily Fluid/,
-      }),
-    ).toBeVisible();
+    const { guide, opening } = await openGuide(page);
+    await reachDecision(guide, opening);
+
+    const fontSamples = {
+      message: guide.locator(".guideChatMessage-assistant p").last(),
+      cardTitle: guide.locator(".compactRecommendationBody h3"),
+      cardCopy: guide.locator(".compactRecommendationBody > p").first(),
+      action: guide.locator(".compactRecommendationActions button").first(),
+      disclosure: guide.locator(".guideChatDisclosure summary"),
+      composer: guide.getByLabel("继续提问"),
+    };
+    const baselineFontSizes = Object.fromEntries(
+      await Promise.all(
+        Object.entries(fontSamples).map(async ([name, locator]) => [
+          name,
+          await computedFontSize(locator),
+        ]),
+      ),
+    );
+
     await page.evaluate(() => {
       document.documentElement.style.fontSize = "200%";
     });
@@ -514,15 +583,25 @@ test.describe("chat-first mobile journeys", () => {
         ),
       )
       .toBeGreaterThanOrEqual(32);
-    const entry = page.getByRole("button", {
-      name: /问问这款：Seoul Shade Daily Fluid/,
-    });
-    const { guide } = await openGuideFromEntry(page, entry);
+
+    for (const [name, locator] of Object.entries(fontSamples)) {
+      const baseline = baselineFontSizes[name];
+      await expect
+        .poll(() => computedFontSize(locator), {
+          message: `${name} should follow the root text-size preference`,
+        })
+        .toBeGreaterThanOrEqual(baseline * 1.9);
+    }
 
     await expectInsideViewport(guide.getByRole("button", { name: "关闭导购" }));
-    const opening = guide.getByText(OPENING_TEXT);
-    await opening.scrollIntoViewIfNeeded();
-    await expect(opening).toBeVisible();
+    const latestMessage = fontSamples.message;
+    await latestMessage.scrollIntoViewIfNeeded();
+    await expect(latestMessage).toBeVisible();
+    const card = guide.getByRole("article", {
+      name: "Seoul Shade Daily Fluid 商品建议",
+    });
+    await card.scrollIntoViewIfNeeded();
+    await expect(card).toBeVisible();
     const composer = guide.getByLabel("继续提问");
     await composer.scrollIntoViewIfNeeded();
     await expect(composer).toBeVisible();
@@ -635,9 +714,13 @@ test("captures the canonical mobile decision", async ({ page }, testInfo) => {
   await mkdir(SCREENSHOT_DIR, { recursive: true });
   await page.setViewportSize({ width: 390, height: 844 });
   const { guide, opening } = await openGuide(page);
-  await reachDecision(guide, opening);
+  const decision = await reachDecision(guide, opening);
   await stabilizeEvidenceFrame(page);
   await expectInsideViewport(guide);
+  await expectFullyVisibleInMessageLog(
+    guide,
+    guide.getByText(decision.transcript.at(-1)!.text, { exact: true }),
+  );
   await expect(
     guide.getByRole("article", {
       name: "Seoul Shade Daily Fluid 商品建议",
@@ -661,9 +744,13 @@ test("captures the canonical desktop interview state", async ({
   await mkdir(SCREENSHOT_DIR, { recursive: true });
   await page.setViewportSize({ width: 1440, height: 1000 });
   const { guide, opening } = await openGuide(page);
-  await reachDecision(guide, opening);
+  const decision = await reachDecision(guide, opening);
   await stabilizeEvidenceFrame(page);
   await expectInsideViewport(guide);
+  await expectFullyVisibleInMessageLog(
+    guide,
+    guide.getByText(decision.transcript.at(-1)!.text, { exact: true }),
+  );
   const panel = page.getByRole("complementary", { name: "演示说明" });
   await expectInsideViewport(panel);
   await expect(panel.getByTestId("current-demo-step")).toHaveText(

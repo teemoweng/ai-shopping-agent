@@ -1307,7 +1307,6 @@ it.each([
 });
 
 it("does not execute business actions omitted by the server", async () => {
-  const user = userEvent.setup();
   api.createGuideSession.mockResolvedValueOnce(
     turnFor("DECISION_READY", { allowed_actions: ["RETURN_TO_FEED"] }),
   );
@@ -1316,8 +1315,8 @@ it("does not execute business actions omitted by the server", async () => {
 
   expect(screen.queryByRole("button", { name: "看商品" })).not.toBeInTheDocument();
   expect(screen.queryByRole("checkbox", { name: /比较 / })).not.toBeInTheDocument();
-  await user.type(screen.getByLabelText("继续提问"), "尝试更新条件");
-  await user.click(screen.getByRole("button", { name: "发送消息" }));
+  expect(screen.queryByRole("textbox", { name: "继续提问" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "发送消息" })).not.toBeInTheDocument();
   expect(api.sendGuideMessage).not.toHaveBeenCalled();
   expect(screen.queryByRole("button", { name: /继续|重试|放宽/ })).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "关闭导购" })).toBeVisible();

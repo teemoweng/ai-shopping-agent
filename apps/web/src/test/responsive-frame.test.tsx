@@ -114,9 +114,10 @@ describe("single live phone interview frame", () => {
     const panel = screen.getByRole("complementary", { name: "演示说明" });
     expect(document.querySelectorAll(".phoneFrame")).toHaveLength(1);
     expect(phone?.parentElement).toBe(panel.parentElement);
-    expect(panel).toHaveTextContent("内容电商 AI 导购概念原型");
-    expect(panel).toHaveTextContent("已实现");
-    expect(panel).toHaveTextContent("未来能力");
+    expect(panel).toHaveTextContent("内容电商 AI 导购路径");
+    expect(panel).not.toHaveTextContent(/概念原型|未来能力|未验证|真实 LLM/);
+    expect(panel.querySelector(".interviewMaturity")).toBeNull();
+    expect(panel.querySelector("footer")).toBeNull();
 
     const links = within(panel).getAllByRole("link");
     expect(links.map((link) => link.getAttribute("href"))).toEqual([

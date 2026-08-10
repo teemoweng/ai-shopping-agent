@@ -482,7 +482,7 @@ export function DemoShell() {
       <aside className="interviewPanel" aria-label="演示说明">
         <header>
           <span>PORTFOLIO WALKTHROUGH</span>
-          <h1>内容电商 AI 导购概念原型</h1>
+          <h1>内容电商 AI 导购路径</h1>
           <p>
             面向美国 K-Beauty 防晒决策；手机内用轻量对话逐步展开答案、推荐与比较，不是静态截图或第二套桌面 App。
           </p>
@@ -493,24 +493,6 @@ export function DemoShell() {
             {interviewStepFor(navigation)}
           </strong>
         </section>
-        <div className="interviewMaturity">
-          <section>
-            <span>已实现 · 确定性</span>
-            <ul>
-              <li>受控 Workflow 与白名单动作</li>
-              <li>结构化价格、库存与规格事实</li>
-              <li>显式复核、幂等加购与结果对账</li>
-            </ul>
-          </section>
-          <section>
-            <span>未来能力 · 未验证</span>
-            <ul>
-              <li>真实 LLM Shopping Agent</li>
-              <li>Hybrid RAG 与多模态实时理解</li>
-              <li>真实用户效果与业务指标</li>
-            </ul>
-          </section>
-        </div>
         <nav className="scenarioLinks" aria-label="确定性演示场景">
           <span>公开测试场景</span>
           {(
@@ -531,9 +513,6 @@ export function DemoShell() {
             </a>
           ))}
         </nav>
-        <footer>
-          概念原型 · 合成商品与创作者 · 未接入 TikTok、支付或真实库存
-        </footer>
       </aside>
 
       <div

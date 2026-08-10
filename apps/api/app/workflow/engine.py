@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from math import isfinite
 from time import perf_counter
@@ -38,7 +39,7 @@ from app.workflow.agent import (
     water_resistance_answer_text,
     white_cast_answer_text,
 )
-from app.workflow.filtering import parse_preferences
+from app.workflow.filtering import RankedCandidate, parse_preferences
 from app.workflow.tools import ShoppingTools
 
 
@@ -174,6 +175,95 @@ class WorkflowEngine:
             )
         ]
 
+    @staticmethod
+    def _fit_reasons(
+        locale: str,
+        candidate: RankedCandidate,
+        session: GuideSession,
+    ) -> list[str]:
+        if locale != "zh-CN":
+            return list(candidate.reasons) or ["meets every stated hard constraint"]
+
+        product = candidate.product
+        finish_labels = {"natural": "自然", "matte": "哑光", "dewy": "水润"}
+        skin_labels = {
+            "oily": "油皮",
+            "dry": "干皮",
+            "combination": "混合皮",
+            "sensitive": "敏感肌",
+        }
+        reasons: list[str] = []
+        if session.soft_preferences.finish == product.finish:
+            reasons.append(f"{finish_labels.get(product.finish, product.finish)}妆效符合偏好")
+        if (
+            session.soft_preferences.skin_type
+            and session.soft_preferences.skin_type in product.skin_types
+        ):
+            skin_type = session.soft_preferences.skin_type
+            reasons.append(f"产品资料标注适合{skin_labels.get(skin_type, skin_type)}")
+        if (
+            session.soft_preferences.white_cast_concern == "high"
+            and product.white_cast_risk == "low"
+        ):
+            reasons.append("低泛白风险更符合你的关注")
+        if session.hard_constraints.fragrance_free is True:
+            reasons.append("无香精，符合明确条件")
+        if session.hard_constraints.water_resistance_minutes is not None:
+            reasons.append(
+                f"标注 {product.water_resistance_minutes} 分钟防水，符合使用场景"
+            )
+        return reasons or ["当前可选规格符合价格和库存条件"]
+
+    @staticmethod
+    def _tradeoffs(locale: str, candidate: RankedCandidate) -> list[str]:
+        product = candidate.product
+        if locale != "zh-CN":
+            return [
+                f"{product.finish} finish",
+                f"{product.white_cast_risk} white-cast risk",
+            ]
+
+        tradeoffs: list[str] = []
+        if product.water_resistance_minutes is None:
+            tradeoffs.append("未标注防水，出汗或玩水场景需换防水款")
+        else:
+            tradeoffs.append(
+                f"标注 {product.water_resistance_minutes} 分钟防水，仍需按标签说明补涂"
+            )
+        if product.white_cast_risk == "low":
+            tradeoffs.append("泛白风险较低，但仍会因肤色和用量不同")
+        elif product.white_cast_risk == "medium":
+            tradeoffs.append("泛白风险为中等，深肤色建议先试用")
+        else:
+            tradeoffs.append("泛白风险较高，深肤色需要谨慎")
+        if not product.fragrance_free:
+            tradeoffs.append("含香精，敏感人群需先确认耐受")
+        return tradeoffs
+
+    @staticmethod
+    def _localized_exclusions(exclusions: list[str]) -> list[str]:
+        localized: list[str] = []
+        for exclusion in exclusions:
+            water_requirement = re.fullmatch(
+                r"water resistance below (\d+) minutes",
+                exclusion,
+            )
+            if water_requirement:
+                localized.append(
+                    f"防水标注低于 {water_requirement.group(1)} 分钟要求"
+                )
+            elif exclusion == "contains fragrance":
+                localized.append("含香精，不符合无香精条件")
+            elif exclusion == "no SKU within price limit":
+                localized.append("没有符合预算的规格")
+            elif exclusion == "no in-stock SKU":
+                localized.append("当前没有可用库存规格")
+            elif exclusion == "no in-stock SKU within price limit":
+                localized.append("当前没有同时符合预算和库存要求的规格")
+            else:
+                localized.append("不符合当前硬性条件，不能用于加购")
+        return localized
+
     def open_session(self, session: GuideSession) -> GuideTurnResponse:
         self._transition(session, WorkflowState.UNDERSTAND)
         return GuideTurnResponse(
@@ -194,7 +284,44 @@ class WorkflowEngine:
             quick_replies=opening_quick_replies(session.locale),
         )
 
+    @staticmethod
+    def _recommendation_authority_fingerprint(
+        session: GuideSession,
+    ) -> tuple[object, ...]:
+        return (
+            tuple(sorted(session.hard_constraints.model_dump(mode="json").items())),
+            tuple(sorted(session.soft_preferences.model_dump(mode="json").items())),
+            tuple(
+                sorted(
+                    (
+                        product_id,
+                        tuple(sorted(sku_ids)),
+                    )
+                    for product_id, sku_ids in (
+                        session.eligible_sku_ids_by_product.items()
+                    )
+                )
+            ),
+        )
+
     def handle_message(
+        self,
+        session: GuideSession,
+        request: GuideMessageRequest,
+    ) -> GuideTurnResponse:
+        authority_before = self._recommendation_authority_fingerprint(session)
+        response = self._handle_message(session, request)
+        authority_after = self._recommendation_authority_fingerprint(session)
+        if authority_after == authority_before:
+            return response
+        session.guide_revision += 1
+        self.sessions.save(session)
+        return response.model_copy(
+            update={"guide_revision": session.guide_revision},
+            deep=True,
+        )
+
+    def _handle_message(
         self,
         session: GuideSession,
         request: GuideMessageRequest,
@@ -378,7 +505,6 @@ class WorkflowEngine:
         ):
             session.hard_constraints = merged_hard
             session.soft_preferences = merged_soft
-            session.guide_revision += 1
             self.sessions.save(session)
         if intent is GuideQuestionIntent.FIT:
             self._transition(session, WorkflowState.CLARIFY)
@@ -567,12 +693,12 @@ class WorkflowEngine:
                             else Verdict.CONDITIONAL
                         )
                     ),
-                    fit_reasons=list(candidate.reasons)
-                    or ["meets every stated hard constraint"],
-                    tradeoffs=[
-                        f"{product.finish} finish",
-                        f"{product.white_cast_risk} white-cast risk",
-                    ],
+                    fit_reasons=self._fit_reasons(
+                        session.locale,
+                        candidate,
+                        session,
+                    ),
+                    tradeoffs=self._tradeoffs(session.locale, candidate),
                     eligible_sku_ids=[sku.id for sku in candidate.eligible_skus],
                     starting_price_usd=min(
                         sku.price_usd for sku in candidate.eligible_skus
@@ -603,8 +729,16 @@ class WorkflowEngine:
                         if anchor_evidence_ids
                         else Verdict.INSUFFICIENT_EVIDENCE
                     ),
-                    fit_reasons=["read-only current-product comparison baseline"],
-                    tradeoffs=anchor_exclusions,
+                    fit_reasons=(
+                        ["当前视频商品，仅作只读比较基准"]
+                        if session.locale == "zh-CN"
+                        else ["read-only current-product comparison baseline"]
+                    ),
+                    tradeoffs=(
+                        self._localized_exclusions(anchor_exclusions)
+                        if session.locale == "zh-CN"
+                        else anchor_exclusions
+                    ),
                     eligible_sku_ids=[],
                     starting_price_usd=min(
                         sku.price_usd for sku in anchor_product.skus

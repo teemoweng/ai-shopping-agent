@@ -194,7 +194,7 @@ def test_comparison_intent_keeps_ineligible_anchor_read_only(tmp_path) -> None:
     assert anchor.verdict is Verdict.NOT_RECOMMENDED
     assert anchor.eligible_sku_ids == []
     assert any("40" in tradeoff for tradeoff in anchor.tradeoffs)
-    assert turn.guide_revision == constrained.guide_revision
+    assert turn.guide_revision == constrained.guide_revision + 1
     assert "seoul-shade-daily-fluid" not in session.recommended_product_ids
     assert any(
         card.product_id in {"cloud-veil-mineral", "jeju-sport-sun-gel"}

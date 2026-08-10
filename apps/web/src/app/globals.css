@@ -78,29 +78,12 @@ a:focus-visible {
   pointer-events: none;
 }
 
-.prototypeBadge,
 .feedTabs,
 .actionRail,
 .creatorCopy,
 .productAnchor {
   position: absolute;
   z-index: 2;
-}
-
-.prototypeBadge {
-  top: 18px;
-  left: 18px;
-  max-width: calc(100% - 36px);
-  padding: 7px 10px;
-  border: 1px solid #ffffff1f;
-  border-radius: 999px;
-  color: var(--ink);
-  background: #090a0dcc;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 10px;
-  font-weight: 650;
-  letter-spacing: 0.02em;
-  line-height: 1.2;
 }
 
 .feedTabs {
@@ -1305,22 +1288,6 @@ a:focus-visible {
 
 .feedChrome > * {
   pointer-events: auto;
-}
-
-.prototypeBadge {
-  top: max(10px, env(safe-area-inset-top));
-  left: 12px;
-  max-width: none;
-  padding: 5px 8px;
-  border-color: #ffffff24;
-  border-radius: 6px;
-  color: #e9e9ea;
-  background: #08090bb8;
-  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  backdrop-filter: blur(10px);
 }
 
 .feedTabs {
@@ -3269,20 +3236,6 @@ svg[data-demo-icon] {
   width: 1.25em;
 }
 
-.prototypeBadge {
-  top: calc(var(--feed-status-top) + 1rem + 3px);
-  left: max(10px, calc(var(--safe-left) + 10px));
-  padding: 4px 7px;
-  color: #f1f1f2;
-  border-color: #ffffff21;
-  border-radius: 999px;
-  background: #090a0c99;
-  font-family: inherit;
-  font-size: 0.5625rem;
-  letter-spacing: 0;
-  white-space: nowrap;
-}
-
 .feedTabs {
   top: calc(var(--feed-status-top) + 1.6875rem + 16px);
   right: max(52px, calc(var(--safe-right) + 52px));
@@ -3678,13 +3631,6 @@ svg[data-demo-icon] {
     font-size: 13px;
   }
 
-  .prototypeBadge {
-    max-width: none;
-    overflow: visible;
-    text-overflow: clip;
-    white-space: nowrap;
-  }
-
   .feedLowerOverlay {
     right: max(64px, calc(var(--safe-right) + 64px));
     left: max(6px, calc(var(--safe-left) + 6px));
@@ -3742,6 +3688,7 @@ svg[data-demo-icon] {
   border-radius: 24px 24px 0 0;
   background: #fbfbfc;
   font-family: Inter, "SF Pro Text", "PingFang SC", system-ui, sans-serif;
+  font-size: 1rem;
 }
 
 .guideChatView[data-mode="compact"] {
@@ -3783,7 +3730,7 @@ svg[data-demo-icon] {
   color: #fff;
   border-radius: 8px;
   background: var(--guide-chat-accent);
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 
 .guideSourceChip p {
@@ -3802,13 +3749,13 @@ svg[data-demo-icon] {
 
 .guideSourceChip strong {
   font-family: ui-rounded, "SF Pro Rounded", "PingFang SC", system-ui, sans-serif;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 760;
 }
 
 .guideSourceChip small {
   color: var(--guide-chat-muted);
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 
 .guideChatClose,
@@ -3833,10 +3780,11 @@ svg[data-demo-icon] {
   border: 0;
   border-radius: 50%;
   background: transparent;
-  font-size: 24px;
+  font-size: 1.5rem;
 }
 
 .guideChatMessages {
+  position: relative;
   min-height: 0;
   display: grid;
   align-content: start;
@@ -3860,14 +3808,14 @@ svg[data-demo-icon] {
   padding-top: 2px;
   color: var(--guide-chat-muted);
   font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
-  font-size: 9px;
+  font-size: 0.5625rem;
   font-weight: 760;
   letter-spacing: 0.04em;
 }
 
 .guideChatMessage p {
   margin: 0;
-  font-size: 14px;
+  font-size: 0.875rem;
   line-height: 1.46;
 }
 
@@ -3887,7 +3835,7 @@ svg[data-demo-icon] {
 .guideChatError {
   padding: 9px 11px;
   border-radius: 10px;
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.4;
 }
 
@@ -3918,7 +3866,7 @@ svg[data-demo-icon] {
   border: 1px solid #dfe0e4;
   border-radius: 11px;
   background: #fff;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 690;
   line-height: 1.25;
 }
@@ -3958,8 +3906,8 @@ svg[data-demo-icon] {
   outline: none;
   background: #f7f7f8;
   font: inherit;
-  font-size: 13px;
-  line-height: 20px;
+  font-size: 0.8125rem;
+  line-height: 1.54;
 }
 
 .guideChatComposer textarea:focus-visible {
@@ -3973,7 +3921,7 @@ svg[data-demo-icon] {
   border: 0;
   border-radius: 13px;
   background: var(--guide-chat-accent);
-  font-size: 19px;
+  font-size: 1.1875rem;
   font-weight: 800;
 }
 
@@ -3989,7 +3937,7 @@ svg[data-demo-icon] {
   padding: 0 max(14px, env(safe-area-inset-right)) max(7px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
   color: var(--guide-chat-muted);
   background: #fff;
-  font-size: 9px;
+  font-size: 0.5625rem;
   line-height: 1.35;
 }
 
@@ -4006,7 +3954,7 @@ svg[data-demo-icon] {
 
 .guideChatDisclosure summary::before {
   content: "›";
-  font-size: 14px;
+  font-size: 0.875rem;
   transform: rotate(0deg);
 }
 
@@ -4050,7 +3998,7 @@ svg[data-demo-icon] {
 .compactRecommendationImage > span {
   color: #777a82;
   font-family: ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
-  font-size: 22px;
+  font-size: 1.375rem;
   font-weight: 800;
 }
 
@@ -4066,7 +4014,7 @@ svg[data-demo-icon] {
   justify-content: space-between;
   gap: 8px;
   color: var(--guide-chat-muted);
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 
 .compactRecommendationTopline > span {
@@ -4076,14 +4024,14 @@ svg[data-demo-icon] {
 
 .compactRecommendationTopline strong {
   color: var(--guide-chat-ink);
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 .compactRecommendationBody h3 {
   margin: 0;
   overflow: hidden;
   font-family: ui-rounded, "SF Pro Rounded", "PingFang SC", system-ui, sans-serif;
-  font-size: 14px;
+  font-size: 0.875rem;
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -4095,7 +4043,7 @@ svg[data-demo-icon] {
   gap: 5px;
   margin: 0;
   color: #4f5259;
-  font-size: 10px;
+  font-size: 0.625rem;
   line-height: 1.35;
 }
 
@@ -4113,7 +4061,7 @@ svg[data-demo-icon] {
 .compactRecommendationActions button {
   padding: 0 10px;
   border-radius: 10px;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 720;
 }
 
@@ -4151,7 +4099,7 @@ svg[data-demo-icon] {
 .guideSubviewHeading h2 {
   margin: 0;
   font-family: ui-rounded, "SF Pro Rounded", "PingFang SC", system-ui, sans-serif;
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 
 .guideEvidenceItem {
@@ -4164,7 +4112,7 @@ svg[data-demo-icon] {
 .guideEvidenceItem p {
   display: block;
   margin: 0;
-  font-size: 11px;
+  font-size: 0.6875rem;
   line-height: 1.45;
 }
 
@@ -4185,12 +4133,20 @@ svg[data-demo-icon] {
 
 .comparisonPanelCompact .sectionHeading h2 {
   font-family: ui-rounded, "SF Pro Rounded", "PingFang SC", system-ui, sans-serif;
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 
 .comparisonPanelCompact .comparisonScroller {
   border-color: #dedfe3;
   background: #fff;
+}
+
+.comparisonPanelCompact .comparisonScroller table {
+  font-size: 0.625rem;
+}
+
+.comparisonPanelCompact .comparisonScroller thead th {
+  font-size: 0.5rem;
 }
 
 .comparisonPanelCompact th,
@@ -4220,13 +4176,13 @@ svg[data-demo-icon] {
   }
 
   .guideChatView[data-opening="true"] .guideChatMessage p {
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
 
   .guideChatQuickReplies button {
     padding-right: 5px;
     padding-left: 5px;
-    font-size: 10px;
+    font-size: 0.625rem;
   }
 }
 

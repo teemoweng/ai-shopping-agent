@@ -207,7 +207,6 @@ test("320×700 at 200% text size reflows without trapping product actions", asyn
       ),
   );
   const statusBarBox = await page.locator(".feedStatusBar").boundingBox();
-  const badgeBox = await page.locator(".prototypeBadge").boundingBox();
   const tabButtonBoxes = await page
     .locator(".feedTabs button")
     .evaluateAll((buttons) =>
@@ -217,23 +216,16 @@ test("320×700 at 200% text size reflows without trapping product actions", asyn
       }),
     );
   expect(statusBarBox).not.toBeNull();
-  expect(badgeBox).not.toBeNull();
   expect(tabButtonBoxes.length).toBeGreaterThan(0);
-  const statusToBadgeGap = badgeBox!.y - (statusBarBox!.y + statusBarBox!.height);
-  const badgeToTabsGap =
+  const statusToTabsGap =
     Math.min(...tabButtonBoxes.map((box) => box.top)) -
-    (badgeBox!.y + badgeBox!.height);
-  expect(statusToBadgeGap).toBeGreaterThanOrEqual(2);
-  expect(statusToBadgeGap).toBeLessThanOrEqual(4);
-  expect(badgeToTabsGap).toBeGreaterThanOrEqual(2);
-  expect(badgeToTabsGap).toBeLessThanOrEqual(4);
+    (statusBarBox!.y + statusBarBox!.height);
+  expect(statusToTabsGap).toBeGreaterThanOrEqual(2);
   const product = page.getByRole("button", { name: /查看商品/ });
   const askAi = page.getByRole("button", { name: /问问这款/ });
   await expect(product).toBeVisible();
   await expect(askAi).toBeVisible();
-  await expect(page.locator(".prototypeBadge")).toHaveText("合成原型");
-  const disclosureBox = await expectBoxInsideViewport(page, ".prototypeBadge");
-  expect(disclosureBox.width).toBeGreaterThan(0);
+  await expect(page.locator(".prototypeBadge")).toHaveCount(0);
   const searchBox = await expectBoxInsideViewport(page, ".feedSearchButton");
   const searchIconBox = await expectBoxInsideViewport(page, ".feedSearchButton svg");
   expect(searchIconBox.width).toBeLessThanOrEqual(searchBox.width);

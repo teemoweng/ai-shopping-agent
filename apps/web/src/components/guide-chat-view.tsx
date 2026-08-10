@@ -70,6 +70,7 @@ export function GuideChatView({
   const composingRef = useRef(false);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const logRef = useRef<HTMLDivElement>(null);
+  const latestMessageRef = useRef<HTMLElement>(null);
   const nearBottomRef = useRef(true);
   const evidenceTriggerRef = useRef<HTMLButtonElement>(null);
   const alternativesTriggerRef = useRef<HTMLButtonElement>(null);
@@ -87,6 +88,7 @@ export function GuideChatView({
   const isOpening = latestMessage?.kind === "OPENING";
   const isSafety =
     latestMessage?.kind === "SAFETY" || turn.guide_view_kind === "SAFE_BOUNDARY";
+  const canSendMessage = turn.allowed_actions.includes("SEND_MESSAGE");
   const safetyTranscript = isSafety
     ? [
         [...transcript]
@@ -114,9 +116,17 @@ export function GuideChatView({
   useEffect(() => {
     const log = logRef.current;
     if (log && nearBottomRef.current) {
-      log.scrollTop = log.scrollHeight;
+      if (
+        latestMessage?.kind === "RECOMMENDATION" &&
+        recommendations.length > 0 &&
+        latestMessageRef.current
+      ) {
+        log.scrollTop = Math.max(0, latestMessageRef.current.offsetTop - 4);
+      } else {
+        log.scrollTop = log.scrollHeight;
+      }
     }
-  }, [safetyTranscript.length]);
+  }, [latestMessage?.id, latestMessage?.kind, recommendations.length, safetyTranscript.length]);
 
   useEffect(() => {
     initialScrollTopRef.current = initialScrollTop;
@@ -258,6 +268,7 @@ export function GuideChatView({
         {safetyTranscript.map((message) => (
           <article
             key={message.id}
+            ref={message.id === latestMessage?.id ? latestMessageRef : undefined}
             className={`guideChatMessage guideChatMessage-${message.role.toLowerCase()}`}
             aria-label={message.role === "ASSISTANT" ? "AI" : "你"}
             data-kind={message.kind}
@@ -360,7 +371,7 @@ export function GuideChatView({
         ) : null}
       </div>
 
-      {!isSafety && !activeSubview && quickReplies.length > 0 ? (
+      {!isSafety && canSendMessage && !activeSubview && quickReplies.length > 0 ? (
         <div className="guideChatQuickReplies" role="group" aria-label="你可以这样问">
           {quickReplies.slice(0, isOpening ? 3 : 4).map((reply) => (
             <button
@@ -379,51 +390,53 @@ export function GuideChatView({
         </div>
       ) : null}
 
-      <form
-        className="guideChatComposer"
-        onSubmit={(event) => {
-          event.preventDefault();
-          submitDraft();
-        }}
-      >
-        <label htmlFor="guide-chat-input">继续提问</label>
-        <textarea
-          ref={composerRef}
-          id="guide-chat-input"
-          name="guide-chat-input"
-          rows={1}
-          value={draft}
-          disabled={disabled}
-          enterKeyHint="send"
-          placeholder="问问这款商品…"
-          style={{ height: COMPOSER_MIN_HEIGHT, overflowY: "hidden" }}
-          onChange={(event) => {
-            setDraft(event.target.value);
-            resizeComposer(event.currentTarget);
-          }}
-          onCompositionStart={() => {
-            composingRef.current = true;
-          }}
-          onCompositionEnd={() => {
-            composingRef.current = false;
-          }}
-          onKeyDown={(event) => {
-            if (
-              composingRef.current ||
-              event.nativeEvent.isComposing ||
-              event.key !== "Enter" ||
-              event.shiftKey
-            ) {
-              return;
-            }
+      {canSendMessage ? (
+        <form
+          className="guideChatComposer"
+          onSubmit={(event) => {
             event.preventDefault();
             submitDraft();
           }}
-        />
-        <button type="submit" disabled={disabled || !draft.trim()} aria-label="发送消息">
-          ↑
-        </button>
-      </form>
+        >
+          <label htmlFor="guide-chat-input">继续提问</label>
+          <textarea
+            ref={composerRef}
+            id="guide-chat-input"
+            name="guide-chat-input"
+            rows={1}
+            value={draft}
+            disabled={disabled}
+            enterKeyHint="send"
+            placeholder="问问这款商品…"
+            style={{ height: COMPOSER_MIN_HEIGHT, overflowY: "hidden" }}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              resizeComposer(event.currentTarget);
+            }}
+            onCompositionStart={() => {
+              composingRef.current = true;
+            }}
+            onCompositionEnd={() => {
+              composingRef.current = false;
+            }}
+            onKeyDown={(event) => {
+              if (
+                composingRef.current ||
+                event.nativeEvent.isComposing ||
+                event.key !== "Enter" ||
+                event.shiftKey
+              ) {
+                return;
+              }
+              event.preventDefault();
+              submitDraft();
+            }}
+          />
+          <button type="submit" disabled={disabled || !draft.trim()} aria-label="发送消息">
+            ↑
+          </button>
+        </form>
+      ) : null}
 
       <details className="guideChatDisclosure">
         <summary
@@ -431,7 +444,10 @@ export function GuideChatView({
         >
           AI 生成 · 合成原型
         </summary>
-        <p>商品、内容和用户场景均为合成数据；价格与库存需在商品页再次核验。</p>
+        <p>
+          商品、内容与使用场景均为合成；未接入 TikTok、真实
+          LLM、支付或真实库存，也未做真实用户或业务效果验证。价格与库存会在商品页再次核验。
+        </p>
       </details>
     </section>
   );

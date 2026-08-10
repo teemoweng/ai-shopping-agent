@@ -152,6 +152,9 @@ describe("GuideChatView", () => {
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(screen.getAllByText("AI 生成 · 合成原型")).toHaveLength(1);
     expect(document.querySelectorAll("details")).toHaveLength(1);
+    expect(document.querySelector(".guideChatDisclosure")).toHaveTextContent(
+      "商品、内容与使用场景均为合成；未接入 TikTok、真实 LLM、支付或真实库存，也未做真实用户或业务效果验证。价格与库存会在商品页再次核验。",
+    );
     expect(screen.getByText("AI 生成 · 合成原型")).toHaveStyle({
       minHeight: "44px",
       display: "inline-flex",
@@ -373,6 +376,63 @@ describe("GuideChatView", () => {
     expect(screen.queryByRole("region", { name: "其他选择" })).not.toBeInTheDocument();
   });
 
+  it("positions a new decision at its assistant conclusion before the compact card", () => {
+    const recommendationMessage: TranscriptMessage = {
+      id: "gmsg_decision_scroll_target",
+      sequence: 2,
+      role: "ASSISTANT",
+      kind: "RECOMMENDATION",
+      text: "先看这条结论，再向下查看商品卡。",
+      redacted: false,
+      recommendations,
+      evidence: [evidence],
+      quick_replies: [],
+    };
+    const props = {
+      mode: "compact" as const,
+      onSubmit: vi.fn(),
+      onQuickReply: vi.fn(),
+      onClose: vi.fn(),
+    };
+    const { rerender } = render(
+      <GuideChatView {...props} turn={turnWith([openingMessage])} />,
+    );
+    const log = screen.getByRole("log", { name: "导购对话" });
+    Object.defineProperties(log, {
+      scrollHeight: { configurable: true, get: () => 900 },
+      clientHeight: { configurable: true, get: () => 200 },
+    });
+    log.scrollTop = 700;
+    fireEvent.scroll(log);
+    vi.spyOn(HTMLElement.prototype, "offsetTop", "get").mockImplementation(
+      function offsetTop(this: HTMLElement) {
+        return this.dataset.kind === "RECOMMENDATION" ? 420 : 0;
+      },
+    );
+
+    rerender(
+      <GuideChatView
+        {...props}
+        turn={turnWith([openingMessage, recommendationMessage], {
+          state: "PRESENT_RECOMMENDATION",
+          kind: "recommendation",
+          guide_view_kind: "DECISION_READY",
+          recommendations,
+          evidence: [evidence],
+          conversation_revision: 2,
+        })}
+      />,
+    );
+
+    expect(log.scrollTop).toBe(416);
+    expect(screen.getByText(recommendationMessage.text)).toBeVisible();
+    expect(
+      screen.getByRole("article", {
+        name: "Seoul Shade Daily Fluid 商品建议",
+      }),
+    ).toBeInTheDocument();
+  });
+
   it("restores message scroll once per session boundary and reports only user scrolling", () => {
     const onScrollTopChange = vi.fn();
     const props = {
@@ -503,6 +563,7 @@ describe("GuideChatView", () => {
             kind: "safety_boundary",
             guide_status: "SAFE_EXIT",
             guide_view_kind: "SAFE_BOUNDARY",
+            allowed_actions: ["RETURN_TO_FEED"],
             recommendations,
             evidence: [evidence],
             comparison,
@@ -541,6 +602,8 @@ describe("GuideChatView", () => {
       }),
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /看商品|比较|依据/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "继续提问" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "发送消息" })).not.toBeInTheDocument();
   });
 
   it("submits once on Enter, ignores composition Enter, and preserves a real Shift+Enter line break", () => {

@@ -391,7 +391,6 @@ export const ShortVideoFeed = forwardRef<
             <DemoIcon name="battery" />
           </span>
         </div>
-        <span className="prototypeBadge">合成原型</span>
         <nav className="feedTabs" aria-label="内容频道">
           {feedTabs.map((tab) => (
             <button

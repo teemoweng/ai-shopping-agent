@@ -329,8 +329,8 @@ def test_chinese_urgent_symptoms_keep_distinct_emergency_wording(
         ("会泛白嘛？", GuideViewKind.ANSWER_READY, 0, 0, 0),
         ("泛不泛白？", GuideViewKind.ANSWER_READY, 0, 0, 0),
         ("防水吗？", GuideViewKind.ANSWER_READY, 0, 0, 0),
-        ("不要比较，帮我选一款", GuideViewKind.DECISION_READY, 4, 3, 0),
-        ("和防水款比一下", GuideViewKind.DECISION_READY, 4, 2, 0),
+        ("不要比较，帮我选一款", GuideViewKind.DECISION_READY, 4, 3, 1),
+        ("和防水款比一下", GuideViewKind.DECISION_READY, 4, 2, 1),
     ],
 )
 def test_chinese_intent_and_slot_routing_is_progressive_and_revision_safe(
@@ -440,6 +440,115 @@ def test_guide_revision_changes_only_for_decision_inputs(tmp_path) -> None:
         request=CartPreviewRequest(sku_id="cloud-veil-50", quantity=1),
     )
     assert session.guide_revision == revision_before_decision_actions
+
+
+def test_first_recommendation_authority_advances_revision_without_preferences(
+    tmp_path,
+) -> None:
+    engine, _, sessions = build_services(tmp_path)
+    session = sessions.create(
+        EntryPoint.CONTENT,
+        "morning-routine-uv-001",
+        None,
+        locale="zh-CN",
+    )
+    opening = engine.open_session(session)
+
+    decision = engine.handle_message(
+        session,
+        GuideMessageRequest(
+            message_id="authority_created_without_preferences",
+            text="不要比较，帮我选一款",
+        ),
+    )
+
+    assert session.hard_constraints.model_fields_set == set()
+    assert session.soft_preferences.model_fields_set == set()
+    assert session.eligible_sku_ids_by_product
+    assert decision.guide_revision == opening.guide_revision + 1
+
+
+def test_replacing_product_scoped_authority_advances_revision_once(
+    tmp_path,
+) -> None:
+    engine, _, sessions = build_services(tmp_path)
+    session = sessions.create(
+        EntryPoint.CONTENT,
+        "morning-routine-uv-001",
+        None,
+        locale="zh-CN",
+    )
+    engine.open_session(session)
+    first = engine.handle_message(
+        session,
+        GuideMessageRequest(
+            message_id="authority_initial_set",
+            text="不要比较，帮我选一款",
+        ),
+    )
+    inputs_before = (
+        session.hard_constraints.model_copy(deep=True),
+        session.soft_preferences.model_copy(deep=True),
+    )
+    authority_before = {
+        product_id: list(sku_ids)
+        for product_id, sku_ids in session.eligible_sku_ids_by_product.items()
+    }
+
+    replaced = engine.handle_message(
+        session,
+        GuideMessageRequest(
+            message_id="authority_replace_without_preferences",
+            text="和防水款比比",
+        ),
+    )
+
+    assert (
+        session.hard_constraints,
+        session.soft_preferences,
+    ) == inputs_before
+    assert session.eligible_sku_ids_by_product != authority_before
+    assert replaced.guide_revision == first.guide_revision + 1
+
+
+def test_chinese_recommendation_copy_is_localized_distinct_and_authority_safe(
+    tmp_path,
+) -> None:
+    engine, _, sessions = build_services(tmp_path)
+    service = GuideService(engine, sessions)
+    opening = service.create(
+        CreateGuideSessionRequest(
+            entry_point=EntryPoint.CONTENT,
+            content_context_id="morning-routine-uv-001",
+            locale="zh-CN",
+        )
+    )
+
+    decision = service.message(
+        opening.session_id,
+        GuideMessageRequest(
+            message_id="localized_recommendation_copy",
+            text="预算20美元以内、无香精、自然妆效、日常通勤",
+            expected_conversation_revision=opening.conversation_revision,
+        ),
+    )
+    card = next(
+        item
+        for item in decision.recommendations
+        if item.product_id == "seoul-shade-daily-fluid"
+    )
+
+    assert card.fit_reasons[0] == "自然妆效符合偏好"
+    assert card.tradeoffs[0] == "未标注防水，出汗或玩水场景需换防水款"
+    assert card.fit_reasons[0] != card.tradeoffs[0]
+    assert "natural finish" not in " ".join(
+        [*card.fit_reasons, *card.tradeoffs]
+    ).lower()
+    assert card.evidence_ids == [
+        "fda-sunscreen-basics",
+        "fda-water-resistance-labeling",
+    ]
+    assert card.eligible_sku_ids == ["seoul-shade-30", "seoul-shade-50"]
 
 
 def test_partial_update_preserves_existing_constraints_and_repeats_stably(
