@@ -47,6 +47,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function assertGuideSessionOwnership(payload: unknown, sessionId: string) {
+  if (
+    isRecord(payload) &&
+    typeof payload.session_id === "string" &&
+    payload.session_id !== sessionId
+  ) {
+    throw new ApiError(200, "GUIDE_SESSION_MISMATCH");
+  }
+}
+
 async function parseResponseBody(response: Response): Promise<unknown> {
   let body: string;
   try {
@@ -138,7 +148,10 @@ export const createGuideSession = (
 export const getGuideSession = (sessionId: string) =>
   get<GuideTurn>(
     `/guide/sessions/${encodeURIComponent(sessionId)}`,
-    validateGuideTurnResponse,
+    (payload) => {
+      assertGuideSessionOwnership(payload, sessionId);
+      return validateGuideTurnResponse(payload);
+    },
   );
 
 export const sendGuideMessage = (
@@ -151,7 +164,10 @@ export const sendGuideMessage = (
     message_id: messageId,
     text,
     expected_conversation_revision: expectedConversationRevision,
-  }, validateGuideTurnResponse);
+  }, (payload) => {
+    assertGuideSessionOwnership(payload, sessionId);
+    return validateGuideTurnResponse(payload);
+  });
 
 export const compareProducts = (
   sessionId: string,
@@ -163,7 +179,10 @@ export const compareProducts = (
     request_id: requestId,
     product_ids: productIds,
     expected_conversation_revision: expectedConversationRevision,
-  }, (payload) => validateComparisonResponse(payload, sessionId, productIds));
+  }, (payload) => {
+    assertGuideSessionOwnership(payload, sessionId);
+    return validateComparisonResponse(payload, sessionId, productIds);
+  });
 
 export const previewCart = (sessionId: string, skuId: string) =>
   post<CartPreview>(`/guide/sessions/${encodeURIComponent(sessionId)}/cart/preview`, {

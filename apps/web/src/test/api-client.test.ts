@@ -401,6 +401,15 @@ describe("shopping guide client", () => {
     );
   });
 
+  it("rejects a Guide GET response owned by a different session", async () => {
+    mockJson({ ...guideTurn, session_id: "ses_other" });
+
+    await expect(getGuideSession("ses_test")).rejects.toMatchObject({
+      status: 200,
+      code: "GUIDE_SESSION_MISMATCH",
+    });
+  });
+
   it("posts the exact guide-message contract", async () => {
     const fetchMock = mockJson({ ...guideTurn, session_id: "ses/test value" });
 
@@ -418,6 +427,17 @@ describe("shopping guide client", () => {
         }),
       },
     );
+  });
+
+  it("rejects a Guide message response owned by a different session", async () => {
+    mockJson({ ...guideTurn, session_id: "ses_other" });
+
+    await expect(
+      sendGuideMessage("ses_test", "msg_test", "Daily commute", 1),
+    ).rejects.toMatchObject({
+      status: 200,
+      code: "GUIDE_SESSION_MISMATCH",
+    });
   });
 
   it("posts the exact comparison contract", async () => {
@@ -442,6 +462,22 @@ describe("shopping guide client", () => {
         }),
       },
     );
+  });
+
+  it("rejects a comparison response owned by a different session", async () => {
+    mockJson({ ...compareResponse, session_id: "ses_other" });
+
+    await expect(
+      compareProducts(
+        "ses_test",
+        "cmp_test",
+        ["product_one", "product_two"],
+        1,
+      ),
+    ).rejects.toMatchObject({
+      status: 200,
+      code: "GUIDE_SESSION_MISMATCH",
+    });
   });
 
   it("rejects a malformed comparison success payload at the client boundary", async () => {

@@ -1974,6 +1974,263 @@ describe("authoritative session locator and request recovery", () => {
     ).toBe("ses_context_b");
   });
 
+  it("ignores a late locator 404 after close without clearing or creating", async () => {
+    const pendingRestore = deferred<GuideTurn>();
+    const onVerifiedTurnChange = vi.fn();
+    sessionStorage.setItem(locatorKey, "ses_stale");
+    api.getGuideSession.mockReturnValueOnce(pendingRestore.promise);
+    const { rerender } = render(
+      <GuideSheet
+        open
+        onClose={vi.fn()}
+        onVerifiedTurnChange={onVerifiedTurnChange}
+      />,
+    );
+    await waitFor(() =>
+      expect(api.getGuideSession).toHaveBeenCalledWith("ses_stale"),
+    );
+
+    rerender(
+      <GuideSheet
+        open={false}
+        onClose={vi.fn()}
+        onVerifiedTurnChange={onVerifiedTurnChange}
+      />,
+    );
+    await act(async () =>
+      pendingRestore.reject(new ApiError(404, "SESSION_NOT_FOUND")),
+    );
+
+    expect(sessionStorage.getItem(locatorKey)).toBe("ses_stale");
+    expect(api.createGuideSession).not.toHaveBeenCalled();
+    expect(onVerifiedTurnChange).not.toHaveBeenCalled();
+  });
+
+  it("ignores a late locator 404 after unmount without clearing or creating", async () => {
+    const pendingRestore = deferred<GuideTurn>();
+    sessionStorage.setItem(locatorKey, "ses_stale");
+    api.getGuideSession.mockReturnValueOnce(pendingRestore.promise);
+    const view = render(<GuideSheet open onClose={vi.fn()} />);
+    await waitFor(() =>
+      expect(api.getGuideSession).toHaveBeenCalledWith("ses_stale"),
+    );
+
+    view.unmount();
+    await act(async () =>
+      pendingRestore.reject(new ApiError(404, "SESSION_NOT_FOUND")),
+    );
+
+    expect(sessionStorage.getItem(locatorKey)).toBe("ses_stale");
+    expect(api.createGuideSession).not.toHaveBeenCalled();
+  });
+
+  it("ignores an old-context locator 404 after switching context", async () => {
+    const pendingRestore = deferred<GuideTurn>();
+    const contextB = {
+      ...context,
+      id: "night-routine-uv-002",
+      anchor_product_id: "cloud-veil-mineral",
+      anchor_product_name: "Cloud Veil Mineral SPF",
+      caption: "A mineral sunscreen for the next video",
+    };
+    sessionStorage.setItem(locatorKey, "ses_stale");
+    api.getGuideSession.mockReturnValueOnce(pendingRestore.promise);
+    api.createGuideSession.mockResolvedValueOnce(
+      turnFor("WAITING_CLARIFICATION", {
+        session_id: "ses_context_b",
+        context: contextB,
+      }),
+    );
+    const { rerender } = render(
+      <GuideSheet
+        open
+        onClose={vi.fn()}
+        contentContextId="morning-routine-uv-001"
+      />,
+    );
+    await waitFor(() =>
+      expect(api.getGuideSession).toHaveBeenCalledWith("ses_stale"),
+    );
+
+    rerender(
+      <GuideSheet
+        open
+        onClose={vi.fn()}
+        contentContextId="night-routine-uv-002"
+      />,
+    );
+    await screen.findByText("Cloud Veil Mineral SPF");
+    await act(async () =>
+      pendingRestore.reject(new ApiError(404, "SESSION_NOT_FOUND")),
+    );
+
+    expect(api.createGuideSession).toHaveBeenCalledOnce();
+    expect(api.createGuideSession).toHaveBeenCalledWith(
+      "night-routine-uv-002",
+      "zh-CN",
+    );
+    expect(
+      sessionStorage.getItem(
+        "ai-shopping-guide-session:night-routine-uv-002",
+      ),
+    ).toBe("ses_context_b");
+  });
+
+  it("retains a locator after a temporary restore failure and retries GET", async () => {
+    sessionStorage.setItem(locatorKey, "ses_restore_retry");
+    api.getGuideSession
+      .mockRejectedValueOnce(new ApiError(503, "TEMPORARY_UNAVAILABLE"))
+      .mockResolvedValueOnce(
+        turnFor("DECISION_READY", {
+          session_id: "ses_restore_retry",
+          text: "同一 locator 已恢复",
+        }),
+      );
+    const user = userEvent.setup();
+    render(<GuideSheet open onClose={vi.fn()} />);
+
+    expect(
+      await screen.findByRole("heading", { name: "服务端状态尚未同步" }),
+    ).toBeVisible();
+    expect(sessionStorage.getItem(locatorKey)).toBe("ses_restore_retry");
+    expect(api.createGuideSession).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "重新同步" }));
+
+    expect(await screen.findByText("同一 locator 已恢复")).toBeVisible();
+    expect(api.getGuideSession).toHaveBeenCalledTimes(2);
+    expect(sessionStorage.getItem(locatorKey)).toBe("ses_restore_retry");
+  });
+
+  it("clears a locator and creates only after retry GET confirms 404", async () => {
+    sessionStorage.setItem(locatorKey, "ses_restore_then_missing");
+    api.getGuideSession
+      .mockRejectedValueOnce(new ApiError(503, "TEMPORARY_UNAVAILABLE"))
+      .mockRejectedValueOnce(new ApiError(404, "SESSION_NOT_FOUND"));
+    api.createGuideSession.mockImplementationOnce(async () => {
+      expect(sessionStorage.getItem(locatorKey)).toBeNull();
+      return {
+        ...clarificationTurn,
+        session_id: "ses_after_retry_404",
+      };
+    });
+    const user = userEvent.setup();
+    render(<GuideSheet open onClose={vi.fn()} />);
+    await screen.findByRole("heading", { name: "服务端状态尚未同步" });
+
+    await user.click(screen.getByRole("button", { name: "重新同步" }));
+
+    await screen.findByRole("button", { name: "这款适合我吗？" });
+    expect(api.createGuideSession).toHaveBeenCalledOnce();
+    expect(sessionStorage.getItem(locatorKey)).toBe("ses_after_retry_404");
+  });
+
+  it("retains a locator after a network restore failure and reuses it on reopen", async () => {
+    sessionStorage.setItem(locatorKey, "ses_restore_reopen");
+    api.getGuideSession
+      .mockRejectedValueOnce(new TypeError("network unavailable"))
+      .mockResolvedValueOnce(
+        turnFor("DECISION_READY", {
+          session_id: "ses_restore_reopen",
+          text: "重开后恢复同一会话",
+        }),
+      );
+    const { rerender } = render(<GuideSheet open onClose={vi.fn()} />);
+
+    expect(
+      await screen.findByRole("heading", { name: "服务端状态尚未同步" }),
+    ).toBeVisible();
+    rerender(<GuideSheet open={false} onClose={vi.fn()} />);
+    rerender(<GuideSheet open onClose={vi.fn()} />);
+
+    expect(await screen.findByText("重开后恢复同一会话")).toBeVisible();
+    expect(api.getGuideSession).toHaveBeenNthCalledWith(
+      2,
+      "ses_restore_reopen",
+    );
+    expect(api.createGuideSession).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem(locatorKey)).toBe("ses_restore_reopen");
+  });
+
+  it.each([
+    [
+      "session",
+      turnFor("WAITING_CLARIFICATION", { session_id: "ses_wrong" }),
+    ],
+    [
+      "context",
+      turnFor("WAITING_CLARIFICATION", {
+        context: {
+          ...context,
+          id: "night-routine-uv-002",
+        },
+      }),
+    ],
+  ])(
+    "replaces a locator response with wrong %s ownership",
+    async (_ownership, wrongTurn) => {
+      sessionStorage.setItem(locatorKey, "ses_stale");
+      api.getGuideSession.mockResolvedValueOnce(wrongTurn);
+      api.createGuideSession.mockImplementationOnce(async () => {
+        expect(sessionStorage.getItem(locatorKey)).toBeNull();
+        return {
+          ...clarificationTurn,
+          session_id: "ses_recreated",
+        };
+      });
+
+      render(<GuideSheet open onClose={vi.fn()} />);
+
+      await screen.findByRole("button", { name: "这款适合我吗？" });
+      expect(api.createGuideSession).toHaveBeenCalledOnce();
+      expect(sessionStorage.getItem(locatorKey)).toBe("ses_recreated");
+    },
+  );
+
+  it("rejects a wrong-context create response without storing its session", async () => {
+    api.createGuideSession.mockResolvedValueOnce(
+      turnFor("WAITING_CLARIFICATION", {
+        session_id: "ses_wrong_context",
+        context: {
+          ...context,
+          id: "night-routine-uv-002",
+        },
+      }),
+    );
+
+    render(<GuideSheet open onClose={vi.fn()} />);
+
+    expect(
+      await screen.findByRole("heading", { name: "导购暂时不可用" }),
+    ).toBeVisible();
+    expect(sessionStorage.getItem(locatorKey)).toBeNull();
+    expect(screen.queryByText("Cloud Veil Mineral SPF")).not.toBeInTheDocument();
+  });
+
+  it("rejects a wrong-context message response instead of applying it", async () => {
+    api.sendGuideMessage.mockResolvedValueOnce(
+      turnFor("DECISION_READY", {
+        session_id: "ses_guide_1",
+        context: {
+          ...context,
+          id: "night-routine-uv-002",
+        },
+      }),
+    );
+    const user = userEvent.setup();
+    render(<GuideSheet open onClose={vi.fn()} />);
+    await screen.findByRole("button", { name: "视频里的说法可信吗？" });
+
+    await user.click(
+      screen.getByRole("button", { name: "视频里的说法可信吗？" }),
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "导购暂时不可用" }),
+    ).toBeVisible();
+    expect(sessionStorage.getItem(locatorKey)).toBeNull();
+    expect(screen.queryByRole("heading", { name: "适合" })).not.toBeInTheDocument();
+  });
+
   it("retries an uncertain message POST once with one stable ID and revision before GET", async () => {
     api.sendGuideMessage.mockRejectedValueOnce(new TypeError("network lost"));
     api.sendGuideMessage.mockRejectedValueOnce(new TypeError("network lost"));

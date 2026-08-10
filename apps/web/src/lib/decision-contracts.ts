@@ -58,7 +58,56 @@ function isNonNegativeInteger(value: unknown): value is number {
 }
 
 function isTimestamp(value: unknown): value is string {
-  return isNonBlankString(value) && Number.isFinite(Date.parse(value));
+  if (!isNonBlankString(value)) {
+    return false;
+  }
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(Z|[+-]\d{2}:\d{2})$/.exec(
+    value,
+  );
+  if (!match) {
+    return false;
+  }
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText, zone] =
+    match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const second = Number(secondText);
+  const isLeapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [
+    31,
+    isLeapYear ? 29 : 28,
+    31,
+    30,
+    31,
+    30,
+    31,
+    31,
+    30,
+    31,
+    30,
+    31,
+  ];
+  if (
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > daysInMonth[month - 1] ||
+    hour > 23 ||
+    minute > 59 ||
+    second > 59
+  ) {
+    return false;
+  }
+  if (zone !== "Z") {
+    const [offsetHour, offsetMinute] = zone.slice(1).split(":").map(Number);
+    if (offsetHour > 23 || offsetMinute > 59) {
+      return false;
+    }
+  }
+  return Number.isFinite(Date.parse(value));
 }
 
 function hasOwn(value: Record<string, unknown>, key: string) {
@@ -347,6 +396,7 @@ const transcriptKinds = new Set<GuideTranscriptKind>([
   "SAFETY",
   "RECOVERY",
 ]);
+const REDACTED_HEALTH_PLACEHOLDER = "已隐藏一条健康相关描述";
 const verdicts = new Set<Verdict>([
   "SUITABLE",
   "CONDITIONAL",
@@ -511,7 +561,12 @@ export function validateGuideTranscript(
     if (
       (role === "USER" &&
         (kind !== "USER_TEXT" || hasTranscriptAttachments(item))) ||
-      (role === "ASSISTANT" && kind === "USER_TEXT")
+      (role === "ASSISTANT" && kind === "USER_TEXT") ||
+      (item.redacted === true &&
+        (role !== "USER" ||
+          kind !== "USER_TEXT" ||
+          item.text !== REDACTED_HEALTH_PLACEHOLDER)) ||
+      (item.redacted === false && item.text === REDACTED_HEALTH_PLACEHOLDER)
     ) {
       return null;
     }

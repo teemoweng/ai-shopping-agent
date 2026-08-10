@@ -245,6 +245,93 @@ describe("Guide transcript runtime validation", () => {
     ).toBeNull();
   });
 
+  it("accepts only the exact health placeholder as a redacted USER message", () => {
+    expect(
+      validateGuideTurnResponse({
+        ...answerTurn,
+        transcript: [
+          openingMessage,
+          {
+            ...userMessage,
+            text: "已隐藏一条健康相关描述",
+            redacted: true,
+          },
+          answerMessage,
+        ],
+      }),
+    ).not.toBeNull();
+  });
+
+  it("rejects raw USER text marked as redacted", () => {
+    expect(
+      validateGuideTurnResponse({
+        ...answerTurn,
+        transcript: [
+          openingMessage,
+          { ...userMessage, redacted: true },
+          answerMessage,
+        ],
+      }),
+    ).toBeNull();
+  });
+
+  it("rejects the health placeholder when redacted is false", () => {
+    expect(
+      validateGuideTurnResponse({
+        ...answerTurn,
+        transcript: [
+          openingMessage,
+          { ...userMessage, text: "已隐藏一条健康相关描述" },
+          answerMessage,
+        ],
+      }),
+    ).toBeNull();
+  });
+
+  it("rejects redacted assistant messages", () => {
+    expect(
+      validateGuideTurnResponse({
+        ...answerTurn,
+        transcript: [
+          openingMessage,
+          userMessage,
+          { ...answerMessage, redacted: true },
+        ],
+      }),
+    ).toBeNull();
+  });
+
+  it.each([
+    "2026-08-10",
+    "2026-08-10T00:00:00",
+    "2026-02-30T00:00:00Z",
+    "2026-08-10T24:00:00Z",
+  ])("rejects a non-RFC3339 transcript timestamp: %s", (createdAt) => {
+    expect(
+      validateGuideTurnResponse({
+        ...answerTurn,
+        transcript: [
+          openingMessage,
+          userMessage,
+          { ...answerMessage, created_at: createdAt },
+        ],
+      }),
+    ).toBeNull();
+  });
+
+  it("accepts a real RFC3339 timestamp with an explicit offset", () => {
+    expect(
+      validateGuideTurnResponse({
+        ...answerTurn,
+        transcript: [
+          openingMessage,
+          userMessage,
+          { ...answerMessage, created_at: "2026-08-10T08:30:45.123+08:00" },
+        ],
+      }),
+    ).not.toBeNull();
+  });
+
   it("rejects COMPARISON transcript messages without a comparison", () => {
     const missingComparison = { ...comparisonMessage };
     delete (missingComparison as Partial<typeof comparisonMessage>).comparison;
@@ -361,12 +448,16 @@ describe("Guide API client reliability fields", () => {
   }
 
   it("encodes the session path and sends one message ID with its expected revision", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(responseWith(openingTurn));
+    const responseTurn = {
+      ...openingTurn,
+      session_id: "session/with space",
+    };
+    const fetchMock = vi.fn().mockResolvedValue(responseWith(responseTurn));
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(
       sendGuideMessage("session/with space", "msg_stable", "会泛白吗？", 4),
-    ).resolves.toEqual(openingTurn);
+    ).resolves.toEqual(responseTurn);
 
     expect(fetchMock).toHaveBeenCalledWith(
       "http://127.0.0.1:8000/api/v1/guide/sessions/session%2Fwith%20space/messages",

@@ -88,6 +88,13 @@ function isUncertainPostError(error: unknown) {
   );
 }
 
+function isRecoverableRestoreError(error: unknown) {
+  return (
+    error instanceof TypeError ||
+    (error instanceof ApiError && error.status >= 500)
+  );
+}
+
 let fallbackRequestSequence = 0;
 
 function createClientRequestId(prefix: "msg" | "cmp", sessionId: string) {
@@ -130,6 +137,10 @@ function isTerminalSessionError(error: unknown) {
 
 function isInvalidApiResponse(error: unknown) {
   return error instanceof ApiError && error.code === "INVALID_API_RESPONSE";
+}
+
+function isGuideSessionMismatch(error: unknown) {
+  return error instanceof ApiError && error.code === "GUIDE_SESSION_MISMATCH";
 }
 
 function isDefinitiveCompareInputRejection(error: unknown) {
@@ -375,9 +386,23 @@ export function GuideSheet({
   );
 
   const applyVerifiedTurn = useCallback(
-    (nextTurn: GuideTurn, fromNewSession = false) => {
+    (
+      nextTurn: GuideTurn,
+      fromNewSession = false,
+      expectedSessionId?: string,
+    ) => {
       const previous = verifiedTurnRef.current;
       const expectation = syncExpectationRef.current;
+      if (
+        nextTurn.context.id !== contentContextId ||
+        (expectedSessionId !== undefined &&
+          nextTurn.session_id !== expectedSessionId)
+      ) {
+        enterTerminalState(
+          "服务端返回了无法验证的导购状态，请关闭后重新打开导购。",
+        );
+        return;
+      }
       if (expectation && nextTurn.session_id !== expectation.sessionId) {
         enterTerminalState(
           "服务端返回了无法验证的导购状态，请关闭后重新打开导购。",
@@ -519,8 +544,8 @@ export function GuideSheet({
     setTransientError(null);
     setFatalError(null);
     const requestVersion = ++requestVersionRef.current;
-    const existingSessionId =
-      sessionIdRef.current ?? readSessionLocator(contentContextId);
+    const locatorSessionId = readSessionLocator(contentContextId);
+    const existingSessionId = sessionIdRef.current ?? locatorSessionId;
     sessionIdRef.current = existingSessionId;
     if (!verifiedTurnRef.current) {
       setTurn(null);
@@ -529,47 +554,82 @@ export function GuideSheet({
       setPendingLabel("正在恢复上次已核验结果…");
     }
 
+    const isCurrentOpenRequest = () =>
+      mountedRef.current &&
+      isOpenRef.current &&
+      requestVersionRef.current === requestVersion &&
+      lastContextIdRef.current === contentContextId;
+    const isCurrentRestore = () =>
+      isCurrentOpenRequest() &&
+      sessionIdRef.current === existingSessionId &&
+      (locatorSessionId === null ||
+        readSessionLocator(contentContextId) === locatorSessionId);
     let createdNewSession = !existingSessionId;
+    const replaceStaleRestore = () => {
+      if (!existingSessionId || !isCurrentRestore()) {
+        return null;
+      }
+      clearSessionLocator(contentContextId);
+      sessionIdRef.current = null;
+      verifiedTurnRef.current = null;
+      onVerifiedTurnChange?.(null);
+      setLastUsableTurn(null);
+      setTurn(null);
+      requireSync(false, null);
+      resetComparison();
+      createdNewSession = true;
+      return createGuideSession(contentContextId, "zh-CN");
+    };
     const request = (async () => {
       if (!existingSessionId) {
         return createGuideSession(contentContextId, "zh-CN");
       }
       try {
-        return await getGuideSession(existingSessionId);
+        const restoredTurn = await getGuideSession(existingSessionId);
+        if (
+          restoredTurn.session_id !== existingSessionId ||
+          restoredTurn.context.id !== contentContextId
+        ) {
+          return replaceStaleRestore();
+        }
+        return restoredTurn;
       } catch (error: unknown) {
-        if (!isTerminalSessionError(error)) {
+        if (
+          !isTerminalSessionError(error) &&
+          !isGuideSessionMismatch(error)
+        ) {
           throw error;
         }
-        clearSessionLocator(contentContextId);
-        sessionIdRef.current = null;
-        verifiedTurnRef.current = null;
-        onVerifiedTurnChange?.(null);
-        setLastUsableTurn(null);
-        requireSync(false, null);
-        resetComparison();
-        createdNewSession = true;
-        return createGuideSession(contentContextId, "zh-CN");
+        return replaceStaleRestore();
       }
     })();
     void request
       .then((nextTurn) => {
         if (
-          mountedRef.current &&
-          isOpenRef.current &&
-          requestVersionRef.current === requestVersion
+          nextTurn &&
+          isCurrentOpenRequest()
         ) {
-          applyVerifiedTurn(nextTurn, createdNewSession);
+          applyVerifiedTurn(
+            nextTurn,
+            createdNewSession,
+            createdNewSession ? undefined : existingSessionId ?? undefined,
+          );
         }
       })
       .catch((error: unknown) => {
-        if (
-          mountedRef.current &&
-          isOpenRef.current &&
-          requestVersionRef.current === requestVersion
-        ) {
+        if (isCurrentOpenRequest()) {
           if (isTerminalSessionError(error)) {
             enterTerminalState(
               "导购会话已失效，请关闭后重新打开以建立新会话。",
+            );
+          } else if (
+            existingSessionId &&
+            !createdNewSession &&
+            isRecoverableRestoreError(error)
+          ) {
+            requireSync(true, null);
+            setTransientError(
+              "暂时无法读取服务端会话；已保留当前会话定位，请重新同步。",
             );
           } else if (verifiedTurnRef.current) {
             requireSync(true);
@@ -584,10 +644,7 @@ export function GuideSheet({
         }
       })
       .finally(() => {
-        if (
-          mountedRef.current &&
-          requestVersionRef.current === requestVersion
-        ) {
+        if (isCurrentOpenRequest()) {
           setPendingLabel(null);
         }
       });
@@ -693,7 +750,7 @@ export function GuideSheet({
             }
             if (isCurrentRequest()) {
               setInput("");
-              applyVerifiedTurn(nextTurn);
+              applyVerifiedTurn(nextTurn, false, currentTurn.session_id);
             }
             return;
           } catch (error: unknown) {
@@ -714,7 +771,7 @@ export function GuideSheet({
             const snapshot = await getGuideSession(currentTurn.session_id);
             if (isCurrentRequest()) {
               setInput("");
-              applyVerifiedTurn(snapshot);
+              applyVerifiedTurn(snapshot, false, currentTurn.session_id);
             }
           } catch (error: unknown) {
             if (!isCurrentRequest()) {
@@ -944,7 +1001,7 @@ export function GuideSheet({
         if (!isCurrentComparison()) {
           return;
         }
-        applyVerifiedTurn(snapshot);
+        applyVerifiedTurn(snapshot, false, sessionId);
       } catch (error: unknown) {
         if (!isCurrentComparison()) {
           return;
@@ -1010,43 +1067,78 @@ export function GuideSheet({
     setPendingLabel("正在恢复上次已核验结果…");
     setTransientError(null);
     const requestVersion = ++requestVersionRef.current;
-    void getGuideSession(currentSessionId)
-      .then((nextTurn) => {
-        if (
-          mountedRef.current &&
-          isOpenRef.current &&
-          requestVersionRef.current === requestVersion
-        ) {
-          applyVerifiedTurn(nextTurn);
+    const isCurrentRequest = () =>
+      mountedRef.current &&
+      isOpenRef.current &&
+      requestVersionRef.current === requestVersion &&
+      lastContextIdRef.current === contentContextId;
+    const isCurrentSessionRequest = () =>
+      isCurrentRequest() && sessionIdRef.current === currentSessionId;
+    const replaceConfirmedStaleSession = async () => {
+      if (!isCurrentSessionRequest()) {
+        return;
+      }
+      clearSessionLocator(contentContextId);
+      sessionIdRef.current = null;
+      verifiedTurnRef.current = null;
+      onVerifiedTurnChange?.(null);
+      setLastUsableTurn(null);
+      setTurn(null);
+      requireSync(false, null);
+      resetComparison();
+      try {
+        const nextTurn = await createGuideSession(contentContextId, "zh-CN");
+        if (isCurrentRequest() && sessionIdRef.current === null) {
+          applyVerifiedTurn(nextTurn, true);
         }
-      })
-      .catch((error: unknown) => {
-        if (
-          mountedRef.current &&
-          isOpenRef.current &&
-          requestVersionRef.current === requestVersion
-        ) {
-          if (isTerminalSessionError(error)) {
-            enterTerminalState(
-              "导购会话已失效，请关闭后重新打开以建立新会话。",
-            );
+      } catch {
+        if (isCurrentRequest() && sessionIdRef.current === null) {
+          enterTerminalState(
+            "无法建立有效的导购会话，请关闭后重新打开。",
+          );
+        }
+      }
+    };
+    void (async () => {
+      try {
+        let nextTurn: GuideTurn;
+        try {
+          nextTurn = await getGuideSession(currentSessionId);
+        } catch (error: unknown) {
+          if (!isCurrentSessionRequest()) {
+            return;
+          }
+          if (
+            isTerminalSessionError(error) ||
+            isGuideSessionMismatch(error)
+          ) {
+            await replaceConfirmedStaleSession();
           } else {
             requireSync(true, expectation);
             setTransientError(
               "尚未确认服务端最终状态；上次已核验结果仍为只读，请再次同步。",
             );
           }
+          return;
         }
-      })
-      .finally(() => {
+        if (!isCurrentSessionRequest()) {
+          return;
+        }
         if (
-          mountedRef.current &&
-          requestVersionRef.current === requestVersion
+          nextTurn.session_id !== currentSessionId ||
+          nextTurn.context.id !== contentContextId
         ) {
+          await replaceConfirmedStaleSession();
+          return;
+        }
+        applyVerifiedTurn(nextTurn, false, currentSessionId);
+      } finally {
+        if (isCurrentRequest()) {
           submittingRef.current = false;
           setPendingLabel(null);
         }
-      });
+      }
+    })();
   }
 
   function retryRecoverySession() {
@@ -1582,7 +1674,11 @@ export function GuideSheet({
               eyebrow="操作结果待对账"
               title="服务端状态尚未同步"
             >
-              <p>上次已核验内容会继续显示，但所有商品动作保持冻结。</p>
+              <p>
+                {turn
+                  ? "上次已核验内容会继续显示，但所有商品动作保持冻结。"
+                  : "已保留当前会话定位；恢复完成前所有商品动作保持冻结。"}
+              </p>
               <button
                 type="button"
                 className="primaryDecisionButton"

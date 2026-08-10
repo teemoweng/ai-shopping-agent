@@ -92,3 +92,94 @@ git diff --check
 
 - `next build` emits the existing multi-lockfile workspace-root inference warning because both the main repository and worktree contain `pnpm-workspace.yaml`. Compilation, TypeScript, static generation, and the production build all complete successfully.
 - The browser locator intentionally provides continuity only for the current tab/sessionStorage lifetime; the server remains authoritative for all transcript and Guide state.
+
+---
+
+# Independent Review Fix Round 1
+
+## Status
+
+DONE_WITH_CONCERNS
+
+## Findings Fixed
+
+1. **Stale 404 races are side-effect free.** Locator restore now verifies mount/open state, request version, current content context, session ref, and locator ownership before clearing storage, resetting refs/state, or creating. Deferred tests prove a 404 arriving after close, unmount, or context switch performs no stale clear/create/callback work.
+2. **Temporary restore failures retain authority.** Network and 5xx failures keep the exact locator/session ID, freeze all actions, expose retry feedback, and retry GET through the same locator on either the sync control or reopen. Only a confirmed 404 or explicit ownership mismatch clears before create. Malformed contract responses remain distinct: they do not masquerade as 404 ownership evidence.
+3. **Session and context ownership is enforced end to end.** GET, message, and compare guards reject a response whose `session_id` differs from the requested path. Restore replaces wrong-session/wrong-context locator snapshots only after clearing that locator; every controller apply checks the active `contentContextId`. A wrong-context create/message response enters the fatal contract state and never reaches storage.
+4. **Redaction is exact.** `redacted=true` is accepted only for `USER` / `USER_TEXT` with text exactly `已隐藏一条健康相关描述`. Raw text marked redacted, an unmarked placeholder, and redacted assistant messages are rejected.
+5. **Timestamps are strict RFC3339 instants.** Date-only values, timestamps without a timezone, impossible dates, hour 24, and malformed offsets are rejected. Valid UTC and explicit-offset date-times remain accepted.
+6. **Retry-confirmed 404 and comparison ownership are consistent.** A locator first failing temporarily and later returning 404 is cleared before exactly one create. Compare response ownership now uses the same explicit session-mismatch guard as GET and message.
+
+## RED Evidence
+
+Redaction, timestamp, and GET/message ownership tests before production changes:
+
+```text
+pnpm --dir apps/web exec vitest run src/test/decision-contracts.test.ts src/test/api-client.test.ts
+# 2 files failed; 9 failed, 53 passed / 62 total
+```
+
+The nine failures were three invalid redaction states accepted, four non-RFC3339 timestamps accepted, and two wrong-session Guide responses accepted.
+
+Deferred race, temporary recovery, and controller ownership tests before production changes:
+
+```text
+pnpm --dir apps/web exec vitest run src/test/guide-sheet.test.tsx
+# 1 file failed; 9 failed, 73 passed / 82 total
+```
+
+The failures proved late 404 clear/create side effects, loss of locator authority on temporary failure, acceptance of wrong session/context turns, and storage/application of wrong-context create/message responses.
+
+The first combined GREEN attempt exposed two legacy invariants that the minimal implementation still had to preserve:
+
+```text
+pnpm --dir apps/web exec vitest run src/test/decision-contracts.test.ts src/test/api-client.test.ts src/test/guide-sheet.test.tsx
+# 2 failed, 142 passed / 144 total
+```
+
+One encoded-path success fixture returned the wrong session. The other failure proved malformed contract recovery must remain frozen/retryable instead of being treated as confirmed stale ownership. A dedicated `GUIDE_SESSION_MISMATCH` boundary separated ownership from generic `INVALID_API_RESPONSE` without weakening either validator.
+
+Retry GET confirmation was then tested independently before implementation:
+
+```text
+pnpm --dir apps/web exec vitest run src/test/guide-sheet.test.tsx -t "clears a locator and creates only after retry GET confirms 404"
+# 1 failed, 82 skipped
+```
+
+Comparison guard consistency was also proven RED before its change:
+
+```text
+pnpm --dir apps/web exec vitest run src/test/api-client.test.ts -t "comparison response owned by a different session"
+# 1 failed, 30 skipped
+```
+
+## GREEN and Final Verification
+
+```text
+pnpm --dir apps/web exec vitest run src/test/decision-contracts.test.ts src/test/api-client.test.ts src/test/guide-sheet.test.tsx
+# 3 files passed; 146 passed / 146 total
+
+pnpm --dir apps/web test
+# 10 files passed; 244 passed / 244 total
+
+pnpm lint:web
+# Passed; 0 errors, 0 warnings
+
+pnpm --dir apps/web exec tsc --noEmit
+# Passed
+
+pnpm --dir apps/web build
+# Production build passed; 4/4 static pages generated
+
+git diff --check
+# Passed with no output
+```
+
+## Commit
+
+- Fix-round commit: the independent commit containing these review fixes and this appended report; its exact hash is returned with the final clean-worktree handoff.
+
+## Remaining Concerns
+
+- `next build` still emits the pre-existing multi-lockfile workspace-root inference warning. Compilation, TypeScript, static generation, and the production build complete successfully.
+- The client uses `GUIDE_SESSION_MISMATCH` as an internal successful-response guard code so the controller can distinguish explicit ownership failure from a generic malformed contract. It is not persisted or exposed as server authority.
