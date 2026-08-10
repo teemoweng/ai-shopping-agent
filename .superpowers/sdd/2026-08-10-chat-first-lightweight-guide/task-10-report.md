@@ -4,9 +4,10 @@
 
 DONE_WITH_CONCERNS
 
-Knowledge-layer commit:
+Knowledge-layer commits:
 
 - `d169f94671c16f0daeb590c5aedc7ad73df640fd` — `docs: record chat-first guide iteration`
+- `55deaad867b50920b85e710b3926a7dea56e4a0d` — `docs: clarify chat-first decision scope` (independent-review Fix Round 1)
 
 Engineering source consumed:
 
@@ -47,8 +48,8 @@ Workspace repo baseline was `1e2e2995fe7457122ad3bbbd58054fbc7b6a7bc5` on `main`
  M 服务/【辅导】求职辅导/简历修改/index.md
  M 苹果备忘录/index.md
  M 视频脚本风格/index.md
- M 课业/Private Equity/pe-eurobio-takeprivate/index.md
- M 课业/project management/index.md
+ M "课业/Private Equity/pe-eurobio-takeprivate/index.md"
+ M "课业/project management/index.md"
  M 运动健康/index.md
  M 运动健康/饮食日志.md
  M 飞书/Claude产出/index.md
@@ -91,9 +92,9 @@ Workspace repo baseline was `1e2e2995fe7457122ad3bbbd58054fbc7b6a7bc5` on `main`
 ?? 视频脚本风格/AGENTS.md
 ?? 课业/AGENTS.md
 ?? 课业/Accounting/
-?? 课业/Private Equity/pe-eurobio-takeprivate/AGENTS.md
+?? "课业/Private Equity/pe-eurobio-takeprivate/AGENTS.md"
 ?? 课业/index.md
-?? 课业/project management/AGENTS.md
+?? "课业/project management/AGENTS.md"
 ?? 运动健康/AGENTS.md
 ?? 运动健康/攀岩鞋选购指南.html
 ?? 飞书/AGENTS.md
@@ -153,6 +154,17 @@ Before the knowledge commit:
 - `git diff --cached --check`: passed.
 
 After the commit, the workspace remains intentionally dirty with the exact user pre-task status inventory. Task 10 owned changes are committed; the workspace is not claimed clean.
+
+## Independent-review Fix Round 1
+
+The review returned 0 Critical, 2 Important, and 2 Minor findings. The knowledge fix commit above closes all four without changing generated indexes or unrelated workspace content:
+
+- ADR-002 now uses the YAML/Obsidian-parseable `amends` relationship and states that only ADR-001's default 65%–75% one-shot heavy Sheet is replaced; ADR-001's dual entry points, three control planes, PDP confirmation, and transaction boundary remain accepted.
+- The specification retains the 2026-08-07 8/8, API 234, Web 193, and 26/12 browser numbers as the first-round page/transaction historical baseline, while making the 2026-08-10 Chat-first gate current: 13 Chat-first contracts plus 8 Commerce journeys, API 318, Web 280, full E2E 39/31/0, and production capture 42/28/0, with canonical verification and manifest pointers.
+- The approximately 70% Sheet entry is explicitly marked as a superseded historical hypothesis; the current hypothesis is compact 40%–44% and expanded 72%–74%.
+- The human-readable short-status block above now preserves Git's literal quotes around all four paths containing spaces. The NUL-delimited inventory hash remains the stronger byte-level identity proof and is unchanged.
+
+Scoped YAML safe parsing, required OKF `type`, 26 WikiLink targets, Markdown table pipe structure, canonical evidence target existence, and both repositories' `git diff --check` passed. Before the workspace fix commit, the cached forbidden-path scan for any `index.md`, `02-产品定义与MVP.md`, or `Projects/` path was empty. After the commit, the workspace NUL status SHA-256 is still `49015e26fbf84211879f4828c49900ab7fde28424e9b6f2671b36c1487875c85`; all 42 dirty indexes remain byte-identical to their snapshots, and `02-产品定义与MVP.md` remains `79b1a09b702392022b9489b6ce07b781313af761fffc74f114224825f250fe94`. Reindex was intentionally not run in this fix round.
 
 ## Concerns
 
