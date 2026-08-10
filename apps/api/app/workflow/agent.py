@@ -2,6 +2,10 @@ from app.domain.contracts import GuideAction, GuideMessageRequest, GuideViewKind
 
 _ALLOWED_ACTIONS_BY_VIEW = {
     GuideViewKind.OPENING_CONTEXT: (GuideAction.RETURN_TO_FEED,),
+    GuideViewKind.ANSWER_READY: (
+        GuideAction.SEND_MESSAGE,
+        GuideAction.RETURN_TO_FEED,
+    ),
     GuideViewKind.CONTEXT_CONFIRMATION: (
         GuideAction.CONFIRM_CONTEXT,
         GuideAction.RETURN_TO_FEED,

@@ -697,8 +697,12 @@ export interface components {
         CommerceStep: "PDP_READY" | "CHECKING_FACTS" | "AWAITING_CONFIRMATION" | "FACTS_CHANGED" | "COMMITTING" | "COMMIT_STATUS_UNKNOWN" | "SUCCEEDED" | "FAILED" | "CANCELLED";
         /** CompareRequest */
         CompareRequest: {
+            /** Expected Conversation Revision */
+            expected_conversation_revision?: number | null;
             /** Product Ids */
             product_ids: string[];
+            /** Request Id */
+            request_id?: string | null;
         };
         /** CompareResponse */
         CompareResponse: {
@@ -811,9 +815,11 @@ export interface components {
          * GuideAction
          * @enum {string}
          */
-        GuideAction: "CONFIRM_CONTEXT" | "ANSWER_CLARIFICATION" | "SKIP_CLARIFICATION" | "UPDATE_CONSTRAINTS" | "RELAX_CONSTRAINT" | "CONTINUE_WITH_KNOWN" | "REQUEST_COMPARISON" | "OPEN_PRODUCT" | "RETRY_GUIDE_OPERATION" | "RETURN_TO_FEED";
+        GuideAction: "SEND_MESSAGE" | "CONFIRM_CONTEXT" | "ANSWER_CLARIFICATION" | "SKIP_CLARIFICATION" | "UPDATE_CONSTRAINTS" | "RELAX_CONSTRAINT" | "CONTINUE_WITH_KNOWN" | "REQUEST_COMPARISON" | "OPEN_PRODUCT" | "RETRY_GUIDE_OPERATION" | "RETURN_TO_FEED";
         /** GuideMessageRequest */
         GuideMessageRequest: {
+            /** Expected Conversation Revision */
+            expected_conversation_revision?: number | null;
             /** Message Id */
             message_id: string;
             /** Text */
@@ -824,12 +830,56 @@ export interface components {
          * @enum {string}
          */
         GuideStatus: "ACTIVE" | "WAITING_USER" | "SAFE_EXIT" | "FAILED";
+        /**
+         * GuideTranscriptKind
+         * @enum {string}
+         */
+        GuideTranscriptKind: "OPENING" | "USER_TEXT" | "QUESTION" | "ANSWER" | "RECOMMENDATION" | "COMPARISON" | "NO_MATCH" | "SAFETY" | "RECOVERY";
+        /** GuideTranscriptMessage */
+        GuideTranscriptMessage: {
+            comparison?: components["schemas"]["CompareResponse"] | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at?: string;
+            /** Evidence */
+            evidence?: components["schemas"]["EvidenceReference"][];
+            /** Id */
+            id: string;
+            kind: components["schemas"]["GuideTranscriptKind"];
+            /** Quick Replies */
+            quick_replies?: string[];
+            /** Recommendations */
+            recommendations?: components["schemas"]["RecommendationCard"][];
+            /**
+             * Redacted
+             * @default false
+             */
+            redacted: boolean;
+            role: components["schemas"]["GuideTranscriptRole"];
+            /** Sequence */
+            sequence: number;
+            /** Text */
+            text: string;
+            verdict?: components["schemas"]["Verdict"] | null;
+        };
+        /**
+         * GuideTranscriptRole
+         * @enum {string}
+         */
+        GuideTranscriptRole: "USER" | "ASSISTANT";
         /** GuideTurnResponse */
         GuideTurnResponse: {
             /** Allowed Actions */
             allowed_actions: components["schemas"]["GuideAction"][];
             comparison?: components["schemas"]["CompareResponse"] | null;
             context: components["schemas"]["ContentContextSummary"];
+            /**
+             * Conversation Revision
+             * @default 1
+             */
+            conversation_revision: number;
             /**
              * Degraded
              * @default false
@@ -850,7 +900,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "opening" | "clarification" | "recommendation" | "no_match" | "safety_boundary";
+            kind: "opening" | "clarification" | "answer" | "recommendation" | "no_match" | "safety_boundary";
             /**
              * Locale
              * @enum {string}
@@ -867,13 +917,15 @@ export interface components {
             text: string;
             /** Trace Id */
             trace_id: string;
+            /** Transcript */
+            transcript?: components["schemas"]["GuideTranscriptMessage"][];
             verdict?: components["schemas"]["Verdict"] | null;
         };
         /**
          * GuideViewKind
          * @enum {string}
          */
-        GuideViewKind: "OPENING_CONTEXT" | "CONTEXT_CONFIRMATION" | "WAITING_CLARIFICATION" | "VERIFYING_FACTS" | "DECISION_READY" | "NO_MATCH" | "INSUFFICIENT_EVIDENCE" | "COMPARISON_READY" | "SAFE_BOUNDARY" | "RECOVERY_REQUIRED" | "FATAL_ERROR";
+        GuideViewKind: "OPENING_CONTEXT" | "ANSWER_READY" | "CONTEXT_CONFIRMATION" | "WAITING_CLARIFICATION" | "VERIFYING_FACTS" | "DECISION_READY" | "NO_MATCH" | "INSUFFICIENT_EVIDENCE" | "COMPARISON_READY" | "SAFE_BOUNDARY" | "RECOVERY_REQUIRED" | "FATAL_ERROR";
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */

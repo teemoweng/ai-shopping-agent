@@ -42,6 +42,7 @@ FORBIDDEN_TRACE_KEYS = {
     "message",
     "raw_message",
     "message_text",
+    "conversation_transcript",
     "raw_text",
     "input",
     "raw_input",
@@ -450,6 +451,20 @@ def test_committed_trace_validator_rejects_nested_caller_and_message_identifiers
     records = deepcopy(_load_committed_trace_records())
     argument_summary = records[3]["payload"]["argument_summary"]
     argument_summary["metadata"] = {identifier_key: "caller-controlled-value"}
+
+    with pytest.raises(AssertionError):
+        _validate_committed_trace_records(records)
+
+
+@pytest.mark.parametrize(
+    "sensitive_key",
+    ["raw_message", "message_text", "client_message_id", "conversation_transcript"],
+)
+def test_committed_trace_validator_rejects_conversation_sensitive_keys(
+    sensitive_key: str,
+) -> None:
+    records = deepcopy(_load_committed_trace_records())
+    records[3]["payload"]["argument_summary"][sensitive_key] = "must-not-persist"
 
     with pytest.raises(AssertionError):
         _validate_committed_trace_records(records)

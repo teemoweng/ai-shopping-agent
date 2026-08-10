@@ -1164,6 +1164,18 @@
       },
       "CompareRequest": {
         "properties": {
+          "expected_conversation_revision": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Conversation Revision"
+          },
           "product_ids": {
             "items": {
               "type": "string"
@@ -1172,6 +1184,19 @@
             "minItems": 2,
             "title": "Product Ids",
             "type": "array"
+          },
+          "request_id": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Id"
           }
         },
         "required": [
@@ -1489,6 +1514,7 @@
       },
       "GuideAction": {
         "enum": [
+          "SEND_MESSAGE",
           "CONFIRM_CONTEXT",
           "ANSWER_CLARIFICATION",
           "SKIP_CLARIFICATION",
@@ -1505,6 +1531,18 @@
       },
       "GuideMessageRequest": {
         "properties": {
+          "expected_conversation_revision": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Conversation Revision"
+          },
           "message_id": {
             "maxLength": 80,
             "minLength": 1,
@@ -1535,6 +1573,115 @@
         "title": "GuideStatus",
         "type": "string"
       },
+      "GuideTranscriptKind": {
+        "enum": [
+          "OPENING",
+          "USER_TEXT",
+          "QUESTION",
+          "ANSWER",
+          "RECOMMENDATION",
+          "COMPARISON",
+          "NO_MATCH",
+          "SAFETY",
+          "RECOVERY"
+        ],
+        "title": "GuideTranscriptKind",
+        "type": "string"
+      },
+      "GuideTranscriptMessage": {
+        "properties": {
+          "comparison": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CompareResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceReference"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/GuideTranscriptKind"
+          },
+          "quick_replies": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": "Quick Replies",
+            "type": "array"
+          },
+          "recommendations": {
+            "items": {
+              "$ref": "#/components/schemas/RecommendationCard"
+            },
+            "title": "Recommendations",
+            "type": "array"
+          },
+          "redacted": {
+            "default": false,
+            "title": "Redacted",
+            "type": "boolean"
+          },
+          "role": {
+            "$ref": "#/components/schemas/GuideTranscriptRole"
+          },
+          "sequence": {
+            "exclusiveMinimum": 0.0,
+            "title": "Sequence",
+            "type": "integer"
+          },
+          "text": {
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Verdict"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "sequence",
+          "role",
+          "kind",
+          "text"
+        ],
+        "title": "GuideTranscriptMessage",
+        "type": "object"
+      },
+      "GuideTranscriptRole": {
+        "enum": [
+          "USER",
+          "ASSISTANT"
+        ],
+        "title": "GuideTranscriptRole",
+        "type": "string"
+      },
       "GuideTurnResponse": {
         "properties": {
           "allowed_actions": {
@@ -1556,6 +1703,12 @@
           },
           "context": {
             "$ref": "#/components/schemas/ContentContextSummary"
+          },
+          "conversation_revision": {
+            "default": 1,
+            "minimum": 1.0,
+            "title": "Conversation Revision",
+            "type": "integer"
           },
           "degraded": {
             "default": false,
@@ -1589,6 +1742,7 @@
             "enum": [
               "opening",
               "clarification",
+              "answer",
               "recommendation",
               "no_match",
               "safety_boundary"
@@ -1633,6 +1787,13 @@
             "title": "Trace Id",
             "type": "string"
           },
+          "transcript": {
+            "items": {
+              "$ref": "#/components/schemas/GuideTranscriptMessage"
+            },
+            "title": "Transcript",
+            "type": "array"
+          },
           "verdict": {
             "anyOf": [
               {
@@ -1664,6 +1825,7 @@
       "GuideViewKind": {
         "enum": [
           "OPENING_CONTEXT",
+          "ANSWER_READY",
           "CONTEXT_CONFIRMATION",
           "WAITING_CLARIFICATION",
           "VERIFYING_FACTS",

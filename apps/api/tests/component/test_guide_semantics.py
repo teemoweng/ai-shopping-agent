@@ -1,11 +1,13 @@
 import json
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 from threading import Event
 
 import pytest
 
+from app.domain import contracts
 from app.domain.contracts import (
     CartPreviewRequest,
     CompareRequest,
@@ -15,6 +17,8 @@ from app.domain.contracts import (
     GuideMessageRequest,
     GuideStatus,
     GuideViewKind,
+    RecommendationCard,
+    WorkflowState,
 )
 from app.repositories.fixture_repository import FixtureRepository
 from app.repositories.session_repository import SessionRepository
@@ -38,6 +42,7 @@ def build_services(tmp_path):
 def test_every_guide_view_has_explicit_server_actions() -> None:
     expected = {
         "OPENING_CONTEXT": ["RETURN_TO_FEED"],
+        "ANSWER_READY": ["SEND_MESSAGE", "RETURN_TO_FEED"],
         "CONTEXT_CONFIRMATION": ["CONFIRM_CONTEXT", "RETURN_TO_FEED"],
         "WAITING_CLARIFICATION": [
             "ANSWER_CLARIFICATION",
@@ -67,6 +72,99 @@ def test_every_guide_view_has_explicit_server_actions() -> None:
         view_kind.value: [action.value for action in agent.allowed_actions_for(view_kind)]
         for view_kind in GuideViewKind
     } == expected
+
+
+def test_guide_turn_transcript_contract_requires_ordered_matching_messages() -> None:
+    opening = contracts.GuideTranscriptMessage(
+        id="gmsg_1",
+        sequence=1,
+        role=contracts.GuideTranscriptRole.ASSISTANT,
+        kind=contracts.GuideTranscriptKind.OPENING,
+        text="我看到你在看 Seoul Shade。你最想确认什么？",
+        quick_replies=["适合油皮吗？", "会不会泛白？", "和防水款比比"],
+    )
+    valid_recommendation = RecommendationCard(
+        product_id="seoul-shade-daily-fluid",
+        brand="Seoul Shade",
+        name="Daily Fluid",
+        verdict="SUITABLE",
+        fit_reasons=["fragrance-free"],
+        tradeoffs=["natural finish"],
+        eligible_sku_ids=["seoul-shade-50"],
+        starting_price_usd=14,
+        evidence_ids=["fda-sunscreen-basics"],
+    )
+
+    with pytest.raises(ValueError):
+        contracts.GuideTranscriptMessage(
+            id="gmsg_bad",
+            sequence=2,
+            role="USER",
+            kind="USER_TEXT",
+            text="适合油皮吗？",
+            recommendations=[valid_recommendation],
+        )
+
+    response = contracts.GuideTurnResponse(
+        session_id="ses_1",
+        trace_id="trc_1",
+        locale="zh-CN",
+        state=WorkflowState.UNDERSTAND,
+        kind="opening",
+        text=opening.text,
+        context={
+            "id": "context_1",
+            "anchor_product_id": "seoul-shade-daily-fluid",
+            "anchor_product_name": "Seoul Shade Daily Fluid",
+            "creator_handle": "@creator",
+            "caption": "caption",
+            "claims": [],
+        },
+        guide_status=GuideStatus.WAITING_USER,
+        guide_view_kind=GuideViewKind.OPENING_CONTEXT,
+        guide_revision=1,
+        facts_snapshot_at=datetime.now(UTC),
+        allowed_actions=[GuideAction.RETURN_TO_FEED],
+        conversation_revision=1,
+        transcript=[opening],
+    )
+
+    assert response.conversation_revision == 1
+    assert response.transcript == [opening]
+
+    user_message = contracts.GuideTranscriptMessage(
+        id="gmsg_2",
+        sequence=2,
+        role=contracts.GuideTranscriptRole.USER,
+        kind=contracts.GuideTranscriptKind.USER_TEXT,
+        text="适合油皮吗？",
+    )
+    with pytest.raises(ValueError):
+        contracts.GuideTurnResponse.model_validate(
+            response.model_dump()
+            | {
+                "transcript": [
+                    opening,
+                    user_message,
+                    opening.model_copy(update={"sequence": 3}),
+                ]
+            }
+        )
+    with pytest.raises(ValueError):
+        contracts.GuideTurnResponse.model_validate(
+            response.model_dump()
+            | {
+                "transcript": [
+                    opening,
+                    user_message,
+                    opening.model_copy(update={"id": "gmsg_3", "sequence": 1}),
+                ]
+            }
+        )
+    with pytest.raises(ValueError):
+        contracts.GuideTurnResponse.model_validate(
+            response.model_dump() | {"guide_view_kind": GuideViewKind.ANSWER_READY}
+        )
 
 
 @pytest.mark.parametrize("failure_mode", ["blank", "exception"])

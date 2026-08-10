@@ -1,10 +1,18 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
+from itertools import pairwise
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    HttpUrl,
+    field_validator,
+    model_validator,
+)
 from pydantic.json_schema import GetJsonSchemaHandler, JsonSchemaValue
 from pydantic_core import CoreSchema
 
@@ -32,6 +40,7 @@ class WorkflowState(StrEnum):
 
 
 class GuideAction(StrEnum):
+    SEND_MESSAGE = "SEND_MESSAGE"
     CONFIRM_CONTEXT = "CONFIRM_CONTEXT"
     ANSWER_CLARIFICATION = "ANSWER_CLARIFICATION"
     SKIP_CLARIFICATION = "SKIP_CLARIFICATION"
@@ -53,6 +62,7 @@ class GuideStatus(StrEnum):
 
 class GuideViewKind(StrEnum):
     OPENING_CONTEXT = "OPENING_CONTEXT"
+    ANSWER_READY = "ANSWER_READY"
     CONTEXT_CONFIRMATION = "CONTEXT_CONFIRMATION"
     WAITING_CLARIFICATION = "WAITING_CLARIFICATION"
     VERIFYING_FACTS = "VERIFYING_FACTS"
@@ -194,10 +204,13 @@ class CreateGuideSessionRequest(BaseModel):
 class GuideMessageRequest(BaseModel):
     message_id: Annotated[str, Field(min_length=1, max_length=80)]
     text: Annotated[str, Field(min_length=1, max_length=500)]
+    expected_conversation_revision: Annotated[int | None, Field(ge=1)] = None
 
 
 class CompareRequest(BaseModel):
     product_ids: Annotated[list[str], Field(min_length=2, max_length=3)]
+    request_id: Annotated[str | None, Field(min_length=1, max_length=80)] = None
+    expected_conversation_revision: Annotated[int | None, Field(ge=1)] = None
 
     @model_validator(mode="after")
     def require_distinct_products(self) -> CompareRequest:
@@ -537,6 +550,73 @@ class RecommendationCard(BaseModel):
         return self
 
 
+class GuideTranscriptRole(StrEnum):
+    USER = "USER"
+    ASSISTANT = "ASSISTANT"
+
+
+class GuideTranscriptKind(StrEnum):
+    OPENING = "OPENING"
+    USER_TEXT = "USER_TEXT"
+    QUESTION = "QUESTION"
+    ANSWER = "ANSWER"
+    RECOMMENDATION = "RECOMMENDATION"
+    COMPARISON = "COMPARISON"
+    NO_MATCH = "NO_MATCH"
+    SAFETY = "SAFETY"
+    RECOVERY = "RECOVERY"
+
+
+class GuideTranscriptMessage(BaseModel):
+    id: Annotated[str, Field(min_length=1)]
+    sequence: Annotated[int, Field(gt=0)]
+    role: GuideTranscriptRole
+    kind: GuideTranscriptKind
+    text: Annotated[str, Field(min_length=1)]
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    redacted: bool = False
+    quick_replies: list[Annotated[str, Field(min_length=1)]] = Field(
+        default_factory=list
+    )
+    verdict: Verdict | None = None
+    recommendations: list[RecommendationCard] = Field(default_factory=list)
+    evidence: list[EvidenceReference] = Field(default_factory=list)
+    comparison: CompareResponse | None = None
+
+    @field_validator("text")
+    @classmethod
+    def reject_blank_text(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("transcript text must not be blank")
+        return value
+
+    @model_validator(mode="after")
+    def validate_role_and_attachments(self) -> GuideTranscriptMessage:
+        has_attachments = any(
+            (
+                self.quick_replies,
+                self.verdict is not None,
+                self.recommendations,
+                self.evidence,
+                self.comparison is not None,
+            )
+        )
+        if self.role is GuideTranscriptRole.USER:
+            if self.kind is not GuideTranscriptKind.USER_TEXT:
+                raise ValueError("USER transcript messages must use USER_TEXT")
+            if has_attachments:
+                raise ValueError("USER transcript messages must not carry attachments")
+        elif self.kind is GuideTranscriptKind.USER_TEXT:
+            raise ValueError("ASSISTANT transcript messages must not use USER_TEXT")
+
+        is_comparison = self.kind is GuideTranscriptKind.COMPARISON
+        if is_comparison and self.comparison is None:
+            raise ValueError("COMPARISON transcript messages require comparison")
+        if not is_comparison and self.comparison is not None:
+            raise ValueError("comparison is only valid for COMPARISON messages")
+        return self
+
+
 class GuideTurnResponse(BaseModel):
     session_id: str
     trace_id: str
@@ -545,6 +625,7 @@ class GuideTurnResponse(BaseModel):
     kind: Literal[
         "opening",
         "clarification",
+        "answer",
         "recommendation",
         "no_match",
         "safety_boundary",
@@ -554,6 +635,7 @@ class GuideTurnResponse(BaseModel):
     guide_status: GuideStatus
     guide_view_kind: GuideViewKind
     guide_revision: Annotated[int, Field(ge=1)]
+    conversation_revision: Annotated[int, Field(ge=1)] = 1
     facts_snapshot_at: datetime
     allowed_actions: list[GuideAction]
     degraded: bool = False
@@ -562,9 +644,53 @@ class GuideTurnResponse(BaseModel):
     evidence: list[EvidenceReference] = Field(default_factory=list)
     quick_replies: list[str] = Field(default_factory=list)
     comparison: CompareResponse | None = None
+    transcript: list[GuideTranscriptMessage] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_comparison_view(self) -> GuideTurnResponse:
+        if self.transcript:
+            transcript_ids = [message.id for message in self.transcript]
+            transcript_sequences = [message.sequence for message in self.transcript]
+            if len(set(transcript_ids)) != len(transcript_ids):
+                raise ValueError("transcript message ids must be unique")
+            if any(
+                current <= previous
+                for previous, current in pairwise(transcript_sequences)
+            ):
+                raise ValueError("transcript sequences must strictly increase")
+            last_assistant = next(
+                (
+                    message
+                    for message in reversed(self.transcript)
+                    if message.role is GuideTranscriptRole.ASSISTANT
+                ),
+                None,
+            )
+            if last_assistant is not None:
+                compatible_views = {
+                    GuideTranscriptKind.OPENING: {GuideViewKind.OPENING_CONTEXT},
+                    GuideTranscriptKind.QUESTION: {
+                        GuideViewKind.CONTEXT_CONFIRMATION,
+                        GuideViewKind.WAITING_CLARIFICATION,
+                    },
+                    GuideTranscriptKind.ANSWER: {GuideViewKind.ANSWER_READY},
+                    GuideTranscriptKind.RECOMMENDATION: {
+                        GuideViewKind.DECISION_READY,
+                        GuideViewKind.INSUFFICIENT_EVIDENCE,
+                    },
+                    GuideTranscriptKind.COMPARISON: {
+                        GuideViewKind.COMPARISON_READY
+                    },
+                    GuideTranscriptKind.NO_MATCH: {GuideViewKind.NO_MATCH},
+                    GuideTranscriptKind.SAFETY: {GuideViewKind.SAFE_BOUNDARY},
+                    GuideTranscriptKind.RECOVERY: {
+                        GuideViewKind.RECOVERY_REQUIRED
+                    },
+                }
+                if self.guide_view_kind not in compatible_views[last_assistant.kind]:
+                    raise ValueError(
+                        "last assistant transcript message must match guide view"
+                    )
         is_comparison = self.guide_view_kind is GuideViewKind.COMPARISON_READY
         if is_comparison and self.comparison is None:
             raise ValueError("COMPARISON_READY requires comparison")

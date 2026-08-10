@@ -1,7 +1,7 @@
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from types import MappingProxyType
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
@@ -11,7 +11,9 @@ from app.domain.contracts import (
     CommerceOperationStatus,
     CommerceReceiptResponse,
     CommerceStep,
+    CompareResponse,
     EntryPoint,
+    GuideTranscriptMessage,
     GuideTurnResponse,
     HardConstraints,
     QueryIntent,
@@ -19,7 +21,15 @@ from app.domain.contracts import (
     WorkflowState,
 )
 
-_FORBIDDEN_TRACE_PAYLOAD_KEYS = frozenset({"chain_of_thought"})
+_FORBIDDEN_TRACE_PAYLOAD_KEYS = frozenset(
+    {
+        "chain_of_thought",
+        "raw_message",
+        "message_text",
+        "client_message_id",
+        "conversation_transcript",
+    }
+)
 type JsonPrimitive = str | int | float | bool | None
 type FrozenJsonValue = (
     JsonPrimitive | Mapping[str, "FrozenJsonValue"] | tuple["FrozenJsonValue", ...]
@@ -52,6 +62,13 @@ def _thaw_trace_payload(value: FrozenJsonValue) -> object:
     return value
 
 
+class ProcessedGuideRequest(BaseModel):
+    request_kind: Literal["MESSAGE", "COMPARE"]
+    payload_digest: str
+    result_conversation_revision: Annotated[int, Field(ge=1)]
+    comparison: CompareResponse | None = None
+
+
 class GuideSession(BaseModel):
     id: str
     trace_id: str
@@ -67,6 +84,11 @@ class GuideSession(BaseModel):
     eligible_sku_ids_by_product: dict[str, list[str]] = Field(default_factory=dict)
     consumed_confirmation_tokens: set[str] = Field(default_factory=set)
     guide_revision: int = Field(default=1, ge=1)
+    conversation_revision: int = Field(default=1, ge=1)
+    transcript: list[GuideTranscriptMessage] = Field(default_factory=list)
+    processed_guide_requests: dict[str, ProcessedGuideRequest] = Field(
+        default_factory=dict
+    )
     latest_response: GuideTurnResponse | None = None
 
 

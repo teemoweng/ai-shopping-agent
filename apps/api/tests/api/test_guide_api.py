@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 from app.api.routes.guide import service
+from app.domain.contracts import GuideMessageRequest
 from app.main import app
 
 client = TestClient(app)
@@ -40,6 +41,16 @@ def test_message_advances_session_to_recommendation() -> None:
     )
     assert response.status_code == 200
     assert response.json()["recommendations"][0]["product_id"] == "seoul-shade-daily-fluid"
+
+
+def test_message_request_accepts_an_optional_conversation_revision() -> None:
+    request = GuideMessageRequest(
+        message_id="api_msg_revision",
+        text="适合油皮吗？",
+        expected_conversation_revision=1,
+    )
+
+    assert request.expected_conversation_revision == 1
 
 
 def test_unknown_session_is_404() -> None:

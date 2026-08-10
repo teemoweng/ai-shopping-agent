@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from app.domain import events
 from app.domain.contracts import EntryPoint, WorkflowState
 from app.repositories.session_repository import SessionRepository
 
@@ -20,6 +21,32 @@ def test_session_ids_and_initial_state_are_stable(tmp_path) -> None:
     assert session.state is WorkflowState.ENTRY_INGEST
 
 
+def test_session_initializes_conversation_state_and_rolls_it_back(tmp_path) -> None:
+    repository = SessionRepository(trace_path=tmp_path / "trace.jsonl")
+    session = repository.create(EntryPoint.CONTENT, "morning-routine-uv-001", None)
+
+    assert session.conversation_revision == 1
+    assert session.transcript == []
+    assert session.processed_guide_requests == {}
+
+    with (
+        pytest.raises(RuntimeError, match="conversation failure"),
+        repository.transaction(),
+    ):
+        session.conversation_revision = 2
+        session.processed_guide_requests["request_1"] = events.ProcessedGuideRequest(
+            request_kind="MESSAGE",
+            payload_digest="digest",
+            result_conversation_revision=2,
+        )
+        repository.save(session)
+        raise RuntimeError("conversation failure")
+
+    restored = repository.get(session.id)
+    assert restored.conversation_revision == 1
+    assert restored.processed_guide_requests == {}
+
+
 def test_trace_event_is_written_without_private_reasoning(tmp_path) -> None:
     trace_path = tmp_path / "trace.jsonl"
     repository = SessionRepository(trace_path=trace_path)
@@ -34,6 +61,29 @@ def test_trace_event_is_written_without_private_reasoning(tmp_path) -> None:
     assert row["trace_id"] == session.trace_id
     assert "chain_of_thought" not in row
     assert row["payload"] == {"from": "ENTRY_INGEST", "to": "UNDERSTAND"}
+
+
+@pytest.mark.parametrize(
+    "sensitive_key",
+    ["raw_message", "message_text", "client_message_id", "conversation_transcript"],
+)
+def test_trace_event_rejects_conversation_content_and_identifiers(
+    tmp_path,
+    sensitive_key: str,
+) -> None:
+    trace_path = tmp_path / "trace.jsonl"
+    repository = SessionRepository(trace_path=trace_path)
+    session = repository.create(EntryPoint.CONTENT, "morning-routine-uv-001", None)
+
+    with pytest.raises(ValidationError):
+        repository.append_event(
+            session,
+            event_type="state_transition",
+            state=WorkflowState.UNDERSTAND,
+            payload={sensitive_key: "must-not-persist"},
+        )
+
+    assert not trace_path.exists()
 
 
 def test_trace_event_is_immutable_after_append(tmp_path) -> None:
