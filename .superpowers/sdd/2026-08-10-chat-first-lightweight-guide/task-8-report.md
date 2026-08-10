@@ -8,6 +8,7 @@ Implementation commits:
 
 - `dc29e6d35d549a6427b6e40303115855b2a8b6be` — `test: verify chat-first shopping journeys`
 - `767b8c772f2202b37e90f82eb18e0e082223a5ef` — `fix: preserve video focus in lightweight guide`
+- `73de4f5` — `test: stabilize guide focus journey`
 
 ## Changes
 
@@ -200,3 +201,65 @@ git diff --check
 ```
 
 The three production screenshots were regenerated in place under the existing `chat-first-*` filenames, checked at original detail, and hashed in the corrected evidence section above. Historical Foundation and `tiktok-redesign-*` files remain untouched.
+
+---
+
+## Task 9 Finishing-check Fix Round 2
+
+### Root Cause
+
+The reduced-motion focus test had a test-side synchronization race, not a product focus-trap defect. After keyboard `Enter`, it accepted the loading-state `关闭导购` button as the stable focused control. The session response could then replace that loading button with the final `GuideChatView` button while `Shift+Tab` or `Escape` was being dispatched. During that unmount/remount window, focus briefly left the dialog; the session effect restored focus afterward, but an Escape already dispatched outside the dialog was lost.
+
+Retained Playwright traces showed the loading copy `正在打开导购`, the loading close button receiving focus, the `POST /guide/sessions` response committing the final view during the keyboard step, and the later session effect focusing the new close button. The working Guide and PDP focus tests both wait for the final API-backed semantic state and final control before keyboard assertions; this test was the only path that did not.
+
+### RED Evidence
+
+```text
+pnpm --dir apps/web exec playwright test e2e/chat-first.spec.ts \
+  --project=mobile-chromium \
+  --grep "reduced motion keeps focus trapped" \
+  --repeat-each=50 --trace=retain-on-failure
+# 46 passed, 4 failed
+# all four failures: activeElement outside the dialog after Shift+Tab
+```
+
+An initial 10-repeat sample passed 10/10, demonstrating why the larger repeat sample and retained traces were necessary to expose the timing window.
+
+### Minimal Fix
+
+The test now installs the real session-response waiter before pressing `Enter`, verifies HTTP 201 and `OPENING_CONTEXT`, and waits for the final opening message to be visible before exercising focus wrap and Escape. The focus-within, inert-background, Escape-close, and entry-focus-return assertions remain unchanged. No timeout, retry, sleep, skip, product component, API, or authority behavior changed.
+
+### GREEN and Regression Evidence
+
+```text
+# same focused command and 50-repeat sample
+# 50 passed in 38.6s
+
+pnpm --dir apps/web exec playwright test \
+  e2e/guide.spec.ts e2e/pdp-focus.spec.ts \
+  --project=mobile-chromium --project=desktop-interview
+# 10 passed in 10.3s
+
+pnpm test:e2e
+# 39 passed, 31 skipped in 34.0s
+
+CAPTURE_CHAT_FIRST_EVIDENCE=1 pnpm test:e2e
+# 42 passed, 28 skipped in 35.4s
+
+pnpm test:web
+# 11 files passed; 280 passed / 280 total
+
+pnpm lint:web
+# Passed with 0 errors and 0 warnings
+
+pnpm --dir apps/web exec tsc --noEmit
+# Passed
+
+pnpm check:layout
+# Foundation layout is valid
+
+git diff --check
+# Passed
+```
+
+Production capture rewrote the three deterministic files byte-for-byte identically. Their SHA-256 values remain `6552ee74...c204`, `489e4990...02b`, and `ec507c6d...66d`; no screenshot or pixel evidence changed.
