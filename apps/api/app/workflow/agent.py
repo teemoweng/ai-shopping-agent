@@ -60,6 +60,7 @@ class GuideQuestionIntent(StrEnum):
     FIT = "FIT"
     CLAIM_WHITE_CAST = "CLAIM_WHITE_CAST"
     COMPARE = "COMPARE"
+    EXPLAIN = "EXPLAIN"
     RECOMMEND_OR_CONSTRAINT = "RECOMMEND_OR_CONSTRAINT"
     GENERAL = "GENERAL"
 
@@ -203,7 +204,7 @@ def classify_question(text: str) -> GuideQuestionIntent:
     if is_water_resistance_question(text):
         return GuideQuestionIntent.GENERAL
     if any(term in normalized for term in _DECISION_EXPLANATION_TERMS):
-        return GuideQuestionIntent.RECOMMEND_OR_CONSTRAINT
+        return GuideQuestionIntent.EXPLAIN
     if any(term in normalized for term in _RECOMMENDATION_TERMS):
         return GuideQuestionIntent.RECOMMEND_OR_CONSTRAINT
     return GuideQuestionIntent.GENERAL
@@ -298,6 +299,105 @@ def general_answer_text(locale: str) -> str:
     return (
         "I can check this product's facts first. Ask about fit, white cast, "
         "or a comparison with a water-resistant option."
+    )
+
+
+def current_decision_explanation_text(
+    locale: str,
+    *,
+    view_kind: GuideViewKind,
+    product_name: str | None = None,
+    fit_reason: str | None = None,
+    tradeoff: str | None = None,
+    comparison_products: tuple[tuple[str, float, int | None], ...] = (),
+) -> str:
+    if locale == "zh-CN":
+        if view_kind is GuideViewKind.COMPARISON_READY:
+            facts = "；".join(
+                (
+                    f"{name} 起价 US${price_usd:.2f}，"
+                    + (
+                        f"标注 {water_minutes} 分钟防水"
+                        if water_minutes is not None
+                        else "未标注 40 或 80 分钟防水"
+                    )
+                )
+                for name, price_usd, water_minutes in comparison_products
+            )
+            return (
+                "我沿用当前比较，不重新检索或扩大候选。"
+                + (f"关键事实是：{facts}。" if facts else "当前没有更多可核验事实。")
+            )
+        if view_kind is GuideViewKind.INSUFFICIENT_EVIDENCE:
+            known_fact = (
+                f"{product_name} 的已知适配事实是“{fit_reason}”"
+                if product_name and fit_reason
+                else "当前只确认了候选满足已知条件"
+            )
+            return (
+                f"我沿用当前“证据不足”的结论，不重新检索或扩大候选：{known_fact}，"
+                "但现有证据不足以确认首选。"
+            )
+        if product_name and fit_reason and tradeoff:
+            return (
+                f"我沿用当前推荐，不重新检索或扩大候选。{product_name} 的关键依据是"
+                f"“{fit_reason}”；主要取舍是“{tradeoff}”。"
+            )
+        return (
+            "我沿用当前推荐，不重新检索或扩大候选；依据仍是商品卡中的硬性条件"
+            "匹配、适配理由、取舍和证据。"
+        )
+    if view_kind is GuideViewKind.COMPARISON_READY:
+        facts = "; ".join(
+            (
+                f"{name} starts at US${price_usd:.2f} and "
+                + (
+                    f"is labeled for {water_minutes} minutes of water resistance"
+                    if water_minutes is not None
+                    else "has no 40- or 80-minute water-resistance label"
+                )
+            )
+            for name, price_usd, water_minutes in comparison_products
+        )
+        return (
+            "I'm keeping the current comparison without retrieving or expanding "
+            "the candidates. "
+            + (f"The key facts are: {facts}." if facts else "No further verified facts are available.")
+        )
+    if view_kind is GuideViewKind.INSUFFICIENT_EVIDENCE:
+        known_fact = (
+            f"the known fit fact for {product_name} is '{fit_reason}'"
+            if product_name and fit_reason
+            else "the candidates only meet the known conditions"
+        )
+        return (
+            "I'm keeping the current insufficient-evidence decision without "
+            f"retrieving or expanding candidates: {known_fact}, but there is not "
+            "enough evidence to confirm a top pick."
+        )
+    if product_name and fit_reason and tradeoff:
+        return (
+            "I'm keeping the current recommendation without retrieving or "
+            f"expanding the candidates. The key reason for {product_name} is "
+            f"'{fit_reason}'; the main tradeoff is '{tradeoff}'."
+        )
+    return (
+        "I'm keeping the current recommendation without retrieving or expanding "
+        "the candidates. Its basis remains the verified constraints, fit reasons, "
+        "tradeoffs, and evidence shown on the cards."
+    )
+
+
+def no_current_decision_explanation_text(locale: str) -> str:
+    if locale == "zh-CN":
+        return (
+            "当前还没有可解释的导购结论；先告诉我使用场景或偏好，我再基于核验后的"
+            "商品事实说明依据。"
+        )
+    return (
+        "There is no current shopping decision to explain yet. Share your use "
+        "case or preferences first, and I can explain the verified product facts "
+        "behind the result."
     )
 
 

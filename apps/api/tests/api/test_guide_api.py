@@ -412,27 +412,34 @@ def test_message_continues_after_comparison_with_current_authority_and_safe_trac
     assert [item["kind"] for item in body["transcript"][-3:]] == [
         "COMPARISON",
         "USER_TEXT",
-        "RECOMMENDATION",
+        "COMPARISON",
     ]
     assert [item["kind"] for item in body["transcript"]].count(
         "COMPARISON"
-    ) == 1
+    ) == 2
+    assert body["guide_view_kind"] == "COMPARISON_READY"
+    assert body["guide_status"] == before_snapshot["guide_status"]
+    assert body["recommendations"] == before_snapshot["recommendations"]
+    assert body["comparison"] == before_snapshot["comparison"]
     assert body["allowed_actions"] == [
         "SEND_MESSAGE",
-        "UPDATE_CONSTRAINTS",
-        "REQUEST_COMPARISON",
         "OPEN_PRODUCT",
         "RETURN_TO_FEED",
     ]
-    recommendation = body["recommendations"][0]
+    recommendation = next(
+        card
+        for card in body["recommendations"]
+        if card["product_id"] in body["comparison"]["product_ids"]
+        and card["eligible_sku_ids"]
+    )
 
     after_events = service.sessions.events_for_trace(session.trace_id)
-    assert after_events[: len(before_events)] == before_events
+    assert after_events == before_events
     assert sum(
         event.event_type == "comparison_presented" for event in after_events
     ) == 1
     after_trace = trace_path.read_bytes()
-    assert after_trace.startswith(before_trace)
+    assert after_trace == before_trace
     assert b"comparison_api_continued" not in after_trace
     assert "为什么？".encode() not in after_trace
 

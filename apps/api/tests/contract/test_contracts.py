@@ -200,6 +200,25 @@ def comparison_ready_turn(**updates: object) -> dict[str, object]:
     return turn
 
 
+def valid_comparison() -> dict[str, object]:
+    return {
+        "session_id": "ses_comparison",
+        "state": "COMPARE",
+        "product_ids": [
+            "seoul-shade-daily-fluid",
+            "cloud-veil-mineral",
+        ],
+        "rows": {
+            "starting_price_usd": [14.0, 17.0],
+            "fragrance_free": [True, True],
+            "water_resistance_minutes": [None, 40],
+            "finish": ["natural", "matte"],
+            "white_cast_risk": ["low", "medium"],
+        },
+        "simulated": True,
+    }
+
+
 @pytest.mark.parametrize(
     "comparison",
     [
@@ -244,25 +263,37 @@ def test_comparison_ready_turn_uses_exact_continuable_action_mapping() -> None:
     response = contracts.GuideTurnResponse.model_validate(
         comparison_ready_turn(
             allowed_actions=expected_actions,
-            comparison={
-                "session_id": "ses_comparison",
-                "state": "COMPARE",
-                "product_ids": [
-                    "seoul-shade-daily-fluid",
-                    "cloud-veil-mineral",
-                ],
-                "rows": {
-                    "starting_price_usd": [14.0, 17.0],
-                    "fragrance_free": [True, True],
-                    "water_resistance_minutes": [None, 40],
-                    "finish": ["natural", "matte"],
-                    "white_cast_risk": ["low", "medium"],
-                },
-                "simulated": True,
-            },
+            comparison=valid_comparison(),
         )
     )
     assert [action.value for action in response.allowed_actions] == expected_actions
+
+
+@pytest.mark.parametrize(
+    "allowed_actions",
+    [
+        ["SEND_MESSAGE", "OPEN_PRODUCT"],
+        [
+            "SEND_MESSAGE",
+            "OPEN_PRODUCT",
+            "RETURN_TO_FEED",
+            "UPDATE_CONSTRAINTS",
+        ],
+        ["OPEN_PRODUCT", "SEND_MESSAGE", "RETURN_TO_FEED"],
+        ["SEND_MESSAGE", "REQUEST_COMPARISON", "RETURN_TO_FEED"],
+    ],
+    ids=["missing", "extra", "wrong-order", "wrong-action"],
+)
+def test_comparison_ready_turn_rejects_noncanonical_actions(
+    allowed_actions: list[str],
+) -> None:
+    with pytest.raises(ValidationError):
+        contracts.GuideTurnResponse.model_validate(
+            comparison_ready_turn(
+                allowed_actions=allowed_actions,
+                comparison=valid_comparison(),
+            )
+        )
 
 
 def test_feed_commerce_preview_forbids_guide_provenance() -> None:

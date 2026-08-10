@@ -245,6 +245,120 @@ def test_compare_requires_request_comparison_from_current_guide_snapshot() -> No
     assert client.get(f"/api/v1/guide/sessions/{session_id}").json() == safety.json()
 
 
+def test_current_read_only_anchor_can_compare_without_gaining_commerce_authority() -> (
+    None
+):
+    created = client.post(
+        "/api/v1/guide/sessions",
+        json={
+            "entry_point": "content",
+            "content_context_id": "morning-routine-uv-001",
+            "locale": "zh-CN",
+        },
+    ).json()
+    decision = client.post(
+        f"/api/v1/guide/sessions/{created['session_id']}/messages",
+        json={
+            "message_id": "read_only_compare_setup",
+            "text": "户外出汗或玩水，和防水款比比",
+            "expected_conversation_revision": created[
+                "conversation_revision"
+            ],
+        },
+    ).json()
+    anchor = next(
+        card
+        for card in decision["recommendations"]
+        if card["product_id"] == "seoul-shade-daily-fluid"
+    )
+    eligible = next(
+        card for card in decision["recommendations"] if card["eligible_sku_ids"]
+    )
+    session = service.sessions.get(created["session_id"])
+
+    compared = client.post(
+        f"/api/v1/guide/sessions/{created['session_id']}/compare",
+        json={
+            "request_id": "read_only_anchor_compare",
+            "expected_conversation_revision": decision[
+                "conversation_revision"
+            ],
+            "product_ids": [anchor["product_id"], eligible["product_id"]],
+        },
+    )
+
+    assert anchor["eligible_sku_ids"] == []
+    assert anchor["product_id"] not in session.recommended_product_ids
+    assert compared.status_code == 200
+    snapshot = client.get(
+        f"/api/v1/guide/sessions/{created['session_id']}"
+    ).json()
+    assert snapshot["comparison"]["product_ids"] == [
+        anchor["product_id"],
+        eligible["product_id"],
+    ]
+    assert anchor["product_id"] not in session.recommended_product_ids
+
+    anchor_preview = client.post(
+        "/api/v1/commerce/cart/preview",
+        json={
+            "purchase_origin": "AI",
+            "guide_session_id": created["session_id"],
+            "source_guide_revision": snapshot["guide_revision"],
+            "product_id": anchor["product_id"],
+            "sku_id": "seoul-shade-30",
+            "quantity": 1,
+            "expected_transaction_revision": 0,
+        },
+    )
+    assert anchor_preview.status_code == 409
+    assert anchor_preview.json()["detail"]["code"] == "SKU_NOT_RECOMMENDED"
+
+
+def test_historical_transcript_product_is_not_current_comparison_authority() -> None:
+    session_id = recommended_session("日常通勤")
+    first = client.get(f"/api/v1/guide/sessions/{session_id}").json()
+    assert any(
+        card["product_id"] == "seoul-shade-daily-fluid"
+        for card in first["recommendations"]
+    )
+    current = client.post(
+        f"/api/v1/guide/sessions/{session_id}/messages",
+        json={
+            "message_id": "switch_current_comparison_set",
+            "text": "户外出汗或玩水",
+            "expected_conversation_revision": first[
+                "conversation_revision"
+            ],
+        },
+    ).json()
+    current_ids = [card["product_id"] for card in current["recommendations"]]
+    assert "seoul-shade-daily-fluid" not in current_ids
+    assert any(
+        message["kind"] == "RECOMMENDATION"
+        and any(
+            card["product_id"] == "seoul-shade-daily-fluid"
+            for card in message["recommendations"]
+        )
+        for message in current["transcript"][:-1]
+    )
+
+    rejected = client.post(
+        f"/api/v1/guide/sessions/{session_id}/compare",
+        json={
+            "request_id": "historical_product_compare",
+            "expected_conversation_revision": current[
+                "conversation_revision"
+            ],
+            "product_ids": ["seoul-shade-daily-fluid", current_ids[0]],
+        },
+    )
+
+    assert rejected.status_code == 409
+    assert rejected.json()["detail"]["code"] == "PRODUCT_NOT_RECOMMENDED"
+    assert client.get(f"/api/v1/guide/sessions/{session_id}").json() == current
+
+
 def test_compare_rejects_duplicate_product_ids() -> None:
     session_id = recommended_session()
     response = client.post(

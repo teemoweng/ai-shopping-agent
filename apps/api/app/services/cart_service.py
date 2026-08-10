@@ -63,9 +63,10 @@ class CartService:
                 not in current_snapshot.allowed_actions
             ):
                 raise CartConflict("ACTION_NOT_ALLOWED")
-            if not set(request.product_ids) <= set(
-                session.recommended_product_ids
-            ):
+            comparable_product_ids = {
+                card.product_id for card in current_snapshot.recommendations
+            }
+            if not set(request.product_ids) <= comparable_product_ids:
                 raise CartConflict("PRODUCT_NOT_RECOMMENDED")
 
             products = [

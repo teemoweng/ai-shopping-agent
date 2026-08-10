@@ -23,11 +23,13 @@ from app.workflow.agent import (
     clarification_question,
     clarification_quick_replies,
     classify_question,
+    current_decision_explanation_text,
     fallback_recommendation_text,
     general_answer_text,
     is_medical_boundary,
     is_urgent_medical_boundary,
     is_water_resistance_question,
+    no_current_decision_explanation_text,
     no_match_text,
     opening_quick_replies,
     opening_text,
@@ -225,6 +227,87 @@ class WorkflowEngine:
             )
 
         intent = classify_question(request.text)
+        if intent is GuideQuestionIntent.EXPLAIN:
+            current = session.latest_response
+            if current is None:
+                raise ValueError("Guide explanation requires a current snapshot")
+            if current.guide_view_kind in {
+                GuideViewKind.DECISION_READY,
+                GuideViewKind.INSUFFICIENT_EVIDENCE,
+                GuideViewKind.COMPARISON_READY,
+            }:
+                primary_card = next(
+                    (
+                        card
+                        for card in current.recommendations
+                        if card.eligible_sku_ids
+                    ),
+                    current.recommendations[0] if current.recommendations else None,
+                )
+                comparison_products: tuple[
+                    tuple[str, float, int | None], ...
+                ] = ()
+                if current.comparison is not None:
+                    cards_by_id = {
+                        card.product_id: card for card in current.recommendations
+                    }
+                    comparison_products = tuple(
+                        (
+                            cards_by_id[product_id].name
+                            if product_id in cards_by_id
+                            else product_id,
+                            price_usd,
+                            water_minutes,
+                        )
+                        for product_id, price_usd, water_minutes in zip(
+                            current.comparison.product_ids,
+                            current.comparison.rows.starting_price_usd,
+                            current.comparison.rows.water_resistance_minutes,
+                            strict=True,
+                        )
+                    )
+                return current.model_copy(
+                    update={
+                        "text": current_decision_explanation_text(
+                            session.locale,
+                            view_kind=current.guide_view_kind,
+                            product_name=(
+                                primary_card.name if primary_card is not None else None
+                            ),
+                            fit_reason=(
+                                primary_card.fit_reasons[0]
+                                if primary_card is not None
+                                and primary_card.fit_reasons
+                                else None
+                            ),
+                            tradeoff=(
+                                primary_card.tradeoffs[0]
+                                if primary_card is not None and primary_card.tradeoffs
+                                else None
+                            ),
+                            comparison_products=comparison_products,
+                        )
+                    },
+                    deep=True,
+                )
+            return current.model_copy(
+                update={
+                    "kind": "answer",
+                    "text": no_current_decision_explanation_text(session.locale),
+                    "guide_status": GuideStatus.WAITING_USER,
+                    "guide_view_kind": GuideViewKind.ANSWER_READY,
+                    "allowed_actions": allowed_actions_for(
+                        GuideViewKind.ANSWER_READY
+                    ),
+                    "degraded": False,
+                    "verdict": None,
+                    "recommendations": [],
+                    "evidence": [],
+                    "quick_replies": [],
+                    "comparison": None,
+                },
+                deep=True,
+            )
         if intent is GuideQuestionIntent.CLAIM_WHITE_CAST:
             context = self._context(session)
             anchor_product = self.tools.get_product(context.anchor_product_id)

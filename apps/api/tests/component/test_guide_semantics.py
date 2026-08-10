@@ -22,7 +22,7 @@ from app.domain.contracts import (
 )
 from app.repositories.fixture_repository import FixtureRepository
 from app.repositories.session_repository import SessionRepository
-from app.services.cart_service import CartService
+from app.services.cart_service import CartConflict, CartService
 from app.services.guide_conversation import request_digest
 from app.services.guide_service import GuideConflict, GuideService
 from app.workflow import agent
@@ -514,6 +514,173 @@ def test_non_preference_message_does_not_clear_constraints_or_increment_revision
     assert follow_up.guide_revision == initial.guide_revision
 
 
+def test_current_read_only_anchor_is_comparable_but_not_commerce_authority(
+    tmp_path,
+) -> None:
+    engine, cart, sessions = build_services(tmp_path)
+    service = GuideService(engine, sessions)
+    opening = service.create(
+        CreateGuideSessionRequest(
+            entry_point=EntryPoint.CONTENT,
+            content_context_id="morning-routine-uv-001",
+            locale="zh-CN",
+        )
+    )
+    decision = service.message(
+        opening.session_id,
+        GuideMessageRequest(
+            message_id="component_read_only_compare_setup",
+            text="户外出汗或玩水，和防水款比比",
+            expected_conversation_revision=opening.conversation_revision,
+        ),
+    )
+    anchor = next(
+        card
+        for card in decision.recommendations
+        if card.product_id == "seoul-shade-daily-fluid"
+    )
+    eligible = next(
+        card for card in decision.recommendations if card.eligible_sku_ids
+    )
+    session = sessions.get(opening.session_id)
+
+    comparison = cart.compare(
+        opening.session_id,
+        CompareRequest(
+            request_id="component_read_only_compare",
+            expected_conversation_revision=decision.conversation_revision,
+            product_ids=[anchor.product_id, eligible.product_id],
+        ),
+    )
+
+    assert anchor.eligible_sku_ids == []
+    assert comparison.product_ids == [anchor.product_id, eligible.product_id]
+    assert anchor.product_id not in session.recommended_product_ids
+    assert anchor.product_id not in session.eligible_sku_ids_by_product
+    with pytest.raises(CartConflict, match="SKU_NOT_RECOMMENDED"):
+        cart.preview(
+            opening.session_id,
+            CartPreviewRequest(sku_id="seoul-shade-30", quantity=1),
+        )
+
+
+@pytest.mark.parametrize("compare_first", [False, True], ids=["recommendation", "comparison"])
+def test_explanation_reuses_current_decision_without_reranking_or_expanding_authority(
+    tmp_path,
+    compare_first: bool,
+) -> None:
+    engine, cart, sessions = build_services(tmp_path)
+    service = GuideService(engine, sessions)
+    opening = service.create(
+        CreateGuideSessionRequest(
+            entry_point=EntryPoint.CONTENT,
+            content_context_id="morning-routine-uv-001",
+            locale="zh-CN",
+        )
+    )
+    decision = service.message(
+        opening.session_id,
+        GuideMessageRequest(
+            message_id="explanation_setup",
+            text="预算30美元以内、自然妆效",
+            expected_conversation_revision=opening.conversation_revision,
+        ),
+    )
+    if compare_first:
+        cart.compare(
+            opening.session_id,
+            CompareRequest(
+                request_id="explanation_compare_setup",
+                expected_conversation_revision=decision.conversation_revision,
+                product_ids=[
+                    item.product_id for item in decision.recommendations[:2]
+                ],
+            ),
+        )
+
+    before = service.get(opening.session_id)
+    session = sessions.get(opening.session_id)
+    recommended_before = list(session.recommended_product_ids)
+    eligible_skus_before = {
+        product_id: list(sku_ids)
+        for product_id, sku_ids in session.eligible_sku_ids_by_product.items()
+    }
+    events_before = sessions.events_for_trace(session.trace_id)
+
+    explained = service.message(
+        opening.session_id,
+        GuideMessageRequest(
+            message_id=f"explain_current_{compare_first}",
+            text="为什么？",
+            expected_conversation_revision=before.conversation_revision,
+        ),
+    )
+
+    assert explained.guide_view_kind is before.guide_view_kind
+    assert explained.state is before.state
+    assert explained.guide_revision == before.guide_revision
+    assert explained.conversation_revision == before.conversation_revision + 1
+    assert explained.allowed_actions == before.allowed_actions
+    assert explained.recommendations == before.recommendations
+    assert explained.comparison == before.comparison
+    assert explained.facts_snapshot_at == before.facts_snapshot_at
+    assert session.recommended_product_ids == recommended_before
+    assert session.eligible_sku_ids_by_product == eligible_skus_before
+    assert sessions.events_for_trace(session.trace_id) == events_before
+    expected_kind = "COMPARISON" if compare_first else "RECOMMENDATION"
+    assert explained.transcript[-1].kind == expected_kind
+    if compare_first:
+        compared_product_ids = set(before.comparison.product_ids)
+        compared_names = {
+            card.name
+            for card in before.recommendations
+            if card.product_id in compared_product_ids
+        }
+        assert len(compared_names) == 2
+        assert all(name in explained.text for name in compared_names)
+    else:
+        primary = next(
+            card for card in before.recommendations if card.eligible_sku_ids
+        )
+        assert primary.fit_reasons[0] in explained.text
+        assert primary.tradeoffs[0] in explained.text
+
+
+def test_explanation_without_current_decision_uses_lightweight_honest_fallback(
+    tmp_path,
+) -> None:
+    engine, _, sessions = build_services(tmp_path)
+    service = GuideService(engine, sessions)
+    opening = service.create(
+        CreateGuideSessionRequest(
+            entry_point=EntryPoint.CONTENT,
+            content_context_id="morning-routine-uv-001",
+            locale="zh-CN",
+        )
+    )
+    session = sessions.get(opening.session_id)
+    events_before = sessions.events_for_trace(session.trace_id)
+
+    explained = service.message(
+        opening.session_id,
+        GuideMessageRequest(
+            message_id="explain_without_decision",
+            text="为什么？",
+            expected_conversation_revision=opening.conversation_revision,
+        ),
+    )
+
+    assert explained.guide_view_kind is GuideViewKind.ANSWER_READY
+    assert explained.guide_revision == opening.guide_revision
+    assert explained.conversation_revision == opening.conversation_revision + 1
+    assert explained.recommendations == []
+    assert explained.comparison is None
+    assert explained.allowed_actions == ["SEND_MESSAGE", "RETURN_TO_FEED"]
+    assert session.recommended_product_ids == []
+    assert session.eligible_sku_ids_by_product == {}
+    assert sessions.events_for_trace(session.trace_id) == events_before
+
+
 def test_explicit_removal_clears_only_the_named_preference(tmp_path) -> None:
     engine, _, sessions = build_services(tmp_path)
     session = sessions.create(
@@ -878,6 +1045,118 @@ def test_message_rejects_non_conversational_snapshot_without_mutating_state(
     assert sessions.get_snapshot(session.id) == before_session.latest_response
     assert sessions.events_for_trace(session.trace_id) == before_events
     assert trace_path.read_bytes() == before_trace
+
+
+@pytest.mark.parametrize(
+    ("second_request_id", "expected_second_outcome"),
+    [
+        ("barrier_compare", "replay"),
+        ("barrier_compare_other", "stale"),
+    ],
+    ids=["same-request-replays", "different-request-is-stale"],
+)
+def test_concurrent_compares_commit_exactly_once_for_one_revision(
+    tmp_path,
+    monkeypatch,
+    second_request_id: str,
+    expected_second_outcome: str,
+) -> None:
+    engine, cart, sessions = build_services(tmp_path)
+    service = GuideService(engine, sessions)
+    opening = service.create(
+        CreateGuideSessionRequest(
+            entry_point=EntryPoint.CONTENT,
+            content_context_id="morning-routine-uv-001",
+            locale="zh-CN",
+        )
+    )
+    decision = service.message(
+        opening.session_id,
+        GuideMessageRequest(
+            message_id="barrier_compare_setup",
+            text="预算30美元以内、无香精、自然妆效",
+            expected_conversation_revision=opening.conversation_revision,
+        ),
+    )
+    product_ids = [item.product_id for item in decision.recommendations[:2]]
+    first_request = CompareRequest(
+        request_id="barrier_compare",
+        expected_conversation_revision=decision.conversation_revision,
+        product_ids=product_ids,
+    )
+    second_request = first_request.model_copy(
+        update={"request_id": second_request_id}
+    )
+    session = sessions.get(opening.session_id)
+    before_events = sessions.events_for_trace(session.trace_id)
+    trace_path = tmp_path / "trace.jsonl"
+
+    first_lookup_entered = Event()
+    release_first_lookup = Event()
+    second_transaction_attempted = Event()
+    transaction_calls = 0
+    product_lookups = 0
+    repository_type = type(cart.fixtures)
+    original_get_product = repository_type.get_product
+    original_transaction = sessions.transaction
+
+    def paused_get_product(repository, product_id: str):
+        nonlocal product_lookups
+        product_lookups += 1
+        if product_lookups == 1:
+            first_lookup_entered.set()
+            assert release_first_lookup.wait(timeout=5)
+        return original_get_product(repository, product_id)
+
+    @contextmanager
+    def observed_transaction():
+        nonlocal transaction_calls
+        transaction_calls += 1
+        if transaction_calls == 2:
+            second_transaction_attempted.set()
+        with original_transaction():
+            yield
+
+    monkeypatch.setattr(repository_type, "get_product", paused_get_product)
+    monkeypatch.setattr(sessions, "transaction", observed_transaction)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        first_future = executor.submit(
+            cart.compare,
+            opening.session_id,
+            first_request,
+        )
+        assert first_lookup_entered.wait(timeout=5)
+        second_future = executor.submit(
+            cart.compare,
+            opening.session_id,
+            second_request,
+        )
+        assert second_transaction_attempted.wait(timeout=5)
+        release_first_lookup.set()
+        first = first_future.result(timeout=5)
+        if expected_second_outcome == "replay":
+            assert second_future.result(timeout=5) == first
+        else:
+            with pytest.raises(CartConflict, match="STALE_CONVERSATION"):
+                second_future.result(timeout=5)
+
+    final = sessions.get_snapshot(opening.session_id)
+    new_events = sessions.events_for_trace(session.trace_id)[len(before_events) :]
+    assert product_lookups == 2
+    assert final.conversation_revision == decision.conversation_revision + 1
+    assert [item.kind for item in final.transcript].count("COMPARISON") == 1
+    assert [event.event_type for event in new_events].count(
+        "comparison_presented"
+    ) == 1
+    assert {
+        request_id
+        for request_id, processed in session.processed_guide_requests.items()
+        if processed.request_kind == "COMPARE"
+    } == {"barrier_compare"}
+    trace_bytes = trace_path.read_bytes()
+    assert b"barrier_compare" not in trace_bytes
+    assert b"barrier_compare_other" not in trace_bytes
 
 
 def test_compare_terminal_snapshot_cannot_be_overwritten_by_concurrent_message(
