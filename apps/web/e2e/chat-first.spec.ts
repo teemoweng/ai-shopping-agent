@@ -14,6 +14,7 @@ const EVIDENCE_TIME = new Date("2026-08-10T12:00:00Z");
 const SCREENSHOT_DIR = resolve(process.cwd(), "../../artifacts/screenshots");
 const MOBILE_PROJECT = "mobile-chromium";
 const DESKTOP_PROJECT = "desktop-interview";
+const OPENING_TEXT = "我看到你在看 Seoul Shade。你最想确认什么？";
 
 type TranscriptMessage = {
   id: string;
@@ -69,10 +70,13 @@ async function gotoFeed(page: Page) {
   return entry;
 }
 
-async function openGuide(page: Page) {
-  const entry = await gotoFeed(page);
+async function openGuideFromEntry(
+  page: Page,
+  entry: Locator,
+  activate: () => Promise<void> = () => entry.click(),
+) {
   const responsePromise = page.waitForResponse(guideSessionResponse);
-  await entry.click();
+  await activate();
   const response = await responsePromise;
   expect(response.status()).toBe(201);
   const opening = (await response.json()) as GuideTurn;
@@ -82,6 +86,16 @@ async function openGuide(page: Page) {
   expect(opening.allowed_actions).toEqual(["SEND_MESSAGE", "RETURN_TO_FEED"]);
   const guide = page.getByRole("dialog", { name: "AI 导购（概念）" });
   await expect(guide).toBeVisible();
+  await expect(guide.getByText(OPENING_TEXT)).toBeVisible();
+  await expect(
+    guide.getByRole("button", { name: "关闭导购" }),
+  ).toBeFocused();
+  return { guide, opening };
+}
+
+async function openGuide(page: Page) {
+  const entry = await gotoFeed(page);
+  const { guide, opening } = await openGuideFromEntry(page, entry);
   return { entry, guide, opening };
 }
 
@@ -503,13 +517,10 @@ test.describe("chat-first mobile journeys", () => {
     const entry = page.getByRole("button", {
       name: /问问这款：Seoul Shade Daily Fluid/,
     });
-    await entry.click();
-    const guide = page.getByRole("dialog", { name: "AI 导购（概念）" });
+    const { guide } = await openGuideFromEntry(page, entry);
 
     await expectInsideViewport(guide.getByRole("button", { name: "关闭导购" }));
-    const opening = guide.getByText(
-      "我看到你在看 Seoul Shade。你最想确认什么？",
-    );
+    const opening = guide.getByText(OPENING_TEXT);
     await opening.scrollIntoViewIfNeeded();
     await expect(opening).toBeVisible();
     const composer = guide.getByLabel("继续提问");
@@ -524,16 +535,11 @@ test.describe("chat-first mobile journeys", () => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     const entry = await gotoFeed(page);
     await entry.focus();
-    const responsePromise = page.waitForResponse(guideSessionResponse);
-    await page.keyboard.press("Enter");
-    const response = await responsePromise;
-    expect(response.status()).toBe(201);
-    const opening = (await response.json()) as GuideTurn;
-    expect(opening.guide_view_kind).toBe("OPENING_CONTEXT");
-    const guide = page.getByRole("dialog", { name: "AI 导购（概念）" });
-    await expect(
-      guide.getByText("我看到你在看 Seoul Shade。你最想确认什么？"),
-    ).toBeVisible();
+    const { guide } = await openGuideFromEntry(
+      page,
+      entry,
+      () => page.keyboard.press("Enter"),
+    );
     const close = guide.getByRole("button", { name: "关闭导购" });
     await expect(close).toBeFocused();
     await expect

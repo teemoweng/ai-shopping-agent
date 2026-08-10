@@ -1,4 +1,19 @@
-import { expect, test, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type Locator,
+  type Page,
+  type Response,
+} from "@playwright/test";
+
+const OPENING_TEXT = "我看到你在看 Seoul Shade。你最想确认什么？";
+
+type GuideOpening = {
+  guide_view_kind: string;
+  guide_revision: number;
+  conversation_revision: number;
+  allowed_actions: string[];
+};
 
 test.beforeEach(async ({ page }) => {
   await page.clock.setFixedTime(new Date("2026-08-07T12:00:00Z"));
@@ -60,6 +75,35 @@ async function computedFontSize(page: Page, selector: string) {
   return page.locator(selector).first().evaluate((node) =>
     Number.parseFloat(getComputedStyle(node).fontSize),
   );
+}
+
+function guideSessionResponse(response: Response) {
+  return (
+    response.request().method() === "POST" &&
+    new URL(response.url()).pathname.endsWith("/guide/sessions")
+  );
+}
+
+async function openReadyGuide(
+  page: Page,
+  entry: Locator,
+  activate: () => Promise<void> = () => entry.click(),
+) {
+  const responsePromise = page.waitForResponse(guideSessionResponse);
+  await activate();
+  const response = await responsePromise;
+  expect(response.status()).toBe(201);
+  const opening = (await response.json()) as GuideOpening;
+  expect(opening.guide_view_kind).toBe("OPENING_CONTEXT");
+  expect(opening.guide_revision).toBe(1);
+  expect(opening.conversation_revision).toBe(1);
+  expect(opening.allowed_actions).toEqual(["SEND_MESSAGE", "RETURN_TO_FEED"]);
+  const dialog = page.getByRole("dialog", { name: "AI 导购（概念）" });
+  await expect(dialog.getByText(OPENING_TEXT)).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: "关闭导购" }),
+  ).toBeFocused();
+  return dialog;
 }
 
 test("390×844 is a true full-bleed phone with no outside frame", async ({ page }) => {
@@ -134,9 +178,7 @@ test("1440×1000 keeps one 390×844 live phone and an outside panel", async ({ p
   await expectNoHorizontalOverflow(page);
 
   const askAi = page.getByRole("button", { name: /问问这款/ });
-  await askAi.click();
-  const dialog = page.getByRole("dialog", { name: "AI 导购（概念）" });
-  await expect(dialog).toBeVisible();
+  const dialog = await openReadyGuide(page, askAi);
   const overlay = await page.locator(".guideBackdrop").boundingBox();
   expect(overlay).toEqual(phone);
   expect(await dialog.evaluate((node) => node.closest("[inert]") === null)).toBe(true);
@@ -227,9 +269,11 @@ test("320×700 at 200% text size reflows without trapping product actions", asyn
 
   await tabTo(page, "问问这款");
   await expect(askAi).toBeFocused();
-  await page.keyboard.press("Enter");
-  const dialog = page.getByRole("dialog", { name: "AI 导购（概念）" });
-  await expect(dialog).toBeVisible();
+  const dialog = await openReadyGuide(
+    page,
+    askAi,
+    () => page.keyboard.press("Enter"),
+  );
   const overlay = await page.locator(".guideBackdrop").boundingBox();
   expect(overlay).toEqual({ x: 0, y: 0, width: 320, height: 700 });
   await expect(page.getByRole("button", { name: "关闭导购" })).toBeVisible();
