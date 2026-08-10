@@ -10,12 +10,14 @@ import pytest
 
 from app.domain.contracts import (
     CartPreviewRequest,
+    CreateGuideSessionRequest,
     EntryPoint,
     GuideMessageRequest,
 )
 from app.repositories.fixture_repository import FixtureRepository
 from app.repositories.session_repository import SessionRepository
 from app.services.cart_service import CartService
+from app.services.guide_service import GuideService
 from app.workflow.engine import WorkflowEngine
 from app.workflow.tools import ShoppingTools
 
@@ -314,17 +316,23 @@ def test_golden_path_records_redacted_tool_and_cart_boundaries(tmp_path) -> None
     trace_path = tmp_path / "trace.jsonl"
     sessions = SessionRepository(trace_path)
     engine = WorkflowEngine(ShoppingTools(fixtures), sessions)
+    guide = GuideService(engine, sessions)
     cart = CartService(fixtures, sessions)
-    session = sessions.create(
-        EntryPoint.CONTENT,
-        "morning-routine-uv-001",
-        None,
+    opening = guide.create(
+        CreateGuideSessionRequest(
+            entry_point=EntryPoint.CONTENT,
+            content_context_id="morning-routine-uv-001",
+        )
     )
+    session = sessions.get(opening.session_id)
 
-    engine.open_session(session)
-    turn = engine.handle_message(
-        session,
-        GuideMessageRequest(message_id="trace_golden", text=GOLDEN_INPUT),
+    turn = guide.message(
+        session.id,
+        GuideMessageRequest(
+            message_id="trace_golden",
+            text=GOLDEN_INPUT,
+            expected_conversation_revision=opening.conversation_revision,
+        ),
     )
     preview = cart.preview(
         session.id,
