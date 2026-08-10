@@ -33,25 +33,39 @@ export function ComparisonTable({
   anchorProductId,
   disabled = false,
   onOpenProduct,
+  variant = "full",
 }: {
   comparison: CompareResponse;
   productNames?: Record<string, string>;
   anchorProductId?: string;
   disabled?: boolean;
   onOpenProduct?: (productId: string, role: ProductRole) => void;
+  variant?: "full" | "compact";
 }) {
+  const visibleProductIds =
+    variant === "compact"
+      ? comparison.product_ids.slice(0, 2)
+      : comparison.product_ids;
   return (
-    <section className="comparisonPanel" aria-labelledby="comparison-heading">
+    <section
+      className={`comparisonPanel${variant === "compact" ? " comparisonPanelCompact" : ""}`}
+      aria-labelledby="comparison-heading"
+    >
       <div className="sectionHeading">
-        <span>{comparison.product_ids.length} 款合格候选</span>
+        <span>{visibleProductIds.length} 款合格候选</span>
         <h2 id="comparison-heading">比较结果</h2>
       </div>
-      <div className="comparisonScroller">
+      <div
+        className="comparisonScroller"
+        role="region"
+        aria-label="商品对比，可横向滚动"
+        tabIndex={0}
+      >
         <table aria-label="商品对比">
           <thead>
             <tr>
               <th scope="col">对比维度</th>
-              {comparison.product_ids.map((productId) => (
+              {visibleProductIds.map((productId) => (
                 <th scope="col" key={productId}>
                   {productNames[productId] ?? productId}
                 </th>
@@ -62,7 +76,7 @@ export function ComparisonTable({
             {comparisonRows.map((row) => (
               <tr key={row.key}>
                 <th scope="row">{row.label}</th>
-                {comparison.product_ids.map((productId, index) => (
+                {visibleProductIds.map((productId, index) => (
                   <td key={`${row.key}-${productId}`}>
                     {formatComparisonValue(
                       row.key,
@@ -77,7 +91,7 @@ export function ComparisonTable({
       </div>
       {onOpenProduct ? (
         <div className="comparisonProductActions">
-          {comparison.product_ids.map((productId) => {
+          {visibleProductIds.map((productId) => {
             const name = productNames[productId] ?? productId;
             return (
               <button

@@ -402,3 +402,78 @@ it("keeps RecommendationCard decision-only and routes current product to PDP", a
     "current",
   );
 });
+
+it("offers the compact recommendation through accessible product and evidence actions", async () => {
+  const user = userEvent.setup();
+  const onOpenProduct = vi.fn();
+  const onShowEvidence = vi.fn();
+  render(
+    <RecommendationCard
+      recommendation={{
+        ...recommendation,
+        fit_reasons: ["natural finish", "fragrance-free"],
+        tradeoffs: ["No labeled water resistance", "Needs reapplication"],
+      }}
+      index={0}
+      role="current"
+      evidence={[publicEvidence]}
+      comparisonEnabled={false}
+      selectedForCompare={false}
+      variant="compact"
+      onCompareChange={vi.fn()}
+      onShowEvidence={onShowEvidence}
+      onOpenProduct={onOpenProduct}
+    />,
+  );
+
+  const card = screen.getByRole("article", {
+    name: "Seoul Shade Daily Fluid 商品建议",
+  });
+  expect(within(card).getByText("$14 起")).toBeVisible();
+  expect(within(card).getByText("natural finish")).toBeVisible();
+  expect(within(card).queryByText("fragrance-free")).not.toBeInTheDocument();
+  expect(within(card).getByText("No labeled water resistance")).toBeVisible();
+  expect(within(card).queryByText("Needs reapplication")).not.toBeInTheDocument();
+  expect(within(card).queryByText(publicEvidence.summary)).not.toBeInTheDocument();
+
+  await user.click(within(card).getByRole("button", { name: "查看 1 条依据" }));
+  expect(onShowEvidence).toHaveBeenCalledWith("seoul-shade-daily-fluid");
+  await user.click(within(card).getByRole("button", { name: "看商品" }));
+  expect(onOpenProduct).toHaveBeenCalledWith("seoul-shade-daily-fluid", "current");
+});
+
+it("limits the compact comparison to two products in a focusable labeled scroller", () => {
+  render(
+    <ComparisonTable
+      comparison={{
+        ...comparison,
+        product_ids: [
+          ...comparison.product_ids,
+          "jeju-sport-shield",
+        ],
+        rows: {
+          starting_price_usd: [14, 17, 16],
+          fragrance_free: [true, false, true],
+          water_resistance_minutes: [null, 40, 80],
+          finish: ["natural", "matte", "natural"],
+          white_cast_risk: ["low", "medium", "low"],
+        },
+      }}
+      productNames={{
+        "seoul-shade-daily-fluid": "Seoul Shade Daily Fluid",
+        "cloud-veil-mineral": "Cloud Veil Mineral SPF",
+        "jeju-sport-shield": "Jeju Sport Shield",
+      }}
+      anchorProductId="seoul-shade-daily-fluid"
+      variant="compact"
+    />,
+  );
+
+  const scroller = screen.getByRole("region", {
+    name: "商品对比，可横向滚动",
+  });
+  expect(scroller).toHaveAttribute("tabindex", "0");
+  const table = within(scroller).getByRole("table", { name: "商品对比" });
+  expect(within(table).getAllByRole("columnheader")).toHaveLength(3);
+  expect(within(table).queryByText("Jeju Sport Shield")).not.toBeInTheDocument();
+});

@@ -4375,3 +4375,514 @@ svg[data-demo-icon] {
     animation: none !important;
   }
 }
+
+/* Task 6: lightweight, content-anchored Guide conversation. */
+.guideChatView {
+  --guide-chat-accent: #ff2d55;
+  --guide-chat-ink: #111216;
+  --guide-chat-muted: #686b73;
+  --guide-chat-line: #e7e8eb;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: calc(100dvh - env(safe-area-inset-top));
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto auto;
+  overflow: hidden;
+  color: var(--guide-chat-ink);
+  border-radius: 24px 24px 0 0;
+  background: #fbfbfc;
+  font-family: Inter, "SF Pro Text", "PingFang SC", system-ui, sans-serif;
+}
+
+.guideChatView[data-mode="compact"] {
+  max-height: min(44dvh, 390px);
+}
+
+.guideChatView[data-mode="expanded"] {
+  max-height: min(74dvh, 670px);
+}
+
+.guideChatHeader {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px max(12px, env(safe-area-inset-right)) 6px max(12px, env(safe-area-inset-left));
+  border-bottom: 1px solid var(--guide-chat-line);
+}
+
+.guideSourceChip {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 9px 5px 6px;
+  overflow: hidden;
+  border: 1px solid #dedfe3;
+  border-radius: 999px;
+  background: #fff;
+}
+
+.guideSourceChip > span {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  color: #fff;
+  border-radius: 8px;
+  background: var(--guide-chat-accent);
+  font-size: 9px;
+}
+
+.guideSourceChip p {
+  min-width: 0;
+  display: grid;
+  margin: 0;
+  line-height: 1.12;
+}
+
+.guideSourceChip strong,
+.guideSourceChip small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guideSourceChip strong {
+  font-family: ui-rounded, "SF Pro Rounded", "PingFang SC", system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.guideSourceChip small {
+  color: var(--guide-chat-muted);
+  font-size: 10px;
+}
+
+.guideChatClose,
+.guideChatQuickReplies button,
+.guideChatComposer button,
+.compactRecommendationActions button,
+.guideInlineActions button,
+.guideSubviewHeading button,
+.comparisonProductActions button {
+  min-width: 44px;
+  min-height: 44px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.guideChatClose {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0;
+  color: var(--guide-chat-ink);
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  font-size: 24px;
+}
+
+.guideChatMessages {
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 10px max(14px, env(safe-area-inset-right)) 8px max(14px, env(safe-area-inset-left));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.guideChatMessage {
+  max-width: 88%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 7px;
+}
+
+.guideChatMessage > span {
+  padding-top: 2px;
+  color: var(--guide-chat-muted);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 9px;
+  font-weight: 760;
+  letter-spacing: 0.04em;
+}
+
+.guideChatMessage p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.46;
+}
+
+.guideChatMessage-user {
+  justify-self: end;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 8px 10px;
+  border-radius: 14px 14px 4px 14px;
+  background: #f0f1f3;
+}
+
+.guideChatMessage-user > span {
+  order: 2;
+}
+
+.guideChatStatus,
+.guideChatError {
+  padding: 9px 11px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.guideChatStatus {
+  color: #4b4e55;
+  border: 1px solid #e2e3e6;
+  background: #f2f3f5;
+}
+
+.guideChatError {
+  color: #80142e;
+  border-left: 3px solid var(--guide-chat-accent);
+  background: #fff0f3;
+}
+
+.guideChatQuickReplies {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 0 max(14px, env(safe-area-inset-right)) 8px max(14px, env(safe-area-inset-left));
+}
+
+.guideChatQuickReplies button,
+.guideInlineActions button,
+.guideSubviewHeading button {
+  padding: 7px 9px;
+  color: var(--guide-chat-ink);
+  border: 1px solid #dfe0e4;
+  border-radius: 11px;
+  background: #fff;
+  font-size: 11px;
+  font-weight: 690;
+  line-height: 1.25;
+}
+
+.guideChatComposer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: end;
+  gap: 7px;
+  padding: 7px max(14px, env(safe-area-inset-right)) 7px max(14px, env(safe-area-inset-left));
+  border-top: 1px solid var(--guide-chat-line);
+  background: #fff;
+}
+
+.guideChatComposer label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.guideChatComposer textarea {
+  width: 100%;
+  min-height: 44px;
+  max-height: 92px;
+  resize: none;
+  padding: 11px 12px;
+  overflow-y: auto;
+  color: var(--guide-chat-ink);
+  border: 1px solid #dedfe3;
+  border-radius: 13px;
+  outline: none;
+  background: #f7f7f8;
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.guideChatComposer textarea:focus-visible {
+  border-color: var(--guide-chat-accent);
+  box-shadow: 0 0 0 3px #ff2d551b;
+}
+
+.guideChatComposer button {
+  padding: 0;
+  color: #fff;
+  border: 0;
+  border-radius: 13px;
+  background: var(--guide-chat-accent);
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.guideChatComposer button:disabled,
+.guideChatQuickReplies button:disabled,
+.guideInlineActions button:disabled,
+.compactRecommendationActions button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.guideChatDisclosure {
+  padding: 0 max(14px, env(safe-area-inset-right)) max(7px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+  color: var(--guide-chat-muted);
+  background: #fff;
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.guideChatDisclosure summary {
+  width: fit-content;
+  cursor: pointer;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+
+.guideChatDisclosure p {
+  max-width: 42ch;
+  margin: 4px 0 0;
+}
+
+.recommendationCardCompact {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px;
+  color: var(--guide-chat-ink);
+  border: 1px solid #e2e3e6;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 7px 20px #1112160a;
+}
+
+.compactRecommendationImage {
+  width: 64px;
+  height: 76px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #f1f2f4;
+}
+
+.compactRecommendationImage img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.compactRecommendationImage > span {
+  color: #777a82;
+  font-family: ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.compactRecommendationBody {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.compactRecommendationTopline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--guide-chat-muted);
+  font-size: 9px;
+}
+
+.compactRecommendationTopline > span {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  letter-spacing: 0.04em;
+}
+
+.compactRecommendationTopline strong {
+  color: var(--guide-chat-ink);
+  font-size: 11px;
+}
+
+.compactRecommendationBody h3 {
+  margin: 0;
+  overflow: hidden;
+  font-family: ui-rounded, "SF Pro Rounded", "PingFang SC", system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compactRecommendationBody p {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 5px;
+  margin: 0;
+  color: #4f5259;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.compactRecommendationBody p > span {
+  color: var(--guide-chat-muted);
+  font-weight: 720;
+}
+
+.compactRecommendationActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.compactRecommendationActions button {
+  padding: 0 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 720;
+}
+
+.compactEvidenceButton {
+  color: #4d5057;
+  border: 1px solid #dfe0e4;
+  background: #fff;
+}
+
+.compactOpenProductButton {
+  color: #fff;
+  border: 1px solid var(--guide-chat-accent);
+  background: var(--guide-chat-accent);
+}
+
+.guideInlineDecision,
+.guideChatSubview {
+  display: grid;
+  gap: 8px;
+}
+
+.guideInlineActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.guideSubviewHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.guideSubviewHeading h2 {
+  margin: 0;
+  font-family: ui-rounded, "SF Pro Rounded", "PingFang SC", system-ui, sans-serif;
+  font-size: 15px;
+}
+
+.guideEvidenceItem {
+  padding: 10px;
+  border-left: 2px solid var(--guide-chat-accent);
+  background: #f4f4f6;
+}
+
+.guideEvidenceItem strong,
+.guideEvidenceItem p {
+  display: block;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.guideEvidenceItem p {
+  margin-top: 4px;
+  color: var(--guide-chat-muted);
+}
+
+.guideAlternativeList {
+  display: grid;
+  gap: 8px;
+}
+
+.comparisonPanelCompact {
+  margin-top: 0;
+  color: var(--guide-chat-ink);
+}
+
+.comparisonPanelCompact .sectionHeading h2 {
+  font-family: ui-rounded, "SF Pro Rounded", "PingFang SC", system-ui, sans-serif;
+  font-size: 15px;
+}
+
+.comparisonPanelCompact .comparisonScroller {
+  border-color: #dedfe3;
+  background: #fff;
+}
+
+.comparisonPanelCompact th,
+.comparisonPanelCompact td {
+  color: var(--guide-chat-ink);
+  border-color: #e5e6e9;
+  background: #fff;
+}
+
+.comparisonPanelCompact .comparisonFreshnessNote {
+  color: var(--guide-chat-muted);
+}
+
+.guideChatView :is(button, textarea, summary, [tabindex="0"]):focus-visible {
+  outline: 3px solid #ff2d5540;
+  outline-offset: 2px;
+}
+
+@media (max-width: 390px) {
+  .guideChatView[data-mode="compact"] {
+    max-height: 44dvh;
+  }
+
+  .guideChatView[data-opening="true"] .guideChatMessages {
+    padding-top: 8px;
+    padding-bottom: 6px;
+  }
+
+  .guideChatView[data-opening="true"] .guideChatMessage p {
+    font-size: 13px;
+  }
+
+  .guideChatQuickReplies button {
+    padding-right: 5px;
+    padding-left: 5px;
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 340px), (max-height: 700px) {
+  .guideChatView[data-mode="compact"] {
+    max-height: min(60dvh, calc(100dvh - env(safe-area-inset-top)));
+  }
+
+  .guideChatQuickReplies {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guideChatView,
+  .guideChatView *,
+  .guideChatView *::before,
+  .guideChatView *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

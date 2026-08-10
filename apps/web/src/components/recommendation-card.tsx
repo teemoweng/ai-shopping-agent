@@ -1,12 +1,21 @@
 "use client";
 
 import type { components } from "@shopping-guide/contracts/src/api";
+import Image from "next/image";
+import type { Ref } from "react";
 
 type Recommendation = components["schemas"]["RecommendationCard"];
 type EvidenceReference = components["schemas"]["EvidenceReference"];
 type EvidenceStatus = components["schemas"]["EvidenceStatus"];
 type Verdict = components["schemas"]["Verdict"];
 type ProductRole = "current" | "alternative";
+type RecommendationVariant = "full" | "compact";
+
+const productImageSources: Record<string, string> = {
+  "seoul-shade-daily-fluid": "/demo/product-seoul-shade.svg",
+  "cloud-veil-mineral": "/demo/product-cloud-veil.svg",
+  "jeju-sport-shield": "/demo/product-jeju-sport.svg",
+};
 
 const verdictLabels = {
   SUITABLE: "适合",
@@ -45,6 +54,9 @@ export function RecommendationCard({
   compareDisabled = false,
   onCompareChange,
   onOpenProduct,
+  onShowEvidence,
+  evidenceButtonRef,
+  variant = "full",
 }: {
   recommendation: Recommendation;
   index: number;
@@ -56,7 +68,74 @@ export function RecommendationCard({
   compareDisabled?: boolean;
   onCompareChange: (productId: string, selected: boolean) => void;
   onOpenProduct?: (productId: string, role: ProductRole) => void;
+  onShowEvidence?: (productId: string) => void;
+  evidenceButtonRef?: Ref<HTMLButtonElement>;
+  variant?: RecommendationVariant;
 }) {
+  if (variant === "compact") {
+    const imageSrc = productImageSources[recommendation.product_id];
+    return (
+      <article
+        className="recommendationCard recommendationCardCompact"
+        aria-label={`${recommendation.name} 商品建议`}
+      >
+        <div className="compactRecommendationImage" aria-hidden="true">
+          {imageSrc ? (
+            <Image src={imageSrc} alt="" width={64} height={64} />
+          ) : (
+            <span>{recommendation.brand.slice(0, 1)}</span>
+          )}
+        </div>
+        <div className="compactRecommendationBody">
+          <div className="compactRecommendationTopline">
+            <span>{role === "current" ? "视频同款" : "合格替代"}</span>
+            <strong>${recommendation.starting_price_usd} 起</strong>
+          </div>
+          <h3>{recommendation.name}</h3>
+          <p>
+            <span>适合点</span>
+            {recommendation.fit_reasons[0] ?? "当前没有更多适配说明"}
+          </p>
+          <p>
+            <span>取舍</span>
+            {recommendation.tradeoffs[0] ?? "当前没有额外取舍"}
+          </p>
+          <div className="compactRecommendationActions">
+            {evidence.length > 0 && onShowEvidence ? (
+              <button
+                ref={evidenceButtonRef}
+                type="button"
+                className="compactEvidenceButton"
+                disabled={disabled}
+                onClick={() => {
+                  if (!disabled) {
+                    onShowEvidence(recommendation.product_id);
+                  }
+                }}
+              >
+                查看 {evidence.length} 条依据
+              </button>
+            ) : null}
+            {onOpenProduct ? (
+              <button
+                type="button"
+                className="compactOpenProductButton"
+                disabled={disabled}
+                onClick={() => {
+                  if (!disabled) {
+                    onOpenProduct(recommendation.product_id, role);
+                  }
+                }}
+              >
+                看商品
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </article>
+    );
+  }
+
   return (
     <article
       className="recommendationCard"
