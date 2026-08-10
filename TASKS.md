@@ -1,8 +1,8 @@
 # AI Shopping Agent 任务台
 
-> 当前阶段：Phase 1 — Foundation 与 TikTok 真实体验纠偏切片已验证；真实 LLM / Hybrid / 数据扩展未完成
+> 当前阶段：Phase 1 — Chat-first 轻量 AI 导购体验正在迭代；真实 LLM / Hybrid / 数据扩展未完成
 >
-> 最后更新：2026-08-07
+> 最后更新：2026-08-10
 > 本文件只反映可核验的真实状态；规划目标不等于已实现结果。
 
 ## 状态图例
@@ -46,6 +46,14 @@
 | ✅ DONE | 中文 TikTok Shop-inspired Feed、AI Commerce Sheet、PDP 与模拟加购重设计 | 普通内容不出现商业/AI 入口；可购物内容可直接看商品或问 AI；AI 推荐可进入 PDP 并返回原决策；价格变化和未知提交均有可恢复闭环 | [实施计划](./docs/superpowers/plans/2026-08-05-tiktok-experience-redesign.md) · [重设计验证记录](./artifacts/evidence/tiktok-redesign-verification.md) · [8 条 E2E](./apps/web/e2e/tiktok-demo.spec.ts) · [移动截图](./artifacts/screenshots/tiktok-redesign-mobile.png) · [桌面截图](./artifacts/screenshots/tiktok-redesign-desktop.png) · [普通 Feed](./artifacts/screenshots/tiktok-redesign-normal-feed.png) |
 
 本工作包是 Foundation 的高保真纠偏切片，不等于 Phase 2 完整 MVP。当前结论是“冻结合成 fixture 上已实现并在 production Chromium 验证”：8/8 必需旅程通过，production E2E 为 28 passed / 10 intentional skips / 0 failed，PDP focus 双 project 6/6，API 234、Web 193、Foundation eval pytest 14/14、规则 runner 6/6。搜索、LIVE、真实 LLM、Hybrid RAG、TikTok API、真实支付、店铺/客服/完整购物车页面仍不在当前范围；浏览器自动化也不是用户研究或业务效果。
+
+## 当前执行 — Chat-first 轻量导购迭代
+
+| 状态 | 工作包 | 用户结果 | 预期证据 |
+|---|---|---|---|
+| 🚧 IN PROGRESS | 把重型 AI 决策 Sheet 改为保留视频上下文的渐进式会话 | 点击“问问这款”后先看到约 40% 高度的轻量对话层；AI 以一句商品相关开场、3 个具体问题和自由输入承接，逐轮只问一个高信息量问题；结论、商品、比较与依据按需出现，而非首屏一次铺开；返回 PDP 后可恢复会话 | 设计规格与实施计划；版本化会话 contract；API / Web / E2E 回归；production Chromium 移动与桌面截图；独立验证记录；产品 ADR、过程日志和面试索引 |
+
+本轮由当前 Codex 任务负责。保留 `NavigationState` / `GuideSession` / `CommerceOperation` 三控制面、硬约束先过滤、证据不足降级、安全退出、交易事实复核、显式确认和幂等对账；不借减重之名删除安全或交易边界，也不把确定性 fixture 写成真实 LLM 或真实用户结果。
 
 ## Next — Phase 1 扩展（均未开始）
 
