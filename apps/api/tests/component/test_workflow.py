@@ -157,8 +157,127 @@ def test_explicit_comparison_intent_prepares_anchor_and_water_resistant_candidat
 
     product_ids = {card.product_id for card in turn.recommendations}
     assert turn.guide_view_kind is GuideViewKind.DECISION_READY
+    assert len(turn.recommendations) == 2
+    assert turn.recommendations[0].product_id == "seoul-shade-daily-fluid"
     assert "seoul-shade-daily-fluid" in product_ids
     assert product_ids & {"cloud-veil-mineral", "jeju-sport-sun-gel"}
+
+
+def test_comparison_intent_keeps_ineligible_anchor_read_only(tmp_path) -> None:
+    engine, sessions = build_engine(tmp_path)
+    session = sessions.create(
+        EntryPoint.CONTENT,
+        "morning-routine-uv-001",
+        None,
+        locale="zh-CN",
+    )
+    engine.open_session(session)
+    constrained = engine.handle_message(
+        session,
+        GuideMessageRequest(
+            message_id="existing-constraints",
+            text="预算25美元以内、油皮、40分钟防水",
+        ),
+    )
+
+    turn = engine.handle_message(
+        session,
+        GuideMessageRequest(
+            message_id="constrained-compare",
+            text="和当前款比比",
+        ),
+    )
+
+    cards = {card.product_id: card for card in turn.recommendations}
+    anchor = cards["seoul-shade-daily-fluid"]
+    assert turn.guide_view_kind is GuideViewKind.DECISION_READY
+    assert anchor.verdict is Verdict.NOT_RECOMMENDED
+    assert anchor.eligible_sku_ids == []
+    assert any("40" in tradeoff for tradeoff in anchor.tradeoffs)
+    assert turn.guide_revision == constrained.guide_revision
+    assert "seoul-shade-daily-fluid" not in session.recommended_product_ids
+    assert any(
+        card.product_id in {"cloud-veil-mineral", "jeju-sport-sun-gel"}
+        and card.eligible_sku_ids
+        for card in turn.recommendations
+    )
+
+
+def test_comparison_intent_finds_water_candidate_beyond_generic_top_three(
+    tmp_path,
+) -> None:
+    fixtures = FixtureRepository.load(FIXTURE_ROOT)
+    products = dict(fixtures.products)
+    anchor = products["seoul-shade-daily-fluid"]
+    for index, price in enumerate((10.0, 11.0, 12.0, 13.0), start=1):
+        product_id = f"cheap-non-water-{index}"
+        products[product_id] = anchor.model_copy(
+            update={
+                "id": product_id,
+                "name": f"Cheap non-water {index}",
+                "skus": tuple(
+                    sku.model_copy(
+                        update={
+                            "id": f"{product_id}-{sku.size_ml}",
+                            "price_usd": price,
+                        }
+                    )
+                    for sku in anchor.skus
+                ),
+            }
+        )
+    expanded_fixtures = FixtureRepository(
+        products=products,
+        content_contexts=fixtures.content_contexts,
+        evidence_documents=fixtures.evidence_documents,
+    )
+    sessions = SessionRepository(tmp_path / "trace.jsonl")
+    engine = WorkflowEngine(ShoppingTools(expanded_fixtures), sessions)
+    session = sessions.create(
+        EntryPoint.CONTENT,
+        "morning-routine-uv-001",
+        None,
+        locale="zh-CN",
+    )
+    engine.open_session(session)
+
+    turn = engine.handle_message(
+        session,
+        GuideMessageRequest(message_id="compare-beyond-three", text="和防水款比比"),
+    )
+
+    assert next(card.product_id for card in turn.recommendations) == (
+        "seoul-shade-daily-fluid"
+    )
+    assert len(turn.recommendations) == 2
+    assert turn.recommendations[1].product_id in {
+        "cloud-veil-mineral",
+        "jeju-sport-sun-gel",
+    }
+
+
+def test_comparison_intent_without_legal_water_candidate_is_no_match(tmp_path) -> None:
+    engine, sessions = build_engine(tmp_path)
+    session = sessions.create(
+        EntryPoint.CONTENT,
+        "morning-routine-uv-001",
+        None,
+        locale="zh-CN",
+    )
+    engine.open_session(session)
+
+    turn = engine.handle_message(
+        session,
+        GuideMessageRequest(
+            message_id="compare-no-water",
+            text="预算15美元以内，和防水款比比",
+        ),
+    )
+
+    assert turn.guide_view_kind is GuideViewKind.NO_MATCH
+    assert turn.verdict is Verdict.NOT_RECOMMENDED
+    assert turn.recommendations == []
+    assert session.recommended_product_ids == []
 
 
 def test_outdoor_clarification_requires_a_water_resistant_decision(tmp_path) -> None:

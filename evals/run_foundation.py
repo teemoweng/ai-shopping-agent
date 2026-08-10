@@ -273,6 +273,11 @@ def _run_content_case(
         None,
     )
     engine.open_session(session)
+    opening_states = [
+        event.payload["to"]
+        for event in sessions.events_for_trace(session.trace_id)
+        if event.event_type == "state_transition"
+    ]
     turn = engine.handle_message(
         session,
         GuideMessageRequest(
@@ -281,7 +286,6 @@ def _run_content_case(
         ),
     )
     product_ids = [card.product_id for card in turn.recommendations]
-    trace_events = sessions.events_for_trace(session.trace_id)
     tool_events = _tool_events(sessions, session.trace_id)
     tool_names: list[str] = []
     for event in tool_events:
@@ -295,11 +299,7 @@ def _run_content_case(
         "product_ids": product_ids,
         "tool_names": tool_names,
         "tool_events": tool_events,
-        "opening_states": [
-            event.payload["to"]
-            for event in trace_events
-            if event.event_type == "state_transition"
-        ][:1],
+        "opening_states": opening_states,
     }
 
 

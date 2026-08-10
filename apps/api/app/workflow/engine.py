@@ -27,11 +27,13 @@ from app.workflow.agent import (
     general_answer_text,
     is_medical_boundary,
     is_urgent_medical_boundary,
+    is_water_resistance_question,
     no_match_text,
     opening_quick_replies,
     opening_text,
     recommendation_text,
     safety_boundary_text,
+    water_resistance_answer_text,
     white_cast_answer_text,
 )
 from app.workflow.filtering import parse_preferences
@@ -245,18 +247,29 @@ class WorkflowEngine:
             )
 
         if intent is GuideQuestionIntent.GENERAL:
+            context = self._context(session)
+            anchor_product = self.tools.get_product(context.anchor_product_id)
+            if is_water_resistance_question(request.text):
+                answer_text = water_resistance_answer_text(
+                    session.locale,
+                    water_resistance_minutes=(
+                        anchor_product.water_resistance_minutes
+                    ),
+                )
+            else:
+                answer_text = general_answer_text(session.locale)
             return GuideTurnResponse(
                 session_id=session.id,
                 trace_id=session.trace_id,
                 locale=session.locale,
                 state=session.state,
                 kind="answer",
-                text=general_answer_text(session.locale),
-                context=self._context(session),
+                text=answer_text,
+                context=context,
                 guide_status=GuideStatus.WAITING_USER,
                 guide_view_kind=GuideViewKind.ANSWER_READY,
                 guide_revision=session.guide_revision,
-                facts_snapshot_at=self._facts_snapshot_at(session),
+                facts_snapshot_at=anchor_product.observed_at,
                 allowed_actions=allowed_actions_for(GuideViewKind.ANSWER_READY),
             )
 
@@ -403,7 +416,35 @@ class WorkflowEngine:
             for hit in evidence_hits
         ]
         context = self._context(session)
-        if not result.eligible:
+        selected_candidates = list(result.eligible[:3])
+        include_ineligible_anchor = False
+        if intent is GuideQuestionIntent.COMPARE:
+            anchor_candidate = next(
+                (
+                    candidate
+                    for candidate in result.eligible
+                    if candidate.product.id == context.anchor_product_id
+                ),
+                None,
+            )
+            water_candidates = [
+                candidate
+                for candidate in result.eligible
+                if candidate.product.id != context.anchor_product_id
+                and candidate.product.water_resistance_minutes is not None
+            ]
+            if not water_candidates:
+                selected_candidates = []
+            elif anchor_candidate is None:
+                selected_candidates = [water_candidates[0]]
+                include_ineligible_anchor = True
+            else:
+                selected_candidates = [anchor_candidate, water_candidates[0]]
+
+        if not selected_candidates:
+            session.recommended_product_ids = []
+            session.eligible_sku_ids_by_product = {}
+            self.sessions.save(session)
             return GuideTurnResponse(
                 session_id=session.id,
                 trace_id=session.trace_id,
@@ -422,7 +463,7 @@ class WorkflowEngine:
             )
 
         cards = []
-        for candidate in result.eligible[:3]:
+        for candidate in selected_candidates:
             product = candidate.product
             evidence_ids = self._applicable_evidence_ids(
                 product.id,
@@ -439,7 +480,7 @@ class WorkflowEngine:
                         if not evidence_ids
                         else (
                             Verdict.SUITABLE
-                            if candidate is result.eligible[0]
+                            if candidate is selected_candidates[0]
                             else Verdict.CONDITIONAL
                         )
                     ),
@@ -456,12 +497,50 @@ class WorkflowEngine:
                     evidence_ids=evidence_ids,
                 )
             )
-        session.recommended_product_ids = [card.product_id for card in cards]
+        if include_ineligible_anchor:
+            anchor_product = self.tools.get_product(context.anchor_product_id)
+            anchor_evidence_ids = self._applicable_evidence_ids(
+                anchor_product.id,
+                context,
+                evidence,
+            )
+            anchor_exclusions = list(
+                result.exclusions.get(
+                    anchor_product.id,
+                    ("does not meet the current hard constraints",),
+                )
+            )
+            cards.append(
+                RecommendationCard(
+                    product_id=anchor_product.id,
+                    brand=anchor_product.brand,
+                    name=anchor_product.name,
+                    verdict=(
+                        Verdict.NOT_RECOMMENDED
+                        if anchor_evidence_ids
+                        else Verdict.INSUFFICIENT_EVIDENCE
+                    ),
+                    fit_reasons=["read-only current-product comparison baseline"],
+                    tradeoffs=anchor_exclusions,
+                    eligible_sku_ids=[],
+                    starting_price_usd=min(
+                        sku.price_usd for sku in anchor_product.skus
+                    ),
+                    evidence_ids=anchor_evidence_ids,
+                )
+            )
+        authorized_cards = [card for card in cards if card.eligible_sku_ids]
+        session.recommended_product_ids = [
+            card.product_id for card in authorized_cards
+        ]
         session.eligible_sku_ids_by_product = {
-            card.product_id: list(card.eligible_sku_ids) for card in cards
+            card.product_id: list(card.eligible_sku_ids)
+            for card in authorized_cards
         }
         self.sessions.save(session)
-        evidence_is_insufficient = not any(card.evidence_ids for card in cards)
+        evidence_is_insufficient = not any(
+            card.evidence_ids for card in authorized_cards
+        )
         guide_view_kind = (
             GuideViewKind.INSUFFICIENT_EVIDENCE
             if evidence_is_insufficient

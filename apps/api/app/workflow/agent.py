@@ -105,13 +105,23 @@ URGENT_SAFETY_TERMS = (
 
 _COMPARISON_TERMS = (
     "比比",
+    "比一下",
+    "比一比",
     "比较",
     "对比",
     "compare",
     "versus",
     " vs ",
 )
-_FIT_TERMS = ("适合", "suitable", "good for", "work for")
+_NEGATED_COMPARISON_TERMS = (
+    "不要比较",
+    "不用比较",
+    "别比较",
+    "不要对比",
+    "不用对比",
+    "别对比",
+)
+_FIT_TERMS = ("适合", "能用", "suitable", "good for", "work for")
 _SKIN_TYPE_TERMS = (
     "油皮",
     "干皮",
@@ -123,7 +133,19 @@ _SKIN_TYPE_TERMS = (
     "combination skin",
 )
 _WHITE_CAST_TERMS = ("泛白", "白膜", "white cast")
-_QUESTION_TERMS = ("会不会", "是否", "吗", "does", "will", "is it")
+_QUESTION_TERMS = (
+    "？",
+    "?",
+    "会不会",
+    "是否",
+    "吗",
+    "嘛",
+    "么",
+    "does",
+    "will",
+    "is it",
+)
+_SCENARIO_TERMS = ("日常通勤", "户外出汗或玩水", "daily commute")
 _RECOMMENDATION_TERMS = (
     "帮我选",
     "推荐",
@@ -158,19 +180,40 @@ _RECOMMENDATION_TERMS = (
 def classify_question(text: str) -> GuideQuestionIntent:
     """Route Foundation messages with deterministic lexical rules, not an LLM."""
     normalized = f" {text.casefold().strip()} "
-    if any(term in normalized for term in _COMPARISON_TERMS):
+    comparison_is_negated = any(
+        term in normalized for term in _NEGATED_COMPARISON_TERMS
+    )
+    if not comparison_is_negated and any(
+        term in normalized for term in _COMPARISON_TERMS
+    ):
         return GuideQuestionIntent.COMPARE
-    if any(term in normalized for term in _FIT_TERMS) and any(
+    is_fit_question = any(term in normalized for term in _FIT_TERMS) and any(
         term in normalized for term in _SKIN_TYPE_TERMS
+    )
+    if is_fit_question and not any(
+        term in normalized for term in _SCENARIO_TERMS
     ):
         return GuideQuestionIntent.FIT
     if any(term in normalized for term in _WHITE_CAST_TERMS) and any(
         term in normalized for term in _QUESTION_TERMS
     ):
         return GuideQuestionIntent.CLAIM_WHITE_CAST
+    if is_water_resistance_question(text):
+        return GuideQuestionIntent.GENERAL
     if any(term in normalized for term in _RECOMMENDATION_TERMS):
         return GuideQuestionIntent.RECOMMEND_OR_CONSTRAINT
     return GuideQuestionIntent.GENERAL
+
+
+def is_water_resistance_question(text: str) -> bool:
+    normalized = text.casefold()
+    asks_about_water = "防水" in normalized or "water resistant" in normalized
+    has_duration_constraint = "40" in normalized or "80" in normalized
+    return (
+        asks_about_water
+        and not has_duration_constraint
+        and any(term in normalized for term in _QUESTION_TERMS)
+    )
 
 
 def allowed_actions_for(view_kind: GuideViewKind) -> list[GuideAction]:
@@ -222,6 +265,26 @@ def white_cast_answer_text(locale: str, *, white_cast_risk: str) -> str:
         f"The structured product fact lists {white_cast_risk} white-cast risk; "
         "available evidence does not support the creator's claim that it never "
         "casts on every complexion."
+    )
+
+
+def water_resistance_answer_text(
+    locale: str,
+    *,
+    water_resistance_minutes: int | None,
+) -> str:
+    if locale == "zh-CN":
+        if water_resistance_minutes is None:
+            return "这款未标注 40 或 80 分钟防水，因此不能把它当作防水款。"
+        return f"这款的结构化商品事实标注为 {water_resistance_minutes} 分钟防水。"
+    if water_resistance_minutes is None:
+        return (
+            "This product is not labeled for 40 or 80 minutes of water "
+            "resistance, so it should not be treated as water-resistant."
+        )
+    return (
+        "The structured product fact lists "
+        f"{water_resistance_minutes} minutes of water resistance."
     )
 
 

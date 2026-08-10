@@ -308,6 +308,82 @@ def test_chinese_urgent_symptoms_keep_distinct_emergency_wording(
     assert "立即寻求紧急医疗帮助" in turn.text
 
 
+@pytest.mark.parametrize(
+    (
+        "text",
+        "expected_view",
+        "expected_tool_events",
+        "expected_recommendation_count",
+        "expected_guide_delta",
+    ),
+    [
+        ("油皮能用吗？", GuideViewKind.WAITING_CLARIFICATION, 0, 0, 1),
+        ("适合油皮日常通勤吗？", GuideViewKind.DECISION_READY, 4, 3, 1),
+        ("适合油皮，户外出汗或玩水吗？", GuideViewKind.DECISION_READY, 4, 2, 1),
+        ("会泛白嘛？", GuideViewKind.ANSWER_READY, 0, 0, 0),
+        ("泛不泛白？", GuideViewKind.ANSWER_READY, 0, 0, 0),
+        ("防水吗？", GuideViewKind.ANSWER_READY, 0, 0, 0),
+        ("不要比较，帮我选一款", GuideViewKind.DECISION_READY, 4, 3, 0),
+        ("和防水款比一下", GuideViewKind.DECISION_READY, 4, 2, 0),
+    ],
+)
+def test_chinese_intent_and_slot_routing_is_progressive_and_revision_safe(
+    tmp_path,
+    text: str,
+    expected_view: GuideViewKind,
+    expected_tool_events: int,
+    expected_recommendation_count: int,
+    expected_guide_delta: int,
+) -> None:
+    engine, _, sessions = build_services(tmp_path)
+    service = GuideService(engine, sessions)
+    opening = service.create(
+        CreateGuideSessionRequest(
+            entry_point=EntryPoint.CONTENT,
+            content_context_id="morning-routine-uv-001",
+            locale="zh-CN",
+        )
+    )
+    session = sessions.get(opening.session_id)
+
+    turn = service.message(
+        session.id,
+        GuideMessageRequest(
+            message_id=f"intent-{expected_view.value}-{expected_guide_delta}",
+            text=text,
+            expected_conversation_revision=opening.conversation_revision,
+        ),
+    )
+
+    tool_events = [
+        event
+        for event in sessions.events_for_trace(session.trace_id)
+        if event.event_type in {"tool_call", "tool_result"}
+    ]
+    assert turn.guide_view_kind is expected_view
+    assert len(tool_events) == expected_tool_events
+    assert len(turn.recommendations) == expected_recommendation_count
+    assert turn.guide_revision == opening.guide_revision + expected_guide_delta
+    assert turn.conversation_revision == opening.conversation_revision + 1
+    if "油皮" in text:
+        assert session.soft_preferences.skin_type == "oily"
+    if text == "适合油皮，户外出汗或玩水吗？":
+        assert all(
+            engine.tools.get_product(card.product_id).water_resistance_minutes
+            is not None
+            for card in turn.recommendations
+        )
+    if expected_view is GuideViewKind.WAITING_CLARIFICATION:
+        assert turn.quick_replies == ["日常通勤", "户外出汗或玩水"]
+    if expected_view is GuideViewKind.ANSWER_READY:
+        assert turn.allowed_actions == ["SEND_MESSAGE", "RETURN_TO_FEED"]
+    if "泛白" in text:
+        assert "低泛白风险" in turn.text
+        assert "所有肤色" in turn.text
+    if text == "防水吗？":
+        assert "未标注 40 或 80 分钟防水" in turn.text
+
+
 def test_guide_revision_changes_only_for_decision_inputs(tmp_path) -> None:
     engine, cart, sessions = build_services(tmp_path)
     session = sessions.create(

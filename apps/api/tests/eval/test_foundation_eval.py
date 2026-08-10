@@ -14,6 +14,7 @@ sys.path.insert(0, str(REPOSITORY_ROOT))
 from evals import run_foundation as foundation_runner
 
 from app.api.routes import guide as guide_routes
+from app.domain.contracts import WorkflowState
 from app.workflow.engine import WorkflowEngine
 
 run_suite = foundation_runner.run_suite
@@ -210,6 +211,36 @@ def test_injection_case_rejects_missing_tool_calls(tmp_path, monkeypatch) -> Non
 
     injection = _record(summary, "injection-shaped-text")
     assert injection["passed"] is False
+
+
+def test_foundation_oracle_rejects_extra_opening_state_transition(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    original_open_session = WorkflowEngine.open_session
+
+    def open_then_clarify(self, session):
+        response = original_open_session(self, session)
+        self._transition(session, WorkflowState.CLARIFY)
+        return response
+
+    monkeypatch.setattr(WorkflowEngine, "open_session", open_then_clarify)
+
+    summary = run_suite(
+        cases_path=CASES_PATH,
+        trace_dir=tmp_path / "extra-opening-state",
+    )
+
+    content_records = [
+        record
+        for record in summary["cases"]
+        if record["case_id"] != "search-contract"
+    ]
+    assert all(
+        record["actual"]["opening_states"] == ["UNDERSTAND", "CLARIFY"]
+        for record in content_records
+    )
+    assert all(record["passed"] is False for record in content_records)
 
 
 def test_injection_case_rejects_failed_forbidden_tool_attempt(
