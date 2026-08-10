@@ -524,8 +524,16 @@ test.describe("chat-first mobile journeys", () => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     const entry = await gotoFeed(page);
     await entry.focus();
+    const responsePromise = page.waitForResponse(guideSessionResponse);
     await page.keyboard.press("Enter");
+    const response = await responsePromise;
+    expect(response.status()).toBe(201);
+    const opening = (await response.json()) as GuideTurn;
+    expect(opening.guide_view_kind).toBe("OPENING_CONTEXT");
     const guide = page.getByRole("dialog", { name: "AI 导购（概念）" });
+    await expect(
+      guide.getByText("我看到你在看 Seoul Shade。你最想确认什么？"),
+    ).toBeVisible();
     const close = guide.getByRole("button", { name: "关闭导购" });
     await expect(close).toBeFocused();
     await expect
