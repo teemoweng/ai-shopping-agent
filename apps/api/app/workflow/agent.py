@@ -43,6 +43,7 @@ _ALLOWED_ACTIONS_BY_VIEW = {
         GuideAction.RETURN_TO_FEED,
     ),
     GuideViewKind.COMPARISON_READY: (
+        GuideAction.SEND_MESSAGE,
         GuideAction.OPEN_PRODUCT,
         GuideAction.RETURN_TO_FEED,
     ),
@@ -146,6 +147,7 @@ _QUESTION_TERMS = (
     "is it",
 )
 _SCENARIO_TERMS = ("日常通勤", "户外出汗或玩水", "daily commute")
+_DECISION_EXPLANATION_TERMS = ("为什么", "依据", " why ", "reason")
 _RECOMMENDATION_TERMS = (
     "帮我选",
     "推荐",
@@ -200,6 +202,8 @@ def classify_question(text: str) -> GuideQuestionIntent:
         return GuideQuestionIntent.CLAIM_WHITE_CAST
     if is_water_resistance_question(text):
         return GuideQuestionIntent.GENERAL
+    if any(term in normalized for term in _DECISION_EXPLANATION_TERMS):
+        return GuideQuestionIntent.RECOMMEND_OR_CONSTRAINT
     if any(term in normalized for term in _RECOMMENDATION_TERMS):
         return GuideQuestionIntent.RECOMMEND_OR_CONSTRAINT
     return GuideQuestionIntent.GENERAL

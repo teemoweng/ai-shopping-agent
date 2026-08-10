@@ -9,6 +9,7 @@ from app.domain.contracts import (
     QueryIntent,
     WorkflowState,
 )
+from app.workflow.agent import allowed_actions_for
 
 
 def test_content_entry_requires_content_context_id() -> None:
@@ -186,7 +187,11 @@ def comparison_ready_turn(**updates: object) -> dict[str, object]:
         "guide_view_kind": "COMPARISON_READY",
         "guide_revision": 2,
         "facts_snapshot_at": "2026-08-05T12:00:00Z",
-        "allowed_actions": ["OPEN_PRODUCT", "RETURN_TO_FEED"],
+        "allowed_actions": [
+            "SEND_MESSAGE",
+            "OPEN_PRODUCT",
+            "RETURN_TO_FEED",
+        ],
         "recommendations": [],
         "evidence": [],
         "quick_replies": [],
@@ -229,29 +234,35 @@ def test_comparison_ready_turn_rejects_missing_or_malformed_comparison(
         contracts.GuideTurnResponse.model_validate(payload)
 
 
-def test_comparison_ready_turn_requires_exact_terminal_actions() -> None:
-    with pytest.raises(ValidationError):
-        contracts.GuideTurnResponse.model_validate(
-            comparison_ready_turn(
-                allowed_actions=["OPEN_PRODUCT"],
-                comparison={
-                    "session_id": "ses_comparison",
-                    "state": "COMPARE",
-                    "product_ids": [
-                        "seoul-shade-daily-fluid",
-                        "cloud-veil-mineral",
-                    ],
-                    "rows": {
-                        "starting_price_usd": [14.0, 17.0],
-                        "fragrance_free": [True, True],
-                        "water_resistance_minutes": [None, 40],
-                        "finish": ["natural", "matte"],
-                        "white_cast_risk": ["low", "medium"],
-                    },
-                    "simulated": True,
+def test_comparison_ready_turn_uses_exact_continuable_action_mapping() -> None:
+    expected_actions = ["SEND_MESSAGE", "OPEN_PRODUCT", "RETURN_TO_FEED"]
+    assert [
+        action.value
+        for action in allowed_actions_for(contracts.GuideViewKind.COMPARISON_READY)
+    ] == expected_actions
+
+    response = contracts.GuideTurnResponse.model_validate(
+        comparison_ready_turn(
+            allowed_actions=expected_actions,
+            comparison={
+                "session_id": "ses_comparison",
+                "state": "COMPARE",
+                "product_ids": [
+                    "seoul-shade-daily-fluid",
+                    "cloud-veil-mineral",
+                ],
+                "rows": {
+                    "starting_price_usd": [14.0, 17.0],
+                    "fragrance_free": [True, True],
+                    "water_resistance_minutes": [None, 40],
+                    "finish": ["natural", "matte"],
+                    "white_cast_risk": ["low", "medium"],
                 },
-            )
+                "simulated": True,
+            },
         )
+    )
+    assert [action.value for action in response.allowed_actions] == expected_actions
 
 
 def test_feed_commerce_preview_forbids_guide_provenance() -> None:

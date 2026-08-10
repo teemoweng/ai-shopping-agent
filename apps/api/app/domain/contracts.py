@@ -692,9 +692,4 @@ class GuideTurnResponse(BaseModel):
             raise ValueError("COMPARISON_READY requires COMPARE state")
         if self.comparison is None or self.comparison.session_id != self.session_id:
             raise ValueError("comparison must belong to the Guide session")
-        if self.allowed_actions != [
-            GuideAction.OPEN_PRODUCT,
-            GuideAction.RETURN_TO_FEED,
-        ]:
-            raise ValueError("COMPARISON_READY requires exact terminal actions")
         return self

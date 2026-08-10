@@ -356,7 +356,7 @@ def test_unknown_snapshot_session_has_stable_not_found() -> None:
     assert response.json()["detail"]["code"] == "SESSION_NOT_FOUND"
 
 
-def test_message_rejects_comparison_ready_without_mutating_snapshot_or_trace() -> None:
+def test_message_continues_after_comparison_with_current_authority_and_safe_trace() -> None:
     created = create_content_session(locale="zh-CN")
     session_id = created["session_id"]
     recommended = client.post(
@@ -380,22 +380,73 @@ def test_message_rejects_comparison_ready_without_mutating_snapshot_or_trace() -
 
     before_snapshot = client.get(f"/api/v1/guide/sessions/{session_id}").json()
     assert before_snapshot["guide_view_kind"] == "COMPARISON_READY"
+    assert before_snapshot["allowed_actions"] == [
+        "SEND_MESSAGE",
+        "OPEN_PRODUCT",
+        "RETURN_TO_FEED",
+    ]
     assert before_snapshot["transcript"][-1]["role"] == "ASSISTANT"
     assert before_snapshot["transcript"][-1]["kind"] == "COMPARISON"
     session = service.sessions.get(session_id)
-    before_session = session.model_copy(deep=True)
     before_events = service.sessions.events_for_trace(session.trace_id)
     trace_path = service.sessions._trace_path
     before_trace = trace_path.read_bytes()
 
-    rejected = client.post(
+    continued = client.post(
         f"/api/v1/guide/sessions/{session_id}/messages",
-        json={"message_id": "terminal_api_blocked", "text": "改成哑光妆效"},
+        json={
+            "message_id": "comparison_api_continued",
+            "text": "为什么？",
+            "expected_conversation_revision": before_snapshot[
+                "conversation_revision"
+            ],
+        },
     )
 
-    assert rejected.status_code == 409
-    assert rejected.json()["detail"]["code"] == "ACTION_NOT_ALLOWED"
-    assert client.get(f"/api/v1/guide/sessions/{session_id}").json() == before_snapshot
-    assert service.sessions.get(session_id) == before_session
-    assert service.sessions.events_for_trace(session.trace_id) == before_events
-    assert trace_path.read_bytes() == before_trace
+    assert continued.status_code == 200
+    body = continued.json()
+    assert body["conversation_revision"] == (
+        before_snapshot["conversation_revision"] + 1
+    )
+    assert body["guide_revision"] == before_snapshot["guide_revision"]
+    assert [item["kind"] for item in body["transcript"][-3:]] == [
+        "COMPARISON",
+        "USER_TEXT",
+        "RECOMMENDATION",
+    ]
+    assert [item["kind"] for item in body["transcript"]].count(
+        "COMPARISON"
+    ) == 1
+    assert body["allowed_actions"] == [
+        "SEND_MESSAGE",
+        "UPDATE_CONSTRAINTS",
+        "REQUEST_COMPARISON",
+        "OPEN_PRODUCT",
+        "RETURN_TO_FEED",
+    ]
+    recommendation = body["recommendations"][0]
+
+    after_events = service.sessions.events_for_trace(session.trace_id)
+    assert after_events[: len(before_events)] == before_events
+    assert sum(
+        event.event_type == "comparison_presented" for event in after_events
+    ) == 1
+    after_trace = trace_path.read_bytes()
+    assert after_trace.startswith(before_trace)
+    assert b"comparison_api_continued" not in after_trace
+    assert "为什么？".encode() not in after_trace
+
+    preview = client.post(
+        "/api/v1/commerce/cart/preview",
+        json={
+            "purchase_origin": "AI",
+            "guide_session_id": session_id,
+            "source_guide_revision": body["guide_revision"],
+            "product_id": recommendation["product_id"],
+            "sku_id": recommendation["eligible_sku_ids"][0],
+            "quantity": 1,
+            "expected_transaction_revision": 0,
+        },
+    )
+    assert preview.status_code == 201
+    assert preview.json()["source_guide_revision"] == body["guide_revision"]

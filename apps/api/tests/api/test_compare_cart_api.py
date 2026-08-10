@@ -59,32 +59,48 @@ def test_compare_returns_structured_decision_rows() -> None:
     assert response.json()["rows"]["water_resistance_minutes"] == [None, 40]
 
 
-def test_compare_saves_reopenable_comparison_ready_snapshot_without_revision_change() -> None:
+def test_compare_replay_returns_canonical_response_without_duplicate_side_effects() -> (
+    None
+):
     session_id = recommended_session()
     before = client.get(f"/api/v1/guide/sessions/{session_id}").json()
     payload = {
+        "request_id": "compare_replay_1",
+        "expected_conversation_revision": before["conversation_revision"],
         "product_ids": [
             "seoul-shade-daily-fluid",
             "cloud-veil-mineral",
-        ]
+        ],
     }
+    session = service.sessions.get(session_id)
+    before_event_count = len(service.sessions.events_for_trace(session.trace_id))
 
-    compared = client.post(
+    first = client.post(
+        f"/api/v1/guide/sessions/{session_id}/compare",
+        json=payload,
+    )
+    repeated = client.post(
         f"/api/v1/guide/sessions/{session_id}/compare",
         json=payload,
     )
     reopened = client.get(f"/api/v1/guide/sessions/{session_id}")
 
-    assert compared.status_code == 200
+    assert first.status_code == repeated.status_code == 200
+    assert first.json() == repeated.json()
     assert reopened.status_code == 200
     snapshot = reopened.json()
     assert snapshot["guide_view_kind"] == "COMPARISON_READY"
     assert snapshot["guide_status"] == "ACTIVE"
     assert snapshot["state"] == "COMPARE"
     assert snapshot["guide_revision"] == before["guide_revision"]
+    assert snapshot["conversation_revision"] == (before["conversation_revision"] + 1)
     assert snapshot["text"].strip()
-    assert snapshot["allowed_actions"] == ["OPEN_PRODUCT", "RETURN_TO_FEED"]
-    assert snapshot["comparison"] == compared.json()
+    assert snapshot["allowed_actions"] == [
+        "SEND_MESSAGE",
+        "OPEN_PRODUCT",
+        "RETURN_TO_FEED",
+    ]
+    assert snapshot["comparison"] == first.json()
     assert snapshot["comparison"]["product_ids"] == payload["product_ids"]
     assert snapshot["comparison"]["rows"] == {
         "starting_price_usd": [14.0, 17.0],
@@ -93,6 +109,115 @@ def test_compare_saves_reopenable_comparison_ready_snapshot_without_revision_cha
         "finish": ["natural", "matte"],
         "white_cast_risk": ["low", "medium"],
     }
+    assert [item["kind"] for item in snapshot["transcript"]].count("COMPARISON") == 1
+    compare_events = [
+        event
+        for event in service.sessions.events_for_trace(session.trace_id)[
+            before_event_count:
+        ]
+        if event.event_type == "comparison_presented"
+    ]
+    assert len(compare_events) == 1
+    assert compare_events[0].model_dump(mode="json")["payload"] == {
+        "product_ids": payload["product_ids"]
+    }
+
+
+def test_compare_request_id_reuse_with_different_payload_is_rejected_atomically() -> (
+    None
+):
+    session_id = recommended_session()
+    before = client.get(f"/api/v1/guide/sessions/{session_id}").json()
+    endpoint = f"/api/v1/guide/sessions/{session_id}/compare"
+    first_payload = {
+        "request_id": "compare_reuse_1",
+        "expected_conversation_revision": before["conversation_revision"],
+        "product_ids": [
+            "seoul-shade-daily-fluid",
+            "cloud-veil-mineral",
+        ],
+    }
+    first = client.post(endpoint, json=first_payload)
+    snapshot_after_first = client.get(f"/api/v1/guide/sessions/{session_id}").json()
+    session = service.sessions.get(session_id)
+    events_after_first = service.sessions.events_for_trace(session.trace_id)
+
+    reused = client.post(
+        endpoint,
+        json=first_payload
+        | {
+            "product_ids": list(reversed(first_payload["product_ids"])),
+        },
+    )
+
+    assert first.status_code == 200
+    assert reused.status_code == 409
+    assert reused.json()["detail"]["code"] == "MESSAGE_ID_REUSED"
+    assert client.get(f"/api/v1/guide/sessions/{session_id}").json() == (
+        snapshot_after_first
+    )
+    assert service.sessions.events_for_trace(session.trace_id) == events_after_first
+
+
+def test_compare_stale_revision_does_not_mutate_session_or_trace() -> None:
+    session_id = recommended_session()
+    before = client.get(f"/api/v1/guide/sessions/{session_id}").json()
+    session = service.sessions.get(session_id)
+    before_events = service.sessions.events_for_trace(session.trace_id)
+
+    stale = client.post(
+        f"/api/v1/guide/sessions/{session_id}/compare",
+        json={
+            "request_id": "compare_stale_1",
+            "expected_conversation_revision": (before["conversation_revision"] - 1),
+            "product_ids": [
+                "seoul-shade-daily-fluid",
+                "cloud-veil-mineral",
+            ],
+        },
+    )
+
+    assert stale.status_code == 409
+    assert stale.json()["detail"]["code"] == "STALE_CONVERSATION"
+    assert client.get(f"/api/v1/guide/sessions/{session_id}").json() == before
+    assert service.sessions.events_for_trace(session.trace_id) == before_events
+
+
+def test_compare_can_be_followed_by_a_normal_message() -> None:
+    session_id = recommended_session()
+    before = client.get(f"/api/v1/guide/sessions/{session_id}").json()
+    compared = client.post(
+        f"/api/v1/guide/sessions/{session_id}/compare",
+        json={
+            "request_id": "compare_continue_1",
+            "expected_conversation_revision": before["conversation_revision"],
+            "product_ids": [
+                "seoul-shade-daily-fluid",
+                "cloud-veil-mineral",
+            ],
+        },
+    )
+    comparison_snapshot = client.get(f"/api/v1/guide/sessions/{session_id}").json()
+
+    continued = client.post(
+        f"/api/v1/guide/sessions/{session_id}/messages",
+        json={
+            "message_id": "after_compare_why",
+            "text": "为什么推荐它？",
+            "expected_conversation_revision": comparison_snapshot[
+                "conversation_revision"
+            ],
+        },
+    )
+
+    assert compared.status_code == 200
+    assert continued.status_code == 200
+    assert continued.json()["conversation_revision"] == (
+        comparison_snapshot["conversation_revision"] + 1
+    )
+    assert continued.json()["guide_revision"] == before["guide_revision"]
+    assert continued.json()["transcript"][-3]["kind"] == "COMPARISON"
+    assert continued.json()["transcript"][-2]["kind"] == "USER_TEXT"
 
 
 def test_compare_requires_request_comparison_from_current_guide_snapshot() -> None:
@@ -335,8 +460,7 @@ def test_decision_events_reconstruct_simulated_cart_states() -> None:
             "product_ids": [
                 "seoul-shade-daily-fluid",
                 "cloud-veil-mineral",
-            ],
-            "simulated": True,
+            ]
         },
         {"sku_id": "seoul-shade-50", "quantity": 1, "simulated": True},
         {"sku_id": "seoul-shade-50", "quantity": 1, "simulated": True},
@@ -355,9 +479,7 @@ def test_failed_preview_does_not_fabricate_success_event() -> None:
 
     assert response.status_code == 409
     assert response.json()["detail"]["code"] == "SKU_NOT_RECOMMENDED"
-    assert not any(
-        event.event_type == "cart_preview" for event in after[len(before) :]
-    )
+    assert not any(event.event_type == "cart_preview" for event in after[len(before) :])
     assert session.state is WorkflowState.PRESENT_RECOMMENDATION
 
 

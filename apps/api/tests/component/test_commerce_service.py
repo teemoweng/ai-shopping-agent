@@ -10,11 +10,13 @@ from app.domain.contracts import (
     CommerceAcceptFactsRequest,
     CommerceAddRequest,
     CommercePreviewRequest,
+    CreateGuideSessionRequest,
     EntryPoint,
     GuideMessageRequest,
 )
 from app.repositories.fixture_repository import FixtureRepository
 from app.repositories.session_repository import SessionRepository
+from app.services.guide_service import GuideService
 from app.workflow.engine import WorkflowEngine
 from app.workflow.tools import ShoppingTools
 
@@ -62,6 +64,27 @@ def build_ai_provenance(service, sessions):
     )
     sessions.save_snapshot(session, response)
     return session
+
+
+def build_transcript_guide(service, sessions):
+    guide_engine = WorkflowEngine(ShoppingTools(service.fixtures), sessions)
+    guide = GuideService(guide_engine, sessions)
+    opening = guide.create(
+        CreateGuideSessionRequest(
+            entry_point=EntryPoint.CONTENT,
+            content_context_id="morning-routine-uv-001",
+            locale="zh-CN",
+        )
+    )
+    decision = guide.message(
+        opening.session_id,
+        GuideMessageRequest(
+            message_id="authority_decision",
+            text="预算30美元以内、无香精、自然妆效",
+            expected_conversation_revision=opening.conversation_revision,
+        ),
+    )
+    return guide, decision
 
 
 def feed_preview_request(**updates: object) -> CommercePreviewRequest:
@@ -189,6 +212,156 @@ def test_ai_preview_uses_product_scoped_skus_from_authoritative_snapshot(
                 source_guide_revision=session.guide_revision,
                 product_id="seoul-shade-daily-fluid",
                 sku_id="seoul-shade-50",
+            )
+        )
+
+
+def test_non_preference_why_keeps_current_ai_provenance(tmp_path: Path) -> None:
+    service, _, sessions, _ = build_service(tmp_path)
+    guide, decision = build_transcript_guide(service, sessions)
+    recommendation = decision.recommendations[0]
+    source_revision = decision.guide_revision
+
+    explained = guide.message(
+        decision.session_id,
+        GuideMessageRequest(
+            message_id="authority_why",
+            text="为什么？",
+            expected_conversation_revision=decision.conversation_revision,
+        ),
+    )
+    preview = service.preview(
+        CommercePreviewRequest(
+            purchase_origin="AI",
+            guide_session_id=decision.session_id,
+            source_guide_revision=source_revision,
+            product_id=recommendation.product_id,
+            sku_id=recommendation.eligible_sku_ids[0],
+        )
+    )
+
+    assert explained.guide_revision == source_revision
+    assert preview.source_guide_revision == source_revision
+
+
+def test_preference_change_invalidates_historical_recommendation_authority(
+    tmp_path: Path,
+) -> None:
+    from app.services.commerce_service import CommerceConflict
+
+    service, _, sessions, _ = build_service(tmp_path)
+    guide, decision = build_transcript_guide(service, sessions)
+    recommendation = decision.recommendations[0]
+    source_revision = decision.guide_revision
+
+    changed = guide.message(
+        decision.session_id,
+        GuideMessageRequest(
+            message_id="authority_preference_change",
+            text="改成哑光妆效",
+            expected_conversation_revision=decision.conversation_revision,
+        ),
+    )
+
+    assert changed.guide_revision == source_revision + 1
+    assert any(
+        item.kind == "RECOMMENDATION"
+        and any(
+            card.product_id == recommendation.product_id
+            for card in item.recommendations
+        )
+        for item in changed.transcript[:-1]
+    )
+    with pytest.raises(CommerceConflict, match="STALE_GUIDE_REVISION"):
+        service.preview(
+            CommercePreviewRequest(
+                purchase_origin="AI",
+                guide_session_id=decision.session_id,
+                source_guide_revision=source_revision,
+                product_id=recommendation.product_id,
+                sku_id=recommendation.eligible_sku_ids[0],
+            )
+        )
+
+
+def test_safety_state_blocks_historical_recommendation_authority(
+    tmp_path: Path,
+) -> None:
+    from app.services.commerce_service import CommerceConflict
+
+    service, _, sessions, _ = build_service(tmp_path)
+    guide, decision = build_transcript_guide(service, sessions)
+    recommendation = decision.recommendations[0]
+
+    safety = guide.message(
+        decision.session_id,
+        GuideMessageRequest(
+            message_id="authority_safety",
+            text="脸部肿胀并且呼吸困难",
+            expected_conversation_revision=decision.conversation_revision,
+        ),
+    )
+
+    assert safety.guide_revision == decision.guide_revision
+    assert safety.allowed_actions == ["RETURN_TO_FEED"]
+    assert any(
+        item.kind == "RECOMMENDATION" and item.recommendations
+        for item in safety.transcript[:-1]
+    )
+    with pytest.raises(CommerceConflict, match="PRODUCT_NOT_RECOMMENDED"):
+        service.preview(
+            CommercePreviewRequest(
+                purchase_origin="AI",
+                guide_session_id=decision.session_id,
+                source_guide_revision=decision.guide_revision,
+                product_id=recommendation.product_id,
+                sku_id=recommendation.eligible_sku_ids[0],
+            )
+        )
+
+
+def test_read_only_ineligible_anchor_never_becomes_commerce_authority(
+    tmp_path: Path,
+) -> None:
+    from app.services.commerce_service import CommerceConflict
+
+    service, _, sessions, _ = build_service(tmp_path)
+    guide_engine = WorkflowEngine(ShoppingTools(service.fixtures), sessions)
+    guide = GuideService(guide_engine, sessions)
+    opening = guide.create(
+        CreateGuideSessionRequest(
+            entry_point=EntryPoint.CONTENT,
+            content_context_id="morning-routine-uv-001",
+            locale="zh-CN",
+        )
+    )
+    decision = guide.message(
+        opening.session_id,
+        GuideMessageRequest(
+            message_id="read_only_anchor_decision",
+            text="户外出汗或玩水，和防水款比比",
+            expected_conversation_revision=opening.conversation_revision,
+        ),
+    )
+    anchor = next(
+        card
+        for card in decision.recommendations
+        if card.product_id == "seoul-shade-daily-fluid"
+    )
+
+    assert anchor.eligible_sku_ids == []
+    assert (
+        anchor.product_id
+        not in sessions.get(decision.session_id).recommended_product_ids
+    )
+    with pytest.raises(CommerceConflict, match="SKU_NOT_RECOMMENDED"):
+        service.preview(
+            CommercePreviewRequest(
+                purchase_origin="AI",
+                guide_session_id=decision.session_id,
+                source_guide_revision=decision.guide_revision,
+                product_id=anchor.product_id,
+                sku_id="seoul-shade-30",
             )
         )
 
@@ -392,9 +565,7 @@ def test_price_changed_preview_returns_diff_and_acceptance_issues_fresh_token(
 ) -> None:
     service, _, _, _ = build_service(tmp_path)
 
-    changed = service.preview(
-        feed_preview_request(demo_scenario="PRICE_CHANGED")
-    )
+    changed = service.preview(feed_preview_request(demo_scenario="PRICE_CHANGED"))
 
     assert changed.commerce_view_kind == "FACTS_CHANGED"
     assert changed.confirmation_token is None

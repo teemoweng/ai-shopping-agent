@@ -81,13 +81,19 @@ def test_every_guide_view_has_explicit_server_actions() -> None:
             "CONTINUE_WITH_KNOWN",
             "RETURN_TO_FEED",
         ],
-        "COMPARISON_READY": ["OPEN_PRODUCT", "RETURN_TO_FEED"],
+        "COMPARISON_READY": [
+            "SEND_MESSAGE",
+            "OPEN_PRODUCT",
+            "RETURN_TO_FEED",
+        ],
         "SAFE_BOUNDARY": ["RETURN_TO_FEED"],
         "RECOVERY_REQUIRED": ["RETRY_GUIDE_OPERATION", "RETURN_TO_FEED"],
         "FATAL_ERROR": ["RETURN_TO_FEED"],
     }
     assert {
-        view_kind.value: [action.value for action in agent.allowed_actions_for(view_kind)]
+        view_kind.value: [
+            action.value for action in agent.allowed_actions_for(view_kind)
+        ]
         for view_kind in GuideViewKind
     } == expected
 
@@ -812,16 +818,15 @@ def test_concurrent_messages_commit_once_for_one_revision(
 @pytest.mark.parametrize(
     "terminal_view",
     [
-        GuideViewKind.COMPARISON_READY,
         GuideViewKind.SAFE_BOUNDARY,
         GuideViewKind.FATAL_ERROR,
     ],
 )
-def test_message_rejects_terminal_snapshot_without_mutating_session_or_trace(
+def test_message_rejects_non_conversational_snapshot_without_mutating_state(
     tmp_path,
     terminal_view: GuideViewKind,
 ) -> None:
-    engine, cart, sessions = build_services(tmp_path)
+    engine, _, sessions = build_services(tmp_path)
     service = GuideService(engine, sessions)
     opening = service.create(
         CreateGuideSessionRequest(
@@ -832,24 +837,7 @@ def test_message_rejects_terminal_snapshot_without_mutating_session_or_trace(
     )
     session = sessions.get(opening.session_id)
 
-    if terminal_view is GuideViewKind.COMPARISON_READY:
-        service.message(
-            session.id,
-            GuideMessageRequest(
-                message_id="terminal_setup_recommendation",
-                text="预算30美元以内、无香精、自然妆效",
-            ),
-        )
-        cart.compare(
-            session.id,
-            CompareRequest(
-                product_ids=[
-                    "seoul-shade-daily-fluid",
-                    "cloud-veil-mineral",
-                ]
-            ),
-        )
-    elif terminal_view is GuideViewKind.SAFE_BOUNDARY:
+    if terminal_view is GuideViewKind.SAFE_BOUNDARY:
         service.message(
             session.id,
             GuideMessageRequest(
@@ -871,8 +859,6 @@ def test_message_rejects_terminal_snapshot_without_mutating_session_or_trace(
         sessions.save_snapshot(session, fatal_snapshot)
 
     assert sessions.get_snapshot(session.id).guide_view_kind is terminal_view
-    if terminal_view is GuideViewKind.COMPARISON_READY:
-        assert sessions.get_snapshot(session.id).transcript[-1].kind == "COMPARISON"
     before_session = session.model_copy(deep=True)
     before_events = sessions.events_for_trace(session.trace_id)
     trace_path = tmp_path / "trace.jsonl"
@@ -979,7 +965,7 @@ def test_compare_terminal_snapshot_cannot_be_overwritten_by_concurrent_message(
     assert final_events[-1].event_type == "comparison_presented"
 
 
-def test_concurrent_message_waits_for_compare_then_rejects_terminal_snapshot(
+def test_concurrent_message_waits_for_compare_then_continues_conversation(
     tmp_path,
     monkeypatch,
 ) -> None:
@@ -1059,22 +1045,22 @@ def test_concurrent_message_waits_for_compare_then_rejects_terminal_snapshot(
         assert not message_lock_acquired.is_set()
         release_compare.set()
         compare_future.result(timeout=5)
-        with pytest.raises(GuideConflict) as exc_info:
-            message_future.result(timeout=5)
+        continued = message_future.result(timeout=5)
 
-    assert exc_info.value.code == "ACTION_NOT_ALLOWED"
     assert message_lock_acquired.is_set()
     final_snapshot = sessions.get_snapshot(opening.session_id)
-    assert final_snapshot.state == "COMPARE"
-    assert final_snapshot.guide_view_kind is GuideViewKind.COMPARISON_READY
-    assert final_snapshot.comparison is not None
-    assert final_snapshot.comparison.product_ids == product_ids
-    assert len(sessions._events) == before_event_count + 1
-    assert sessions._events[-1].event_type == "comparison_presented"
-    assert [event.model_dump_json() for event in sessions._events] == (
-        events_when_message_acquired[0]
+    assert continued == final_snapshot
+    assert final_snapshot.guide_view_kind is GuideViewKind.DECISION_READY
+    assert final_snapshot.comparison is None
+    assert final_snapshot.transcript[-3].kind == "COMPARISON"
+    assert final_snapshot.transcript[-2].kind == "USER_TEXT"
+    assert final_snapshot.guide_revision > decision.guide_revision
+    assert len(sessions._events) > before_event_count + 1
+    assert (
+        events_when_message_acquired[0][-1]
+        == sessions._events[before_event_count].model_dump_json()
     )
-    assert trace_path.read_bytes() == trace_when_message_acquired[0]
+    assert trace_when_message_acquired[0] in trace_path.read_bytes()
 
 
 @pytest.mark.parametrize(
