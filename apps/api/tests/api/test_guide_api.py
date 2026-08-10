@@ -28,6 +28,11 @@ def test_create_content_session_returns_inherited_context() -> None:
     assert body["state"] == "CLARIFY"
     assert body["context"]["anchor_product_id"] == "seoul-shade-daily-fluid"
     assert body["context"]["anchor_product_name"] == "Seoul Shade Daily Fluid"
+    assert body["conversation_revision"] == 1
+    assert len(body["transcript"]) == 1
+    assert body["transcript"][0]["id"].startswith("gmsg_")
+    assert body["transcript"][0]["sequence"] == 1
+    assert body["transcript"][0]["role"] == "ASSISTANT"
 
 
 def test_message_advances_session_to_recommendation() -> None:
@@ -41,6 +46,110 @@ def test_message_advances_session_to_recommendation() -> None:
     )
     assert response.status_code == 200
     assert response.json()["recommendations"][0]["product_id"] == "seoul-shade-daily-fluid"
+
+
+def test_message_replay_returns_the_canonical_recoverable_transcript() -> None:
+    created = create_content_session(locale="zh-CN")
+    request = {
+        "message_id": "stable-client-id",
+        "text": "适合油皮吗？",
+        "expected_conversation_revision": created["conversation_revision"],
+    }
+
+    first = client.post(
+        f"/api/v1/guide/sessions/{created['session_id']}/messages",
+        json=request,
+    )
+    replayed = client.post(
+        f"/api/v1/guide/sessions/{created['session_id']}/messages",
+        json=request,
+    )
+    restored = client.get(f"/api/v1/guide/sessions/{created['session_id']}")
+
+    assert first.status_code == replayed.status_code == restored.status_code == 200
+    assert first.json()["conversation_revision"] == 2
+    assert replayed.json()["transcript"] == restored.json()["transcript"]
+    assert len(restored.json()["transcript"]) == 3
+    assert [message["sequence"] for message in restored.json()["transcript"]] == [
+        1,
+        2,
+        3,
+    ]
+    assert len(
+        {message["id"] for message in restored.json()["transcript"]}
+    ) == len(restored.json()["transcript"])
+
+
+def test_reused_message_id_with_different_payload_does_not_mutate_session() -> None:
+    created = create_content_session(locale="zh-CN")
+    session_id = created["session_id"]
+    first = client.post(
+        f"/api/v1/guide/sessions/{session_id}/messages",
+        json={
+            "message_id": "reused-client-id",
+            "text": "适合油皮吗？",
+            "expected_conversation_revision": created["conversation_revision"],
+        },
+    )
+    assert first.status_code == 200
+    session = service.sessions.get(session_id)
+    before_session = session.model_copy(deep=True)
+    before_snapshot = client.get(f"/api/v1/guide/sessions/{session_id}").json()
+    before_events = service.sessions.events_for_trace(session.trace_id)
+    trace_path = service.sessions._trace_path
+    before_trace = trace_path.read_bytes()
+
+    reused = client.post(
+        f"/api/v1/guide/sessions/{session_id}/messages",
+        json={
+            "message_id": "reused-client-id",
+            "text": "会不会泛白？",
+            "expected_conversation_revision": created["conversation_revision"],
+        },
+    )
+
+    assert reused.status_code == 409
+    assert reused.json()["detail"]["code"] == "MESSAGE_ID_REUSED"
+    assert service.sessions.get(session_id) == before_session
+    assert client.get(f"/api/v1/guide/sessions/{session_id}").json() == before_snapshot
+    assert service.sessions.events_for_trace(session.trace_id) == before_events
+    assert trace_path.read_bytes() == before_trace
+
+
+def test_stale_conversation_revision_does_not_mutate_session() -> None:
+    created = create_content_session(locale="zh-CN")
+    session_id = created["session_id"]
+    first = client.post(
+        f"/api/v1/guide/sessions/{session_id}/messages",
+        json={
+            "message_id": "fresh-client-id",
+            "text": "适合油皮吗？",
+            "expected_conversation_revision": created["conversation_revision"],
+        },
+    )
+    assert first.status_code == 200
+    session = service.sessions.get(session_id)
+    before_session = session.model_copy(deep=True)
+    before_snapshot = client.get(f"/api/v1/guide/sessions/{session_id}").json()
+    before_events = service.sessions.events_for_trace(session.trace_id)
+    trace_path = service.sessions._trace_path
+    before_trace = trace_path.read_bytes()
+
+    stale = client.post(
+        f"/api/v1/guide/sessions/{session_id}/messages",
+        json={
+            "message_id": "stale-client-id",
+            "text": "会不会泛白？",
+            "expected_conversation_revision": created["conversation_revision"],
+        },
+    )
+
+    assert stale.status_code == 409
+    assert stale.json()["detail"]["code"] == "STALE_CONVERSATION"
+    assert service.sessions.get(session_id) == before_session
+    assert client.get(f"/api/v1/guide/sessions/{session_id}").json() == before_snapshot
+    assert service.sessions.events_for_trace(session.trace_id) == before_events
+    assert trace_path.read_bytes() == before_trace
 
 
 def test_message_request_accepts_an_optional_conversation_revision() -> None:
@@ -218,6 +327,9 @@ def test_message_rejects_comparison_ready_without_mutating_snapshot_or_trace() -
     assert compared.status_code == 200
 
     before_snapshot = client.get(f"/api/v1/guide/sessions/{session_id}").json()
+    assert before_snapshot["guide_view_kind"] == "COMPARISON_READY"
+    assert before_snapshot["transcript"][-1]["role"] == "ASSISTANT"
+    assert before_snapshot["transcript"][-1]["kind"] == "COMPARISON"
     session = service.sessions.get(session_id)
     before_session = session.model_copy(deep=True)
     before_events = service.sessions.events_for_trace(session.trace_id)

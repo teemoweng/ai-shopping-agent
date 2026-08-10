@@ -9,12 +9,12 @@ from app.domain.contracts import (
     CompareResponse,
     GuideAction,
     GuideStatus,
-    GuideTurnResponse,
     GuideViewKind,
     WorkflowState,
 )
 from app.repositories.fixture_repository import FixtureRepository
 from app.repositories.session_repository import SessionRepository
+from app.services.guide_conversation import append_assistant
 
 
 class CartConflict(Exception):
@@ -80,9 +80,8 @@ class CartService:
                     f"{len(request.product_ids)} products is ready."
                 )
             )
-            comparison_snapshot = GuideTurnResponse.model_validate(
-                current_snapshot.model_dump(mode="python")
-                | {
+            comparison_snapshot = current_snapshot.model_copy(
+                update={
                     "state": WorkflowState.COMPARE,
                     "text": snapshot_text,
                     "guide_status": GuideStatus.ACTIVE,
@@ -92,8 +91,11 @@ class CartService:
                         GuideAction.RETURN_TO_FEED,
                     ],
                     "comparison": response,
-                }
+                    "transcript": [],
+                },
+                deep=True,
             )
+            comparison_snapshot = append_assistant(session, comparison_snapshot)
             previous_state = session.state
             previous_snapshot = current_snapshot.model_copy(deep=True)
             session.state = WorkflowState.COMPARE

@@ -23,6 +23,7 @@ from app.domain.contracts import (
 from app.repositories.fixture_repository import FixtureRepository
 from app.repositories.session_repository import SessionRepository
 from app.services.cart_service import CartService
+from app.services.guide_conversation import request_digest
 from app.services.guide_service import GuideConflict, GuideService
 from app.workflow import agent
 from app.workflow import engine as engine_module
@@ -37,6 +38,16 @@ def build_services(tmp_path):
     sessions = SessionRepository(tmp_path / "trace.jsonl")
     engine = WorkflowEngine(ShoppingTools(fixtures), sessions)
     return engine, CartService(fixtures, sessions), sessions
+
+
+def test_request_digest_uses_canonical_unicode_json() -> None:
+    first = {"text": "适合油皮吗？", "nested": {"b": 2, "a": 1}}
+    reordered = {"nested": {"a": 1, "b": 2}, "text": "适合油皮吗？"}
+
+    assert request_digest(first) == (
+        "64970d026fc7193bd87e3e05dd435969c78db8e5bd0630af3deaecded1e8aab9"
+    )
+    assert request_digest(reordered) == request_digest(first)
 
 
 def test_every_guide_view_has_explicit_server_actions() -> None:
@@ -453,10 +464,13 @@ def test_returned_turn_cannot_mutate_stored_verified_snapshot(tmp_path) -> None:
         )
     )
     verified_text = turn.text
+    verified_transcript_text = turn.transcript[0].text
 
     turn.text = "被调用方篡改"
+    turn.transcript[0].text = "被调用方篡改 transcript"
 
     assert service.get(turn.session_id).text == verified_text
+    assert service.get(turn.session_id).transcript[0].text == verified_transcript_text
 
 
 def test_message_tool_failure_restores_repository_and_authoritative_snapshot(
@@ -490,6 +504,13 @@ def test_message_tool_failure_restores_repository_and_authoritative_snapshot(
     before_trace = trace_path.read_bytes()
     before_trace_length = trace_path.stat().st_size
     before_snapshot = service.get(opening.session_id)
+    before_conversation_revision = sessions.get(
+        opening.session_id
+    ).conversation_revision
+    before_transcript = list(sessions.get(opening.session_id).transcript)
+    before_processed_requests = dict(
+        sessions.get(opening.session_id).processed_guide_requests
+    )
     original_handle_message = engine.handle_message
 
     def mutate_then_fail_a_tool(session, request):
@@ -523,6 +544,186 @@ def test_message_tool_failure_restores_repository_and_authoritative_snapshot(
     assert trace_path.stat().st_size == before_trace_length
     assert trace_path.read_bytes() == before_trace
     assert service.get(opening.session_id) == before_snapshot
+    restored = sessions.get(opening.session_id)
+    assert restored.conversation_revision == before_conversation_revision
+    assert restored.transcript == before_transcript
+    assert restored.processed_guide_requests == before_processed_requests
+
+
+def test_create_rolls_back_opening_session_and_trace_on_failure(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    engine, _, sessions = build_services(tmp_path)
+    service = GuideService(engine, sessions)
+    trace_path = tmp_path / "trace.jsonl"
+    original_open_session = engine.open_session
+
+    def mutate_then_fail_opening(session):
+        original_open_session(session)
+        assert session.id in sessions._sessions
+        assert sessions.events_for_trace(session.trace_id)
+        raise RuntimeError("injected opening failure")
+
+    monkeypatch.setattr(engine, "open_session", mutate_then_fail_opening)
+
+    with pytest.raises(RuntimeError, match="injected opening failure"):
+        service.create(
+            CreateGuideSessionRequest(
+                entry_point=EntryPoint.CONTENT,
+                content_context_id="morning-routine-uv-001",
+                locale="zh-CN",
+            )
+        )
+
+    assert sessions._sessions == {}
+    assert sessions._events == []
+    assert not trace_path.exists()
+
+
+def test_safe_message_redacts_only_the_user_transcript_text(tmp_path) -> None:
+    engine, _, sessions = build_services(tmp_path)
+    service = GuideService(engine, sessions)
+    opening = service.create(
+        CreateGuideSessionRequest(
+            entry_point=EntryPoint.CONTENT,
+            content_context_id="morning-routine-uv-001",
+            locale="zh-CN",
+        )
+    )
+    raw_health_text = "脸部肿胀并且呼吸困难"
+
+    response = service.message(
+        opening.session_id,
+        GuideMessageRequest(
+            message_id="redacted-health-message",
+            text=raw_health_text,
+            expected_conversation_revision=opening.conversation_revision,
+        ),
+    )
+
+    assert response.guide_view_kind is GuideViewKind.SAFE_BOUNDARY
+    assert response.conversation_revision == 2
+    assert len(response.transcript) == 3
+    assert response.transcript[1].role == "USER"
+    assert response.transcript[1].text == "已隐藏一条健康相关描述"
+    assert response.transcript[1].redacted is True
+    assert response.transcript[2].kind == "SAFETY"
+    assert raw_health_text not in response.model_dump_json()
+
+
+def test_thirteenth_user_turn_is_rejected_without_state_mutation(tmp_path) -> None:
+    engine, _, sessions = build_services(tmp_path)
+    service = GuideService(engine, sessions)
+    response = service.create(
+        CreateGuideSessionRequest(
+            entry_point=EntryPoint.CONTENT,
+            content_context_id="morning-routine-uv-001",
+            locale="zh-CN",
+        )
+    )
+
+    for turn_number in range(1, 13):
+        response = service.message(
+            response.session_id,
+            GuideMessageRequest(
+                message_id=f"bounded-turn-{turn_number}",
+                text="日常通勤、预算30美元以内",
+                expected_conversation_revision=response.conversation_revision,
+            ),
+        )
+
+    session = sessions.get(response.session_id)
+    before_session = session.model_copy(deep=True)
+    before_events = sessions.events_for_trace(session.trace_id)
+    trace_path = tmp_path / "trace.jsonl"
+    before_trace = trace_path.read_bytes()
+
+    with pytest.raises(GuideConflict) as exc_info:
+        service.message(
+            response.session_id,
+            GuideMessageRequest(
+                message_id="bounded-turn-13",
+                text="继续推荐",
+                expected_conversation_revision=response.conversation_revision,
+            ),
+        )
+
+    assert exc_info.value.code == "CONVERSATION_LIMIT_REACHED"
+    assert sessions.get(response.session_id) == before_session
+    assert sessions.events_for_trace(session.trace_id) == before_events
+    assert trace_path.read_bytes() == before_trace
+
+
+@pytest.mark.parametrize("same_message_id", [False, True])
+def test_concurrent_messages_commit_once_for_one_revision(
+    tmp_path,
+    monkeypatch,
+    same_message_id: bool,
+) -> None:
+    engine, _, sessions = build_services(tmp_path)
+    service = GuideService(engine, sessions)
+    opening = service.create(
+        CreateGuideSessionRequest(
+            entry_point=EntryPoint.CONTENT,
+            content_context_id="morning-routine-uv-001",
+            locale="zh-CN",
+        )
+    )
+    entered_engine = Event()
+    release_engine = Event()
+    engine_calls = 0
+    original_handle_message = engine.handle_message
+
+    def paused_handle_message(session, request):
+        nonlocal engine_calls
+        engine_calls += 1
+        entered_engine.set()
+        assert release_engine.wait(timeout=5)
+        return original_handle_message(session, request)
+
+    monkeypatch.setattr(engine, "handle_message", paused_handle_message)
+    first_request = GuideMessageRequest(
+        message_id="concurrent-stable-id",
+        text="适合油皮吗？",
+        expected_conversation_revision=opening.conversation_revision,
+    )
+    second_request = first_request.model_copy(
+        update={
+            "message_id": (
+                first_request.message_id
+                if same_message_id
+                else "concurrent-different-id"
+            )
+        }
+    )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        first_future = executor.submit(
+            service.message,
+            opening.session_id,
+            first_request,
+        )
+        assert entered_engine.wait(timeout=5)
+        second_future = executor.submit(
+            service.message,
+            opening.session_id,
+            second_request,
+        )
+        release_engine.set()
+        first = first_future.result(timeout=5)
+        if same_message_id:
+            second = second_future.result(timeout=5)
+            assert second == first
+        else:
+            with pytest.raises(GuideConflict) as exc_info:
+                second_future.result(timeout=5)
+            assert exc_info.value.code == "STALE_CONVERSATION"
+
+    restored = service.get(opening.session_id)
+    assert engine_calls == 1
+    assert restored.conversation_revision == 2
+    assert len(restored.transcript) == 3
 
 
 @pytest.mark.parametrize(
@@ -587,6 +788,8 @@ def test_message_rejects_terminal_snapshot_without_mutating_session_or_trace(
         sessions.save_snapshot(session, fatal_snapshot)
 
     assert sessions.get_snapshot(session.id).guide_view_kind is terminal_view
+    if terminal_view is GuideViewKind.COMPARISON_READY:
+        assert sessions.get_snapshot(session.id).transcript[-1].kind == "COMPARISON"
     before_session = session.model_copy(deep=True)
     before_events = sessions.events_for_trace(session.trace_id)
     trace_path = tmp_path / "trace.jsonl"
