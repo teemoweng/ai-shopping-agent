@@ -9,17 +9,18 @@ Final source under test: `46606d36ae1a046f1e0edd601ae0ccbcbd6ce7b9` from a clean
 ## Fresh Task 9 gates
 
 - Contracts: exit 0 in 1.022 s; generated OpenAPI/TypeScript diff empty.
-- Ruff: exit 0 in less than 0.001 s measured wall time.
+- Ruff: exit 0; fresh `/usr/bin/time -p` output was `real 0.13`, `user 0.01`, `sys 0.03`.
 - Web lint: exit 0 in 2.598 s; 0 errors / 0 warnings.
 - Layout foundation: exit 0 in 0.106 s. This is an asset/layout-foundation gate, not visual proof.
 - Production build: exit 0 in 3.991 s; existing multiple-lockfile warning retained as a limitation.
+- Generated-contract integrity: exit 0 with no diff; fresh `/usr/bin/time -p` output was `real 0.00`, `user 0.00`, `sys 0.00`, meaning less than 0.01 s at the timer's 0.01-second display resolution.
 - API: 318 passed / 0 failed / 1 upstream warning in 2.58 s.
 - Web: 11 files, 280 passed / 0 failed in 4.52 s.
 - E2E: 70 collected, 39 passed / 31 intentional routed skips / 0 failed in 31.9 s.
 - Foundation eval pytest: 15 passed / 0 failed / 1 upstream warning in 0.26 s.
 - Foundation deterministic runner: 6/6, pass rate 1.0, exit 0 in 0.136 s.
 
-The formal production screenshot gate was run and frozen in Task 8 Fix Round 3 on the same final source tree: 42 passed / 28 routed skips / 0 failed in 35.4 s. Task 9 did not rewrite non-owned screenshot files; it independently rechecked their dimensions, byte sizes, and SHA-256 identities.
+The formal production screenshot gate was run and frozen in Task 8 Fix Round 3 on the same final source tree: 42 passed / 28 routed skips / 0 failed in 39.1 s. Task 9 did not rewrite non-owned screenshot files; it independently rechecked their dimensions, byte sizes, and SHA-256 identities.
 
 ## Verification history
 
