@@ -9,6 +9,7 @@ Implementation commits:
 - `dc29e6d35d549a6427b6e40303115855b2a8b6be` — `test: verify chat-first shopping journeys`
 - `767b8c772f2202b37e90f82eb18e0e082223a5ef` — `fix: preserve video focus in lightweight guide`
 - `73de4f5` — `test: stabilize guide focus journey`
+- `f25ba7e` — `test: await authoritative guide readiness`
 
 ## Changes
 
@@ -103,7 +104,7 @@ Toolchain used: Node `v24.14.0`, pnpm `11.20.0`, Playwright `1.62.1`.
 
 - `artifacts/screenshots/chat-first-opening-mobile.png` — 390×844 — SHA-256 `6552ee74ecffca9c967868d38e08fa89488e33cd007e3b194ea79709f441c204`
 - `artifacts/screenshots/chat-first-decision-mobile.png` — 390×844 — SHA-256 `489e4990c88fe9074901890a3f811dfabf30b6d66c8f0e75325d9281e86ad02b`
-- `artifacts/screenshots/chat-first-desktop.png` — 1440×1000 — SHA-256 `ec507c6dbd6210868786edfdf13e2f959f5c5b2df9016ec4758be65dc5e0666d`
+- `artifacts/screenshots/chat-first-desktop.png` — 1440×1000 — SHA-256 `ef2cdadf4133ac468f4eb37a1d8c3e20ef88ed7fbcd39c0e3ad01fa74a613e70`
 
 The original pre-review screenshots were inspected, but the earlier statement that they had no hidden-video-context or desktop-panel competition was incorrect. Independent review found that the `0.72` scrim plus `blur(7px)` reduced the video to a dark outline and that the 440px, high-contrast desktop panel outweighed the 390px phone. Those screenshots and hashes are superseded by the three current files above.
 
@@ -263,3 +264,83 @@ git diff --check
 ```
 
 Production capture rewrote the three deterministic files byte-for-byte identically. Their SHA-256 values remain `6552ee74...c204`, `489e4990...02b`, and `ec507c6d...66d`; no screenshot or pixel evidence changed.
+
+---
+
+## Task 9 Finishing-check Fix Round 3
+
+### Root Cause Investigation
+
+Task 9's full gate found two more timing-dependent failures from the same test-side readiness gap:
+
+- the 320×700 / 200% Chat-first geometry case measured the shared loading/final close locator before the final opening UI was committed, so the loading close could disappear between the geometry poll and the final `boundingBox()` read;
+- the responsive desktop-frame case waited only for the loading/final dialog shell before pressing Escape, so Escape could be dispatched before the final close owned focus and be lost during the loading-close → final-close replacement.
+
+Focused 50-repeat runs initially passed 50/50 for each case, and one complete retained-trace run passed 39/39 with 31 routed skips. The failure was therefore low-probability and sensitive to full-suite timing rather than an always-failing product behavior. A full-order three-repeat diagnostic reproduced the responsive Escape failure once. Its final error snapshot showed the authoritative opening message, three quick replies, composer, and final close focused while the dialog remained open: the final session commit and focus repair had completed after the already-lost Escape.
+
+The earlier Fix Round 2 retained trace had already established the same loading-close unmount/final-close mount interval. The working Guide and PDP focus tests wait for a final semantic control before keyboard actions. The existing Chat-first `openGuide` helper did verify HTTP 201 and `OPENING_CONTEXT`, but it then waited only for the dialog shell shared by loading and final states, leaving the React commit/focus boundary unguarded.
+
+The same three-repeat diagnostic later produced four unrelated PDP failures because transaction state is intentionally shared within one API process across repeated full commerce matrices. Those contaminated repeat-only failures were not treated as this fix's RED or as product regressions; fresh-process Guide/PDP and both full release gates remained the authoritative regression checks.
+
+### Minimal Fix
+
+`chat-first.spec.ts` now has one `openGuideFromEntry` readiness contract used by the normal helper, the 320×700 / 200% path, and the reduced-motion keyboard path. `tiktok-responsive.spec.ts` has the equivalent `openReadyGuide` contract used by both responsive Guide-opening paths. Each helper:
+
+1. installs the real `POST /guide/sessions` response waiter before activation;
+2. verifies HTTP 201, `OPENING_CONTEXT`, both revisions at `1`, and exact `SEND_MESSAGE` / `RETURN_TO_FEED` actions;
+3. waits for the final opening text and final close focus before geometry or Escape assertions continue.
+
+The original geometry, overflow, keyboard-entry, focus-return, inert, and Escape assertions remain intact. No sleep, retry, timeout increase, skip, product component, API, contract, authority, or Playwright configuration changed.
+
+### GREEN and Final Verification
+
+High-repeat target set, interleaving both failures with the previous reduced-motion path:
+
+```text
+pnpm --dir apps/web exec playwright test \
+  e2e/chat-first.spec.ts e2e/tiktok-responsive.spec.ts \
+  --project=mobile-chromium \
+  --grep "320×700 at 200 percent text keeps close|reduced motion keeps focus trapped|1440×1000 keeps one 390×844 live phone" \
+  --repeat-each=50 --trace=retain-on-failure
+# 150 passed in 1.9m
+```
+
+Adjacent focus and full browser gates:
+
+```text
+pnpm --dir apps/web exec playwright test \
+  e2e/guide.spec.ts e2e/pdp-focus.spec.ts \
+  --project=mobile-chromium --project=desktop-interview
+# 10 passed in 10.4s
+
+pnpm test:e2e
+# 39 passed, 31 skipped in 31.5s
+
+CAPTURE_CHAT_FIRST_EVIDENCE=1 pnpm test:e2e
+# 42 passed, 28 skipped in 39.1s
+```
+
+Static, unit, type, and layout gates:
+
+```text
+pnpm test:web
+# 11 files passed; 280 passed / 280 total
+
+pnpm lint:web
+# Passed with 0 errors and 0 warnings
+
+pnpm --dir apps/web exec tsc --noEmit
+# Passed
+
+pnpm check:layout
+# Foundation layout is valid
+
+git diff --check
+# Passed
+```
+
+### Production Screenshot Delta
+
+The two mobile files remained byte-for-byte identical at `6552ee74...c204` and `489e4990...02b`. The strengthened final-UI/focus readiness changed the desktop capture from 724,474 to 724,473 bytes; two consecutive production captures produced the same new SHA-256 `ef2cdadf...3e70`.
+
+Decoded pixel comparison against the superseded `ec507c6d...66d` desktop file found only 24 pixels / 42 RGB channels changed, with maximum channel delta `2`, confined to `x=324–336`, `y=820–832` in the phone composer's text-antialiasing area. There was no layout, content, hierarchy, focus-ring, or responsive-state change. The regenerated 1440×1000 original was inspected at original detail and is CLEAN: live phone remains primary, panel secondary, video and feed context visible, and no overlay, clipping, duplicate disclosure, or overflow is present.
