@@ -1,6 +1,6 @@
 # AI Shopping Agent 任务台
 
-> 当前阶段：Phase 1 — Chat-first 轻量 AI 导购体验正在迭代；真实 LLM / Hybrid / 数据扩展未完成
+> 当前阶段：Phase 1 — Chat-first 轻量 AI 导购工程切片已验证；真实 LLM / Hybrid / 数据扩展未完成
 >
 > 最后更新：2026-08-10
 > 本文件只反映可核验的真实状态；规划目标不等于已实现结果。
@@ -47,13 +47,13 @@
 
 本工作包是 Foundation 的高保真纠偏切片，不等于 Phase 2 完整 MVP。当前结论是“冻结合成 fixture 上已实现并在 production Chromium 验证”：8/8 必需旅程通过，production E2E 为 28 passed / 10 intentional skips / 0 failed，PDP focus 双 project 6/6，API 234、Web 193、Foundation eval pytest 14/14、规则 runner 6/6。搜索、LIVE、真实 LLM、Hybrid RAG、TikTok API、真实支付、店铺/客服/完整购物车页面仍不在当前范围；浏览器自动化也不是用户研究或业务效果。
 
-## 当前执行 — Chat-first 轻量导购迭代
+## 已验证 — Chat-first 轻量导购迭代
 
-| 状态 | 工作包 | 用户结果 | 预期证据 |
+| 状态 | 工作包 | 用户结果 | 已验证证据 |
 |---|---|---|---|
-| 🚧 IN PROGRESS | 把重型 AI 决策 Sheet 改为保留视频上下文的渐进式会话 | 点击“问问这款”后先看到约 40% 高度的轻量对话层；AI 以一句商品相关开场、3 个具体问题和自由输入承接，逐轮只问一个高信息量问题；结论、商品、比较与依据按需出现，而非首屏一次铺开；返回 PDP 后可恢复会话 | 设计规格与实施计划；版本化会话 contract；API / Web / E2E 回归；production Chromium 移动与桌面截图；独立验证记录；产品 ADR、过程日志和面试索引 |
+| ✅ DONE | 把重型 AI 决策 Sheet 改为保留视频上下文的渐进式会话 | 点击“问问这款”后先看到约 40% 高度的轻量对话层；系统以一句商品相关开场、3 个具体问题和自由输入承接，每轮最多一个澄清问题；结论、商品、比较与依据按需出现；关闭重开和 PDP 往返从服务端恢复同一会话 | [设计规格](./docs/superpowers/specs/2026-08-10-chat-first-lightweight-guide-design.md) · [实施计划](./docs/superpowers/plans/2026-08-10-chat-first-lightweight-guide.md) · [验证记录](./artifacts/evidence/chat-first-verification.md) · [machine manifest](./artifacts/evidence/chat-first-run-manifest.json) · [Chat-first E2E](./apps/web/e2e/chat-first.spec.ts) · [移动开场](./artifacts/screenshots/chat-first-opening-mobile.png) · [移动结论](./artifacts/screenshots/chat-first-decision-mobile.png) · [桌面面试态](./artifacts/screenshots/chat-first-desktop.png) |
 
-本轮由当前 Codex 任务负责。保留 `NavigationState` / `GuideSession` / `CommerceOperation` 三控制面、硬约束先过滤、证据不足降级、安全退出、交易事实复核、显式确认和幂等对账；不借减重之名删除安全或交易边界，也不把确定性 fixture 写成真实 LLM 或真实用户结果。
+本切片在 source commit `add3f885fd0f70a979507c3de795bdc2f6bd1e3c` 的冻结合成 fixture 上验证：API 318、Web 280、Foundation eval pytest 15/15、规则 runner 6/6；普通 E2E 39 passed / 31 intentional routed skips / 0 failed，production capture 42 passed / 28 routed skips / 0 failed。`NavigationState` / `GuideSession` / `CommerceOperation` 三控制面、硬约束先过滤、证据不足降级、安全退出、交易事实复核、显式确认和幂等对账均保留。这里的 `DONE` 不代表真实 LLM、Hybrid RAG、持久化、用户研究或业务结果完成。
 
 ## Next — Phase 1 扩展（均未开始）
 
@@ -103,7 +103,8 @@
 | 代码、schema、数据、trace | [README](./README.md) · [脱敏 Trace](./artifacts/traces/samples/foundation-golden.jsonl) | Foundation 子切片已评测 |
 | 自动评测结果 | [Foundation verification](./artifacts/evidence/foundation-verification.md) · [六案例](./evals/cases/foundation-cases.jsonl) | 6 个确定性 fixture 案例已评测 |
 | TikTok 体验纠偏与三控制面 | [重设计验证记录](./artifacts/evidence/tiktok-redesign-verification.md) · [产品 E2E](./apps/web/e2e/tiktok-demo.spec.ts) | 8 条必需旅程在冻结合成 fixture 上已评测；真实 LLM / 用户价值未评测 |
-| 正式浏览器画面 | [移动可购物 Feed](./artifacts/screenshots/tiktok-redesign-mobile.png) · [桌面 AI Sheet](./artifacts/screenshots/tiktok-redesign-desktop.png) · [普通 Feed](./artifacts/screenshots/tiktok-redesign-normal-feed.png) | Production Chromium 已视觉检查；不是跨浏览器认证或真人研究 |
+| Chat-first 轻量会话与渐进披露 | [Chat-first 验证记录](./artifacts/evidence/chat-first-verification.md) · [machine manifest](./artifacts/evidence/chat-first-run-manifest.json) · [Chat-first E2E](./apps/web/e2e/chat-first.spec.ts) | 13 条会话/响应式契约与 8 条原交易旅程在本地 Chromium 通过；真人理解/转化/生产可靠性未评测 |
+| 正式浏览器画面 | [Chat-first 移动开场](./artifacts/screenshots/chat-first-opening-mobile.png) · [移动结论](./artifacts/screenshots/chat-first-decision-mobile.png) · [桌面面试态](./artifacts/screenshots/chat-first-desktop.png) · [历史重设计 Feed](./artifacts/screenshots/tiktok-redesign-mobile.png) | Production Chromium 已视觉检查；历史图片未覆盖；不是跨浏览器认证或真人研究 |
 | 部署与用户研究 | 尚无 | 未开始 |
 
 ## 更新规则

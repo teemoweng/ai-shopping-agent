@@ -1,9 +1,9 @@
 # AI Shopping Agent — US K-Beauty Sunscreen Guide
 
-一个面向美国市场的跨境 K-Beauty 防晒 AI 导购概念原型：用户在 TikTok 风格的可购物短视频中被商品种草后，通过 `Ask AI` 进入对话，由系统核实内容主张、识别购买约束、解释适配性，并完成商品比较、SKU 选择与模拟加购。
+一个面向美国市场的跨境 K-Beauty 防晒 AI 导购概念原型：用户在 TikTok 风格的可购物短视频中被商品种草后，通过“问问这款”（Ask AI）进入对话，由系统核实内容主张、识别购买约束、解释适配性，并完成商品比较、SKU 选择与模拟加购。
 
 > [!IMPORTANT]
-> 当前仓库已交付一个可运行的 **TikTok Shop-inspired 中文体验重设计 Demo**：普通 / 可购物 Feed、轻量商品与“问 AI”双入口、AI Commerce Sheet、独立 PDP、SKU 选择、事实复核、显式确认和模拟加购已在生产构建的 Chromium 中验证。8 条必需旅程全部通过，并保存 390×844 移动端、1440×1000 桌面面试态和 390×844 普通 Feed 三张正式截图。它仍是基于小型合成 fixture 的确定性原型，不是 TikTok 官方产品，也没有接入真实 LLM、Hybrid RAG、真实用户、支付或业务流量。
+> 当前仓库已交付一个可运行的 **Chat-first 轻量导购 Demo**：可购物 Feed 的“问问这款”先打开保留视频上下文的约 40% 高度会话层，以一条商品相关开场、3 个具体问题和自由输入承接；短答、单一澄清、首选商品、比较、依据和交易动作按需渐进出现。会话恢复、双 revision、消息/比较幂等、安全退出、独立 PDP、事实复核、显式确认和模拟加购均已在本地生产构建的 Chromium 中验证。它仍是小型合成 fixture 上的确定性原型，不是 TikTok 官方产品，也没有接入真实 LLM、Hybrid RAG、真实用户、支付或业务流量。
 
 > [!NOTE] Foundation 历史基线不被重设计覆盖
 > 2026-08-05 的冻结基线仍独立保留：source commit `cd18147f7eb1e309aa6043a1262a28f0c4349b4d`，3 SPU / 6 SKU、1 个 `ContentContext`、3 份证据、6 个规则案例 6/6、119 个 API 测试、68 个 Web 测试、2 条旅程 × 2 个 Chromium viewport = 4/4、1 条 Trace / 11 条脱敏事件。其固定 SKU 价格为 `$14/$19`、`$17/$24`、`$16/$22`，历史截图与 manifest 均未被当前正式截图替换。该基线是 deterministic workflow + lexical retrieval，不含真实 LLM、Hybrid RAG、用户研究或业务结果。
@@ -116,6 +116,16 @@ flowchart TB
 
 完整命令、逐旅程网络状态、正式截图 checksum、fixture/media inventory 和局限见 [TikTok 重设计验证记录](./artifacts/evidence/tiktok-redesign-verification.md)。
 
+2026-08-10 的 **Chat-first 轻量导购层**继续保留上述历史证据，并新增：
+
+- 首屏只显示一条商品相关开场、恰好 3 个具体问题和自由输入；普通短答与单一澄清保持 compact，不提前展示推荐矩阵；
+- 条件充分后默认只显示 1 款首选，比较只在用户明确触发后展开；关闭重开与 AI → PDP → AI 均从服务端权威 session 恢复同一 transcript；
+- `conversation_revision` 管消息顺序与恢复，`guide_revision` 只在偏好、约束或推荐授权语义变化时前进；历史 transcript 不授权交易；
+- 新 release gate 实测 318 个 API 测试、280 个 Web 测试、Foundation eval pytest 15/15、规则 runner 6/6；普通 E2E 为 39 passed / 31 intentional routed skips / 0 failed，正式 production capture 为 42 passed / 28 intentional routed skips / 0 failed；
+- 这些数字只证明冻结合成 fixture、本地 Chromium 与当前工程契约，不证明真实 LLM 质量、真人理解、转化、成本或生产可靠性。
+
+逐命令耗时、13 条 Chat-first 浏览器契约、8 条保留交易旅程、截图哈希和局限见 [Chat-first 验证记录](./artifacts/evidence/chat-first-verification.md)。
+
 后续完整评测仍按以下层次扩展：
 
 - 组件层：意图与关键约束、澄清、检索与排序、引用、主张核实、工具参数、记忆、安全和多模态抽取；
@@ -148,9 +158,20 @@ flowchart TB
 
 ![TikTok-inspired mobile shoppable feed](./artifacts/screenshots/tiktok-redesign-mobile.png)
 
+## Chat-first 轻量导购证据快照
+
+| 证据 | 能证明什么 | 不能证明什么 |
+|---|---|---|
+| [Chat-first 验证记录](./artifacts/evidence/chat-first-verification.md) | 双 revision 会话、渐进披露、恢复、安全与原交易边界在冻结 fixture 上可复跑 | 真实 LLM、真人理解、转化或生产可靠性 |
+| [轻量开场 · 390×844](./artifacts/screenshots/chat-first-opening-mobile.png) | 视频上下文、compact 高度、3 个问题与 composer 同屏 | 入口发现率或问题是否最优 |
+| [渐进结论 · 390×844](./artifacts/screenshots/chat-first-decision-mobile.png) | 默认仅一款首选，未回到重型决策面板 | 推荐质量或用户信任 |
+| [桌面面试态 · 1440×1000](./artifacts/screenshots/chat-first-desktop.png) | 同一手机路径为主、说明面板为辅 | 跨浏览器与真实桌面用户行为 |
+
+![Chat-first lightweight opening](./artifacts/screenshots/chat-first-opening-mobile.png)
+
 ## 本地安装、启动与验证
 
-要求：Node.js、pnpm 11、Python 3.12+、uv，以及 Playwright Chromium。以下命令已在 Node.js 24.14.0、pnpm 11.20.0、Python 3.14.5 与 uv 0.11.14 的本地 Foundation 基线上实际运行；这些是本次验证环境，不代表全部可兼容版本。
+要求：Node.js、pnpm 11、Python 3.12+、uv，以及 Playwright Chromium。以下命令已在 Node.js 24.14.0、pnpm 11.20.0、Python 3.14.5、uv 0.11.14、Playwright 1.62.1 与 Chromium 151.0.7922.34 的本地 Chat-first release gate 实际运行；这些是本次验证环境，不代表全部可兼容版本。
 
 ```bash
 pnpm install --frozen-lockfile
@@ -184,20 +205,28 @@ uv --directory apps/api run python ../../evals/run_foundation.py
 pnpm test:e2e
 ```
 
-Foundation 历史 release gate 见 [Foundation 验证记录](./artifacts/evidence/foundation-verification.md)；当前重设计 release gate、命令时间、真实计数、secret scan 与制品校验见 [TikTok 重设计验证记录](./artifacts/evidence/tiktok-redesign-verification.md)。
+正式 Chat-first 截图使用单独的 production capture gate：
+
+```bash
+CAPTURE_CHAT_FIRST_EVIDENCE=1 pnpm test:e2e
+```
+
+Foundation 历史 release gate 见 [Foundation 验证记录](./artifacts/evidence/foundation-verification.md)；TikTok 重设计历史证据见 [TikTok 重设计验证记录](./artifacts/evidence/tiktok-redesign-verification.md)；当前 Chat-first 命令、真实计数、隐私扫描与制品校验见 [Chat-first 验证记录](./artifacts/evidence/chat-first-verification.md) 和 [machine manifest](./artifacts/evidence/chat-first-run-manifest.json)。
 
 ## 当前状态
 
 | 能力 | 状态 |
 |---|---|
 | 产品范围与关键原则 | 已确认 |
-| 可运行前后端 | TikTok-inspired 重设计本地链路已实现并在 production Chromium 验证 |
+| 可运行前后端 | Chat-first 轻量导购本地链路已实现并在 production Chromium 验证 |
 | 合成商品与场景数据 | 3 SPU / 6 SKU、1 ContentContext、3 evidence documents |
 | Workflow / Tools | 确定性基线已实现并评测；真实 LLM Agent 未实现 |
 | RAG | 词法证据检索基线已评测；向量/Hybrid/Reranker 未实现 |
 | 自动评测 | 6 个冻结案例规则评分 6/6；不代表广泛模型/产品质量 |
 | Foundation 历史浏览器基线 | 2 条旅程 × 2 个 Chromium viewport = 4/4；source commit `cd18147…` |
 | 重设计浏览器旅程 | 8/8 必需旅程；production E2E 28 passed / 10 intentional skips / 0 failed；PDP focus 双 project 6/6 |
+| Chat-first 浏览器旅程 | 普通 E2E 39 passed / 31 intentional routed skips / 0 failed；production capture 42 passed / 28 routed skips / 0 failed；其中 13 条 Chat-first、8 条原交易旅程均通过 |
+| Chat-first 会话可靠性 | 服务端有界 transcript、`conversation_revision` / `guide_revision` 分离、message/compare 幂等、关闭/PDP 往返恢复已在 API/Web/Chromium 回归 |
 | 三控制面 | `NavigationState` / 可选 `GuideSession` / `CommerceOperation` 已实现并回归；AI 无购物车写权限 |
 | 用户/业务结果 | 未研究、未上线、未测转化 |
 | 部署地址 | 无 |

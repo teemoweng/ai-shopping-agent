@@ -1,0 +1,262 @@
+{
+  "schema_version": 1,
+  "evidence_id": "chat-first-lightweight-guide-local-release-2026-08-10",
+  "captured_at_utc": "2026-08-10T15:30:42Z",
+  "source": {
+    "commit": "add3f885fd0f70a979507c3de795bdc2f6bd1e3c",
+    "branch": "codex/chat-first-lightweight-guide",
+    "dirty_before_release_gates": false,
+    "declaration": "All Task 9 release gates and retained-artifact scans ran from a clean worktree at the source commit. This manifest, the human report, and the README/PLAN/TASKS evidence updates were written afterward and are not part of the source commit under test."
+  },
+  "environment": {
+    "host": "Darwin 25.5.0 arm64",
+    "node": "v24.14.0",
+    "pnpm": "11.20.0",
+    "python": "3.14.5",
+    "uv": "0.11.14",
+    "playwright": "1.62.1",
+    "chromium": "151.0.7922.34"
+  },
+  "release_gates": [
+    {
+      "command": "pnpm --dir packages/contracts check",
+      "exit_code": 0,
+      "duration_seconds": 1.129,
+      "counts": {
+        "generated_diffs": 0
+      }
+    },
+    {
+      "command": "uv --directory apps/api run ruff check app tests ../../evals",
+      "exit_code": 0,
+      "duration_seconds": 0.05,
+      "counts": {
+        "errors": 0
+      }
+    },
+    {
+      "command": "pnpm lint:web",
+      "exit_code": 0,
+      "duration_seconds": 2.928,
+      "counts": {
+        "errors": 0,
+        "warnings": 0
+      }
+    },
+    {
+      "command": "pnpm check:layout",
+      "exit_code": 0,
+      "duration_seconds": 0.09,
+      "result": "Foundation layout is valid",
+      "claim_boundary": "Asset and layout-foundation gate only; not visual proof."
+    },
+    {
+      "command": "pnpm --dir apps/web build",
+      "exit_code": 0,
+      "duration_seconds": 4.13,
+      "counts": {
+        "static_routes": 2,
+        "build_errors": 0
+      },
+      "warnings": [
+        "Next.js emitted the existing multiple-lockfile workspace-root inference warning."
+      ]
+    },
+    {
+      "command": "git diff --exit-code -- packages/contracts/openapi.json packages/contracts/src/api.ts",
+      "exit_code": 0,
+      "duration_seconds": 0.0,
+      "counts": {
+        "changed_generated_contract_files": 0
+      }
+    },
+    {
+      "command": "uv --directory apps/api run pytest tests -q",
+      "exit_code": 0,
+      "duration_seconds": 2.74,
+      "counts": {
+        "collected": 318,
+        "passed": 318,
+        "failed": 0,
+        "skipped": 0,
+        "warnings": 1
+      },
+      "duration_source": "pytest summary"
+    },
+    {
+      "command": "pnpm test:web",
+      "exit_code": 0,
+      "duration_seconds": 4.5,
+      "counts": {
+        "test_files": 11,
+        "tests": 280,
+        "passed": 280,
+        "failed": 0,
+        "skipped": 0
+      },
+      "duration_source": "Vitest summary"
+    },
+    {
+      "command": "pnpm test:e2e",
+      "exit_code": 0,
+      "duration_seconds": 32.3,
+      "counts": {
+        "collected": 70,
+        "passed": 39,
+        "failed": 0,
+        "skipped": 31,
+        "chat_first_passed": 13,
+        "foundation_guide_passed": 4,
+        "pdp_focus_passed": 6,
+        "commerce_journeys_passed": 8,
+        "responsive_passed": 8
+      },
+      "skip_policy": "All 31 skips are explicit project or opt-in-capture routing; no failure was converted to a skip.",
+      "duration_source": "Playwright summary"
+    },
+    {
+      "command": "uv --directory apps/api run pytest tests/eval/test_foundation_eval.py -q",
+      "exit_code": 0,
+      "duration_seconds": 0.34,
+      "counts": {
+        "collected": 15,
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0,
+        "warnings": 1
+      },
+      "duration_source": "pytest summary"
+    },
+    {
+      "command": "uv --directory apps/api run python ../../evals/run_foundation.py",
+      "exit_code": 0,
+      "duration_seconds": 0.127,
+      "counts": {
+        "total": 6,
+        "passed": 6,
+        "failed": 0
+      },
+      "pass_rate": 1.0,
+      "scorer": "deterministic_rule_scorer",
+      "llm_judge": false
+    }
+  ],
+  "formal_browser_evidence": {
+    "capture_command": "CAPTURE_CHAT_FIRST_EVIDENCE=1 pnpm test:e2e",
+    "capture_source": "Task 8 formal production capture on the same final source tree; Task 9 rechecked file identity and dimensions without rewriting the owned screenshot files.",
+    "counts": {
+      "collected": 70,
+      "passed": 42,
+      "failed": 0,
+      "skipped": 28,
+      "capture_tests_enabled": 3
+    },
+    "duration_seconds": 37.0,
+    "web_mode": "next build && next start",
+    "api_mode": "uvicorn --no-access-log --workers 1",
+    "browser": "Chromium",
+    "workers": 1,
+    "fully_parallel": false,
+    "reuse_existing_server": false,
+    "trace": "off",
+    "fixed_browser_time": "2026-08-10T12:00:00Z",
+    "font_ready_wait": true,
+    "videos_paused_and_seeked": true,
+    "motion_and_caret_disabled": true,
+    "viewports": [
+      {
+        "project": "mobile-chromium",
+        "width": 390,
+        "height": 844
+      },
+      {
+        "project": "desktop-interview",
+        "width": 1440,
+        "height": 1000
+      }
+    ]
+  },
+  "input_sha256": {
+    "data/fixtures/products.json": "32bddb748791e78f17c04ae6106ecd059b47ed6289e02762c45a665c10424361",
+    "data/fixtures/content-contexts.json": "756fb06bf7d9172c7a45db19be324c5f8782167c2e9b5fd53ab5988111b7b548",
+    "data/fixtures/evidence.json": "520990ebabca72a5818fa21ceb1d45fe95f33a748b3c0da69fe291aed5a961e6",
+    "evals/cases/foundation-cases.jsonl": "e4ce5c660dd584c967491ccb291258634b539ce0abd93705a6e585148a6bc087",
+    "evals/run_foundation.py": "8654fc8142c72cd4756e72a885fb0830d791351d13fc1abf5cd79889a15d24c4",
+    "packages/contracts/openapi.json": "84c6c3513f6d288ec47fed16de1b5130a8aa9a9c840436e742d0d5860deeccdf",
+    "packages/contracts/src/api.ts": "955a875d894a5a0b22891455783d47852987778385c33ece893df835616c6e39",
+    "apps/web/e2e/chat-first.spec.ts": "1345515661118261e5adf7d0d955851c157ca0f274efe7a787728d9ccf4a3e0b",
+    "apps/web/e2e/tiktok-demo.spec.ts": "486f3f39a672c0d18ac67cee25811a979f47301717d2567a2b4bbba5e5d07c77",
+    "apps/web/playwright.config.ts": "4a5c2e7c2bada25314eeacb1575d6cbab6989b55ab46acf12b96597db351b307"
+  },
+  "fixture_summary": {
+    "spu": 3,
+    "sku": 6,
+    "content_contexts": 1,
+    "evidence_documents": 3,
+    "foundation_cases": 6,
+    "synthetic_product_content_and_comment_data": true
+  },
+  "screenshots": [
+    {
+      "path": "artifacts/screenshots/chat-first-opening-mobile.png",
+      "width": 390,
+      "height": 844,
+      "bytes": 224297,
+      "sha256": "6552ee74ecffca9c967868d38e08fa89488e33cd007e3b194ea79709f441c204"
+    },
+    {
+      "path": "artifacts/screenshots/chat-first-decision-mobile.png",
+      "width": 390,
+      "height": 844,
+      "bytes": 233129,
+      "sha256": "489e4990c88fe9074901890a3f811dfabf30b6d66c8f0e75325d9281e86ad02b"
+    },
+    {
+      "path": "artifacts/screenshots/chat-first-desktop.png",
+      "width": 1440,
+      "height": 1000,
+      "bytes": 724474,
+      "sha256": "ec507c6dbd6210868786edfdf13e2f959f5c5b2df9016ec4758be65dc5e0666d"
+    }
+  ],
+  "artifact_and_privacy_checks": {
+    "new_screenshots_nonempty": true,
+    "screenshot_dimensions_match_contract": true,
+    "tracked_credential_shaped_assignments_found": 0,
+    "retained_artifact_unlabeled_runtime_generated_value_matches": 0,
+    "retained_artifact_raw_health_matches": 0,
+    "retained_artifact_client_message_id_value_matches": 0,
+    "retained_artifact_chain_of_thought_value_matches": 0,
+    "explicit_synthetic_constants": [
+      {
+        "location": "apps/web/e2e/tiktok-responsive.spec.ts",
+        "example": "cft_e2e_text_resize",
+        "label": "synthetic E2E confirmation-token fixture; not a runtime credential"
+      },
+      {
+        "location": "apps/api/tests/api/test_commerce_api.py and apps/api/tests/component/test_commerce_service.py",
+        "example": "idem_*",
+        "label": "synthetic idempotency test constants; not captured runtime operation identifiers"
+      },
+      {
+        "location": "apps/web/src/test/api-client.test.ts",
+        "example": "syntheticConfirmation",
+        "label": "explicitly named synthetic unit-test value; not a runtime credential"
+      }
+    ],
+    "limitation": "Field names and privacy-rejection fixtures remain in source by design; the zero-match claim applies to retained artifacts and credential-shaped value assignments, not to schema identifiers or labeled synthetic test constants."
+  },
+  "evidence_artifacts": {
+    "artifacts/evidence/chat-first-verification.md": "cbd847972aaa2e0c866df6a31afb159f8873e5503fb5421b50d17d663e015fb7"
+  },
+  "known_limitations": [
+    "The product, brand, creator, content, comment, price, inventory, and cart data are frozen synthetic fixtures.",
+    "No real LLM, embedding model, vector index, Hybrid RAG, reranker, or LLM judge is used.",
+    "The 6/6 evaluation result applies only to six frozen deterministic cases and is not a real recommendation-quality score.",
+    "Browser evidence is local Chromium only. It is not cross-browser certification, a user study, or production reliability evidence.",
+    "The in-memory Guide session does not survive an API process restart and provides no production authentication or durable persistence model.",
+    "No conversion, trust, task-completion, latency, cost, uptime, business-impact, payment, order, or fulfillment claim is supported.",
+    "The idempotency key remains in the reconciliation URL; local evidence disables access logs, but productionization must prevent proxy or access-log retention.",
+    "Next.js still emits the known multiple-lockfile workspace-root warning, and dev E2E still emits the known one-dimension image warning."
+  ]
+}

@@ -1,6 +1,6 @@
 # AI Shopping Agent 总路线图
 
-> 状态：Foundation Baseline 与 TikTok 真实体验重设计切片均已验证，Phase 1 的真实 LLM、Hybrid Retrieval 与数据扩展仍未完成。本文管理“先验证什么、每阶段交付什么、何时可以进入下一阶段”，不代替实施级任务拆解和测试步骤。
+> 状态：Foundation Baseline、TikTok 真实体验重设计与 Chat-first 轻量导购切片均已验证，Phase 1 的真实 LLM、Hybrid Retrieval 与数据扩展仍未完成。本文管理“先验证什么、每阶段交付什么、何时可以进入下一阶段”，不代替实施级任务拆解和测试步骤。
 
 ## 1. 项目目标与成功定义
 
@@ -73,6 +73,21 @@
 | 生产态响应式 Demo | 8/8 必需旅程；production E2E 28 passed / 10 intentional skips / 0 failed；PDP focus 双 project 6/6；正式图为 390×844、1440×1000、390×844 | [重设计验证记录](./artifacts/evidence/tiktok-redesign-verification.md) |
 
 成熟度只升级为“冻结合成 fixture 上已实现并完成浏览器评测”。浏览器脚本和视觉检查不等于真人可用性研究；入口发现率、理解度、决策负担、转化增量与真实业务价值仍待验证。真实 LLM Shopping Agent、Hybrid RAG、TikTok API、支付和生产可观测也不因 UI 完成而提前升级。
+
+### 2026-08-10 已验证的 Chat-first 轻量导购切片
+
+这次切片不扩大品类、数据或交易终点，而是把默认 65%–75% 的重型决策 Sheet 改为保留视频上下文的渐进式会话。它继续使用 `NavigationState`、可选 `GuideSession` 与 `CommerceOperation` 三控制面，不让 transcript 或历史推荐获得交易权限。
+
+| 已验证子范围 | 产品结论 | 证据 |
+|---|---|---|
+| 约 40% 高度开场、3 个具体问题、自由输入 | 用户先处理一个当前商品问题；短答与澄清不为了展示能力而提前铺开推荐、比较或证据台账 | [开场截图](./artifacts/screenshots/chat-first-opening-mobile.png) · [Chat-first E2E](./apps/web/e2e/chat-first.spec.ts) |
+| 单问题澄清、默认一款首选、显式比较后展开 | 信息量与界面重量随任务增加，比较仍可继续对话，不把一次结果做成终态报告 | [结论截图](./artifacts/screenshots/chat-first-decision-mobile.png) · [验证记录](./artifacts/evidence/chat-first-verification.md#chat-first-browser-journeys) |
+| 服务端有界 transcript 与双 revision | `conversation_revision` 约束消息顺序/恢复；`guide_revision` 只表达偏好、约束或推荐授权语义变化；历史消息只读 | [machine manifest](./artifacts/evidence/chat-first-run-manifest.json) · API/Web 回归 |
+| 关闭重开、AI → PDP → AI、比较恢复 | 浏览器只保存不透明 session id，UI 从服务端权威 snapshot 恢复，不在客户端伪造聊天历史 | [Chat-first E2E](./apps/web/e2e/chat-first.spec.ts) |
+| 安全与原交易链不因减重而弱化 | 安全态移除商业动作；PDP 继续重查 SKU/价格/库存并要求显式确认；价格变化与未知提交仍走 revision/幂等闭环 | [8 条保留交易旅程](./artifacts/evidence/chat-first-verification.md#existing-commerce-journeys-preserved) |
+| 当前 release gate | API 318、Web 280、Foundation eval pytest 15/15、规则 runner 6/6；普通 E2E 39 passed / 31 routed skips，production capture 42 passed / 28 routed skips | [验证记录](./artifacts/evidence/chat-first-verification.md) |
+
+成熟度仍是“冻结合成 fixture 上已实现并在本地 Chromium 评测”。API 进程重启后的持久化、认证、真实 LLM/Hybrid、跨浏览器、真人理解、延迟成本、转化与生产可靠性没有因本切片完成而升级。
 
 ### 要验证的产品假设
 
@@ -179,7 +194,7 @@
 | 护肤建议越过医疗边界 | 用户安全和合规风险 | 明确非诊断边界、风险词路由、规则拒答、公开规则证据与安全回归集 |
 | LLM 编造价格或库存 | 直接损害交易信任 | 结构化事实唯一源、schema 校验、Verifier、超时拒答和加购前二次确认 |
 | Agent 自由度过高 | 难复现、难评测、延迟失控 | 单 Agent + 状态机 + 白名单工具 + 调用预算 + 结构化 trace |
-| UI 只像聊天机器人 | 无法体现内容电商场景价值 | 已完成真实体验纠偏与 8 条浏览器旅程；下一步用真人任务继续验证入口发现、理解和摩擦 |
+| UI 只像聊天机器人或 AI 报告板 | 无法体现内容现场，或用信息密度压垮短视频注意力 | 已完成真实体验纠偏、8 条交易旅程与 Chat-first 渐进披露浏览器契约；下一步用真人任务验证入口发现、理解和摩擦 |
 | 过度模仿 TikTok | 品牌混淆或资产侵权 | 只借鉴交互范式，使用自有视觉资产与概念原型声明 |
 | 只追求离线分数 | 产品价值与体验脱节 | 质量门槛后的有效完成率、任务漏斗和可用性研究共同判断 |
 | 评测 Judge 偏差 | 错误优化方向 | 规则评分优先；LLM Judge 先与人工标注校准并持续抽检 |
@@ -202,6 +217,6 @@
 - “为什么、为谁、取舍、指标与面试表达”由 [知识控制室](../../AI产品经理/项目实战/AI导购Agent/00-项目总控.md) 维护；
 - “代码实际行为、schema、合成数据、prompt、trace 与原始评测结果”由本仓库和 Git 历史维护；
 - 当前执行状态由 [TASKS.md](./TASKS.md) 维护；
-- TikTok 体验纠偏的当前运行事实以 [重设计验证记录](./artifacts/evidence/tiktok-redesign-verification.md) 为准；Foundation 的历史基线仍以 [Foundation verification](./artifacts/evidence/foundation-verification.md) 与 source commit `cd18147f7eb1e309aa6043a1262a28f0c4349b4d` 为准，二者不互相覆盖；
+- Chat-first 当前运行事实以 [Chat-first 验证记录](./artifacts/evidence/chat-first-verification.md) 与 [machine manifest](./artifacts/evidence/chat-first-run-manifest.json) 为准；TikTok 体验纠偏历史事实仍以 [重设计验证记录](./artifacts/evidence/tiktok-redesign-verification.md) 为准；Foundation 历史基线仍以 [Foundation verification](./artifacts/evidence/foundation-verification.md) 与 source commit `cd18147f7eb1e309aa6043a1262a28f0c4349b4d` 为准，三者不互相覆盖；
 - 大体积原始运行产物可留在本地或外部制品存储，但仓库必须提交可复现 manifest、版本/配置指针、校验和、汇总结果和脱敏代表样本；
 - 任何决策只有在实现、测试或评测证据存在后，才可以从“已设计”升级为“已实现”或“已评测”。
