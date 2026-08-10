@@ -152,8 +152,15 @@ const GUIDE_DECISION: GuideTurn = {
   guide_status: "ACTIVE",
   guide_view_kind: "DECISION_READY",
   guide_revision: 4,
+  conversation_revision: 1,
   facts_snapshot_at: "2026-08-05T09:00:00Z",
-  allowed_actions: ["OPEN_PRODUCT", "RETURN_TO_FEED"],
+  allowed_actions: [
+    "SEND_MESSAGE",
+    "UPDATE_CONSTRAINTS",
+    "REQUEST_COMPARISON",
+    "OPEN_PRODUCT",
+    "RETURN_TO_FEED",
+  ],
   degraded: false,
   verdict: "SUITABLE",
   recommendations: [
@@ -178,6 +185,20 @@ const GUIDE_DECISION: GuideTurn = {
       synthetic: false,
       status: "SUPPORTED",
       summary: "Broad-spectrum sunscreen fact snapshot.",
+    },
+  ],
+  transcript: [
+    {
+      id: "gmsg_pdp_recommendation",
+      sequence: 1,
+      role: "ASSISTANT",
+      kind: "RECOMMENDATION",
+      text: "当前商品满足日常通勤条件，进入商品页后仍会复核交易事实。",
+      created_at: "2026-08-05T09:00:00Z",
+      redacted: false,
+      recommendations: [],
+      evidence: [],
+      quick_replies: [],
     },
   ],
 };
@@ -351,6 +372,7 @@ function operationExpectation(operation: CommerceOperation) {
 }
 
 beforeEach(() => {
+  sessionStorage.clear();
   for (const fn of Object.values(api)) fn.mockReset();
   api.getFeed.mockResolvedValue(FEED);
   api.getProduct.mockResolvedValue(PRODUCT);
@@ -376,6 +398,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  sessionStorage.clear();
   vi.restoreAllMocks();
 });
 

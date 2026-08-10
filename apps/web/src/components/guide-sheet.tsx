@@ -40,6 +40,65 @@ const STARTING_QUESTIONS = [
   "帮我找更合适的替代",
 ] as const;
 
+const GUIDE_SESSION_LOCATOR_PREFIX = "ai-shopping-guide-session:";
+
+function sessionLocatorKey(contentContextId: string) {
+  return `${GUIDE_SESSION_LOCATOR_PREFIX}${contentContextId}`;
+}
+
+function readSessionLocator(contentContextId: string) {
+  try {
+    const sessionId = window.sessionStorage.getItem(
+      sessionLocatorKey(contentContextId),
+    );
+    if (sessionId?.trim()) {
+      return sessionId;
+    }
+    window.sessionStorage.removeItem(sessionLocatorKey(contentContextId));
+  } catch {
+    // The in-memory session remains usable when browser storage is unavailable.
+  }
+  return null;
+}
+
+function writeSessionLocator(contentContextId: string, sessionId: string) {
+  try {
+    window.sessionStorage.setItem(
+      sessionLocatorKey(contentContextId),
+      sessionId,
+    );
+  } catch {
+    // The server session is still authoritative; storage is only a locator.
+  }
+}
+
+function clearSessionLocator(contentContextId: string) {
+  try {
+    window.sessionStorage.removeItem(sessionLocatorKey(contentContextId));
+  } catch {
+    // Storage cleanup is best-effort when the browser denies access.
+  }
+}
+
+function isUncertainPostError(error: unknown) {
+  return (
+    error instanceof TypeError ||
+    (error instanceof ApiError &&
+      (error.status >= 500 || error.code === "INVALID_API_RESPONSE"))
+  );
+}
+
+let fallbackRequestSequence = 0;
+
+function createClientRequestId(prefix: "msg" | "cmp", sessionId: string) {
+  const randomId = globalThis.crypto?.randomUUID?.();
+  if (randomId) {
+    return `${prefix}_${randomId}`;
+  }
+  fallbackRequestSequence += 1;
+  return `${prefix}_${sessionId}_${Date.now()}_${fallbackRequestSequence}`;
+}
+
 const claimStatusLabels = {
   SUPPORTED: "有公开依据",
   CONFLICTING: "与来源冲突",
@@ -264,7 +323,6 @@ export function GuideSheet({
   const isOpenRef = useRef(false);
   const openCycleRef = useRef(false);
   const requestVersionRef = useRef(0);
-  const messageSequenceRef = useRef(0);
   const submittingRef = useRef(false);
   const guideFrozenRef = useRef(false);
   const syncRequiredRef = useRef(false);
@@ -303,6 +361,7 @@ export function GuideSheet({
       onVerifiedTurnChange?.(null);
       setLastUsableTurn(null);
       sessionIdRef.current = null;
+      clearSessionLocator(contentContextId);
       submittingRef.current = false;
       requireSync(false, null);
       freezeGuide(false);
@@ -312,7 +371,7 @@ export function GuideSheet({
       setTransientError(null);
       setFatalError(terminalTurn ? null : message);
     },
-    [freezeGuide, onVerifiedTurnChange, requireSync, resetComparison],
+    [contentContextId, freezeGuide, onVerifiedTurnChange, requireSync, resetComparison],
   );
 
   const applyVerifiedTurn = useCallback(
@@ -364,6 +423,7 @@ export function GuideSheet({
       verifiedTurnRef.current = nextTurn;
       onVerifiedTurnChange?.(nextTurn);
       sessionIdRef.current = nextTurn.session_id;
+      writeSessionLocator(contentContextId, nextTurn.session_id);
       comparisonPendingRef.current = false;
       setTurn(nextTurn);
       setComparisonPending(false);
@@ -379,7 +439,7 @@ export function GuideSheet({
         setShowStartingQuestions(false);
       }
     },
-    [enterTerminalState, freezeGuide, onVerifiedTurnChange, requireSync, resetComparison],
+    [contentContextId, enterTerminalState, freezeGuide, onVerifiedTurnChange, requireSync, resetComparison],
   );
 
   const saveScrollPosition = useCallback(() => {
@@ -419,6 +479,7 @@ export function GuideSheet({
     if (lastContextIdRef.current === contentContextId) {
       return;
     }
+    clearSessionLocator(lastContextIdRef.current);
     lastContextIdRef.current = contentContextId;
     setActiveContextId(contentContextId);
     verifiedTurnRef.current = null;
@@ -458,7 +519,9 @@ export function GuideSheet({
     setTransientError(null);
     setFatalError(null);
     const requestVersion = ++requestVersionRef.current;
-    const existingSessionId = sessionIdRef.current;
+    const existingSessionId =
+      sessionIdRef.current ?? readSessionLocator(contentContextId);
+    sessionIdRef.current = existingSessionId;
     if (!verifiedTurnRef.current) {
       setTurn(null);
       setPendingLabel("正在读取当前视频和商品…");
@@ -466,9 +529,28 @@ export function GuideSheet({
       setPendingLabel("正在恢复上次已核验结果…");
     }
 
-    const request = existingSessionId
-      ? getGuideSession(existingSessionId)
-      : createGuideSession(contentContextId, "zh-CN");
+    let createdNewSession = !existingSessionId;
+    const request = (async () => {
+      if (!existingSessionId) {
+        return createGuideSession(contentContextId, "zh-CN");
+      }
+      try {
+        return await getGuideSession(existingSessionId);
+      } catch (error: unknown) {
+        if (!isTerminalSessionError(error)) {
+          throw error;
+        }
+        clearSessionLocator(contentContextId);
+        sessionIdRef.current = null;
+        verifiedTurnRef.current = null;
+        onVerifiedTurnChange?.(null);
+        setLastUsableTurn(null);
+        requireSync(false, null);
+        resetComparison();
+        createdNewSession = true;
+        return createGuideSession(contentContextId, "zh-CN");
+      }
+    })();
     void request
       .then((nextTurn) => {
         if (
@@ -476,7 +558,7 @@ export function GuideSheet({
           isOpenRef.current &&
           requestVersionRef.current === requestVersion
         ) {
-          applyVerifiedTurn(nextTurn, !existingSessionId);
+          applyVerifiedTurn(nextTurn, createdNewSession);
         }
       })
       .catch((error: unknown) => {
@@ -514,8 +596,10 @@ export function GuideSheet({
     contentContextId,
     enterTerminalState,
     freezeGuide,
+    onVerifiedTurnChange,
     open,
     requireSync,
+    resetComparison,
   ]);
 
   useEffect(() => {
@@ -578,7 +662,8 @@ export function GuideSheet({
       requireSync(false, null);
       setPendingLabel("正在核验商品事实与视频说法…");
       const requestVersion = ++requestVersionRef.current;
-      const messageId = `msg_${currentTurn.session_id}_${++messageSequenceRef.current}`;
+      const messageId = createClientRequestId("msg", currentTurn.session_id);
+      const expectedConversationRevision = currentTurn.conversation_revision;
       const isCurrentRequest = () =>
         mountedRef.current &&
         isOpenRef.current &&
@@ -586,16 +671,41 @@ export function GuideSheet({
 
       void (async () => {
         try {
-          const nextTurn = await sendGuideMessage(
-            currentTurn.session_id,
-            messageId,
-            text,
-          );
-          if (isCurrentRequest()) {
-            setInput("");
-            applyVerifiedTurn(nextTurn);
+          try {
+            let nextTurn: GuideTurn;
+            try {
+              nextTurn = await sendGuideMessage(
+                currentTurn.session_id,
+                messageId,
+                text,
+                expectedConversationRevision,
+              );
+            } catch (error: unknown) {
+              if (!isUncertainPostError(error)) {
+                throw error;
+              }
+              nextTurn = await sendGuideMessage(
+                currentTurn.session_id,
+                messageId,
+                text,
+                expectedConversationRevision,
+              );
+            }
+            if (isCurrentRequest()) {
+              setInput("");
+              applyVerifiedTurn(nextTurn);
+            }
+            return;
+          } catch (error: unknown) {
+            if (isTerminalSessionError(error)) {
+              if (isCurrentRequest()) {
+                enterTerminalState(
+                  "导购会话已失效，请关闭后重新打开以建立新会话。",
+                );
+              }
+              return;
+            }
           }
-        } catch {
           if (!isCurrentRequest()) {
             return;
           }
@@ -751,6 +861,8 @@ export function GuideSheet({
     requireSync(false, comparisonExpectation);
     const version = ++comparisonVersionRef.current;
     const productIds = [...selectedProductIds];
+    const requestId = createClientRequestId("cmp", sessionId);
+    const expectedConversationRevision = currentTurn.conversation_revision;
     const isCurrentComparison = () =>
       mountedRef.current &&
       isOpenRef.current &&
@@ -759,10 +871,31 @@ export function GuideSheet({
 
     void (async () => {
       try {
+        let postError: unknown = null;
         try {
-          await compareProducts(sessionId, productIds);
+          try {
+            await compareProducts(
+              sessionId,
+              requestId,
+              productIds,
+              expectedConversationRevision,
+            );
+          } catch (error: unknown) {
+            if (!isUncertainPostError(error)) {
+              throw error;
+            }
+            await compareProducts(
+              sessionId,
+              requestId,
+              productIds,
+              expectedConversationRevision,
+            );
+          }
         } catch (error: unknown) {
-          if (isMissingGuideSessionError(error)) {
+          postError = error;
+        }
+        if (postError !== null) {
+          if (isMissingGuideSessionError(postError)) {
             if (
               syncExpectationRef.current === comparisonExpectation &&
               sessionIdRef.current === sessionId &&
@@ -774,7 +907,7 @@ export function GuideSheet({
             }
             return;
           }
-          if (isDefinitiveCompareInputRejection(error)) {
+          if (isDefinitiveCompareInputRejection(postError)) {
             if (syncExpectationRef.current === comparisonExpectation) {
               syncExpectationRef.current = null;
             }
@@ -789,7 +922,7 @@ export function GuideSheet({
             return;
           }
           if (
-            isExplicitCompareStateConflict(error) &&
+            isExplicitCompareStateConflict(postError) &&
             syncExpectationRef.current === comparisonExpectation &&
             sessionIdRef.current === sessionId &&
             lastContextIdRef.current === contentContextId
@@ -932,6 +1065,7 @@ export function GuideSheet({
     requireSync(false, null);
     resetComparison();
     sessionIdRef.current = null;
+    clearSessionLocator(contentContextId);
     verifiedTurnRef.current = null;
     onVerifiedTurnChange?.(null);
     setPendingLabel("正在建立新的安全导购会话…");

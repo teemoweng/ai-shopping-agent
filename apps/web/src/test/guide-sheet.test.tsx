@@ -155,9 +155,11 @@ const recommendations: Recommendation[] = [
 ];
 
 const actionsByView: Record<GuideViewKind, GuideAction[]> = {
-  OPENING_CONTEXT: ["RETURN_TO_FEED"],
-  CONTEXT_CONFIRMATION: ["CONFIRM_CONTEXT", "RETURN_TO_FEED"],
+  OPENING_CONTEXT: ["SEND_MESSAGE", "RETURN_TO_FEED"],
+  ANSWER_READY: ["SEND_MESSAGE", "RETURN_TO_FEED"],
+  CONTEXT_CONFIRMATION: ["SEND_MESSAGE", "CONFIRM_CONTEXT", "RETURN_TO_FEED"],
   WAITING_CLARIFICATION: [
+    "SEND_MESSAGE",
     "ANSWER_CLARIFICATION",
     "SKIP_CLARIFICATION",
     "UPDATE_CONSTRAINTS",
@@ -165,18 +167,20 @@ const actionsByView: Record<GuideViewKind, GuideAction[]> = {
   ],
   VERIFYING_FACTS: ["RETURN_TO_FEED"],
   DECISION_READY: [
+    "SEND_MESSAGE",
     "UPDATE_CONSTRAINTS",
     "REQUEST_COMPARISON",
     "OPEN_PRODUCT",
     "RETURN_TO_FEED",
   ],
-  NO_MATCH: ["RELAX_CONSTRAINT", "RETURN_TO_FEED"],
+  NO_MATCH: ["SEND_MESSAGE", "RELAX_CONSTRAINT", "RETURN_TO_FEED"],
   INSUFFICIENT_EVIDENCE: [
+    "SEND_MESSAGE",
     "OPEN_PRODUCT",
     "CONTINUE_WITH_KNOWN",
     "RETURN_TO_FEED",
   ],
-  COMPARISON_READY: ["OPEN_PRODUCT", "RETURN_TO_FEED"],
+  COMPARISON_READY: ["SEND_MESSAGE", "OPEN_PRODUCT", "RETURN_TO_FEED"],
   SAFE_BOUNDARY: ["RETURN_TO_FEED"],
   RECOVERY_REQUIRED: ["RETRY_GUIDE_OPERATION", "RETURN_TO_FEED"],
   FATAL_ERROR: ["RETURN_TO_FEED"],
@@ -221,6 +225,7 @@ function turnFor(
     guide_status: isSafe ? "SAFE_EXIT" : guideViewKind === "FATAL_ERROR" ? "FAILED" : isClarification ? "WAITING_USER" : "ACTIVE",
     guide_view_kind: guideViewKind,
     guide_revision: 1,
+    conversation_revision: 1,
     facts_snapshot_at: "2026-08-05T00:00:00Z",
     allowed_actions: actionsByView[guideViewKind],
     degraded: false,
@@ -244,6 +249,7 @@ const clarificationTurn = turnFor("WAITING_CLARIFICATION", {
 
 const recommendationTurn = turnFor("DECISION_READY", {
   guide_revision: 2,
+  conversation_revision: 2,
   text: "这些商品满足你明确条件。第一款最接近你的偏好，请选择前查看取舍。",
 });
 
@@ -263,6 +269,7 @@ const comparison: CompareResponse = {
 
 const comparisonReadyTurn = turnFor("COMPARISON_READY", {
   guide_revision: 3,
+  conversation_revision: 3,
   comparison,
 });
 
@@ -309,6 +316,7 @@ async function selectFirstTwoCandidates(
 }
 
 beforeEach(() => {
+  sessionStorage.clear();
   for (const client of [
     api.compareProducts,
     api.createGuideSession,
@@ -325,6 +333,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  sessionStorage.clear();
   document.body.style.overflow = "";
 });
 
@@ -402,6 +411,7 @@ it("reveals exactly one fixed clarification with four choices and sends skip exp
     "ses_guide_1",
     expect.stringMatching(/^msg_/),
     "跳过",
+    1,
   );
 });
 
@@ -425,6 +435,7 @@ it("submits free Chinese constraints, shows verified progress, and blocks duplic
     "ses_guide_1",
     expect.stringMatching(/^msg_/),
     "油敏皮、深肤色，预算 30 美元以内",
+    1,
   );
   expect(screen.getByRole("status")).toHaveTextContent(
     "正在核验商品事实与视频说法",
@@ -445,6 +456,9 @@ it("reconciles a failed message POST before re-enabling the previous business ac
   await user.click(screen.getByRole("button", { name: "视频里的说法可信吗？" }));
   await screen.findByRole("heading", { name: "适合" });
 
+  api.sendGuideMessage.mockRejectedValueOnce(
+    new ApiError(503, "TEMPORARY_UNAVAILABLE"),
+  );
   api.sendGuideMessage.mockRejectedValueOnce(
     new ApiError(503, "TEMPORARY_UNAVAILABLE"),
   );
@@ -483,6 +497,9 @@ it("reconciles a failed message POST before re-enabling the previous business ac
 
 it("keeps the last verified result read-only when reconciliation fails and retries the snapshot", async () => {
   const user = await reachRecommendations();
+  api.sendGuideMessage.mockRejectedValueOnce(
+    new ApiError(503, "TEMPORARY_UNAVAILABLE"),
+  );
   api.sendGuideMessage.mockRejectedValueOnce(
     new ApiError(503, "TEMPORARY_UNAVAILABLE"),
   );
@@ -579,10 +596,12 @@ it("applies only the authoritative Guide snapshot after a successful comparison"
   await user.click(screen.getByRole("checkbox", { name: "比较 Cloud Veil Mineral SPF" }));
   await user.click(screen.getByRole("button", { name: "比较已选 2 款" }));
 
-  expect(api.compareProducts).toHaveBeenCalledWith("ses_guide_1", [
-    "seoul-shade-daily-fluid",
-    "cloud-veil-mineral",
-  ]);
+  expect(api.compareProducts).toHaveBeenCalledWith(
+    "ses_guide_1",
+    expect.stringMatching(/^cmp_/),
+    ["seoul-shade-daily-fluid", "cloud-veil-mineral"],
+    2,
+  );
   await waitFor(() =>
     expect(api.getGuideSession).toHaveBeenCalledWith("ses_guide_1"),
   );
@@ -733,7 +752,8 @@ it("renders a three-product comparison in the selected order", async () => {
 it.each([
   new ApiError(503, "UNKNOWN_POST_RESULT"),
   new ApiError(200, "INVALID_API_RESPONSE"),
-])("recovers an unknown comparison POST outcome through GET without issuing a second compare: %s", async (postError) => {
+])("retries an unknown comparison POST once, then recovers through GET: %s", async (postError) => {
+  api.compareProducts.mockRejectedValueOnce(postError);
   api.compareProducts.mockRejectedValueOnce(postError);
   api.getGuideSession.mockResolvedValueOnce(comparisonReadyTurn);
   const user = await reachRecommendations();
@@ -741,7 +761,7 @@ it.each([
   await user.click(screen.getByRole("button", { name: "比较已选 2 款" }));
 
   expect(await screen.findByRole("table", { name: "商品对比" })).toBeVisible();
-  expect(api.compareProducts).toHaveBeenCalledOnce();
+  expect(api.compareProducts).toHaveBeenCalledTimes(2);
   expect(api.getGuideSession).toHaveBeenCalledOnce();
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });
@@ -1279,6 +1299,9 @@ it("clears the active turn when message reconciliation proves the session is gon
   api.sendGuideMessage.mockRejectedValueOnce(
     new ApiError(503, "UNKNOWN_POST_RESULT"),
   );
+  api.sendGuideMessage.mockRejectedValueOnce(
+    new ApiError(503, "UNKNOWN_POST_RESULT"),
+  );
   api.getGuideSession.mockRejectedValueOnce(error);
   await user.type(screen.getByLabelText("补充你的条件"), "更新条件");
   await user.click(screen.getByRole("button", { name: "发送" }));
@@ -1291,6 +1314,9 @@ it("clears the active turn when message reconciliation proves the session is gon
 
 it("keeps a verified turn frozen after an invalid message reconciliation GET and accepts the next valid GET", async () => {
   const user = await reachRecommendations();
+  api.sendGuideMessage.mockRejectedValueOnce(
+    new ApiError(503, "UNKNOWN_POST_RESULT"),
+  );
   api.sendGuideMessage.mockRejectedValueOnce(
     new ApiError(503, "UNKNOWN_POST_RESULT"),
   );
@@ -1614,9 +1640,15 @@ describe("sheet lifecycle and snapshot continuity", () => {
   });
 
   it(
-    "clears a comparison expectation when reopen reconciliation proves the session is gone",
+    "clears a stale comparison locator and creates a new session on reopen",
     async () => {
       const error = new ApiError(404, "SESSION_NOT_FOUND");
+      api.createGuideSession
+        .mockResolvedValueOnce(clarificationTurn)
+        .mockResolvedValueOnce({
+          ...clarificationTurn,
+          session_id: "ses_after_stale_locator",
+        });
       api.getGuideSession
         .mockRejectedValueOnce(new ApiError(503, "TEMPORARY_UNAVAILABLE"))
         .mockRejectedValueOnce(error);
@@ -1636,11 +1668,17 @@ describe("sheet lifecycle and snapshot continuity", () => {
       await user.click(screen.getByRole("button", { name: "问 AI" }));
 
       expect(
-        await screen.findByRole("heading", { name: "导购暂时不可用" }),
+        await screen.findByRole("button", { name: "这款适合我吗？" }),
       ).toBeVisible();
       expect(screen.queryByRole("heading", { name: "适合" })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "重新同步" })).not.toBeInTheDocument();
       expect(api.compareProducts).toHaveBeenCalledOnce();
+      expect(api.createGuideSession).toHaveBeenCalledTimes(2);
+      expect(
+        sessionStorage.getItem(
+          "ai-shopping-guide-session:morning-routine-uv-001",
+        ),
+      ).toBe("ses_after_stale_locator");
     },
   );
 
@@ -1837,6 +1875,151 @@ describe("sheet lifecycle and snapshot continuity", () => {
 
     expect(await screen.findByRole("heading", { name: "适合" })).toBeVisible();
     expect(api.createGuideSession).toHaveBeenCalledTimes(1);
+    expect(api.getGuideSession).toHaveBeenCalledWith("ses_guide_1");
+  });
+});
+
+describe("authoritative session locator and request recovery", () => {
+  const locatorKey =
+    "ai-shopping-guide-session:morning-routine-uv-001";
+
+  it("stores only the opaque server session ID under the content locator", async () => {
+    render(<GuideSheet open onClose={vi.fn()} />);
+
+    await screen.findByRole("button", { name: "这款适合我吗？" });
+
+    expect(Object.keys(sessionStorage)).toEqual([locatorKey]);
+    expect(sessionStorage.getItem(locatorKey)).toBe("ses_guide_1");
+  });
+
+  it("restores a locator-backed transcript after a component reload without creating", async () => {
+    const first = render(<GuideSheet open onClose={vi.fn()} />);
+    await screen.findByRole("button", { name: "这款适合我吗？" });
+    first.unmount();
+
+    api.getGuideSession.mockResolvedValueOnce(
+      turnFor("DECISION_READY", {
+        conversation_revision: 2,
+        text: "已从服务端恢复完整会话",
+      }),
+    );
+    render(<GuideSheet open onClose={vi.fn()} />);
+
+    expect(await screen.findByText("已从服务端恢复完整会话")).toBeVisible();
+    expect(api.createGuideSession).toHaveBeenCalledTimes(1);
+    expect(api.getGuideSession).toHaveBeenCalledWith("ses_guide_1");
+  });
+
+  it("clears a stale locator before creating after a locator GET returns 404", async () => {
+    sessionStorage.setItem(locatorKey, "ses_stale");
+    api.getGuideSession.mockRejectedValueOnce(
+      new ApiError(404, "SESSION_NOT_FOUND"),
+    );
+    api.createGuideSession.mockImplementationOnce(async () => {
+      expect(sessionStorage.getItem(locatorKey)).toBeNull();
+      return {
+        ...clarificationTurn,
+        session_id: "ses_recreated",
+      };
+    });
+
+    render(<GuideSheet open onClose={vi.fn()} />);
+
+    await screen.findByRole("button", { name: "这款适合我吗？" });
+    expect(api.getGuideSession).toHaveBeenCalledWith("ses_stale");
+    expect(api.createGuideSession).toHaveBeenCalledOnce();
+    expect(sessionStorage.getItem(locatorKey)).toBe("ses_recreated");
+  });
+
+  it("isolates locators when the content context changes", async () => {
+    const contextB = {
+      ...context,
+      id: "night-routine-uv-002",
+      anchor_product_id: "cloud-veil-mineral",
+      anchor_product_name: "Cloud Veil Mineral SPF",
+      caption: "A mineral sunscreen for the next video",
+    };
+    api.createGuideSession
+      .mockResolvedValueOnce(clarificationTurn)
+      .mockResolvedValueOnce(
+        turnFor("WAITING_CLARIFICATION", {
+          session_id: "ses_context_b",
+          context: contextB,
+        }),
+      );
+    const { rerender } = render(
+      <GuideSheet
+        open
+        onClose={vi.fn()}
+        contentContextId="morning-routine-uv-001"
+      />,
+    );
+    await screen.findByRole("button", { name: "这款适合我吗？" });
+    expect(sessionStorage.getItem(locatorKey)).toBe("ses_guide_1");
+
+    rerender(
+      <GuideSheet
+        open
+        onClose={vi.fn()}
+        contentContextId="night-routine-uv-002"
+      />,
+    );
+
+    await screen.findByText("Cloud Veil Mineral SPF");
+    expect(sessionStorage.getItem(locatorKey)).toBeNull();
+    expect(
+      sessionStorage.getItem(
+        "ai-shopping-guide-session:night-routine-uv-002",
+      ),
+    ).toBe("ses_context_b");
+  });
+
+  it("retries an uncertain message POST once with one stable ID and revision before GET", async () => {
+    api.sendGuideMessage.mockRejectedValueOnce(new TypeError("network lost"));
+    api.sendGuideMessage.mockRejectedValueOnce(new TypeError("network lost"));
+    api.getGuideSession.mockResolvedValueOnce(recommendationTurn);
+    const user = userEvent.setup();
+    render(<GuideSheet open onClose={vi.fn()} />);
+    await screen.findByRole("button", {
+      name: "视频里的说法可信吗？",
+    });
+
+    await user.click(
+      screen.getByRole("button", { name: "视频里的说法可信吗？" }),
+    );
+    await screen.findByRole("heading", { name: "适合" });
+
+    expect(api.sendGuideMessage).toHaveBeenCalledTimes(2);
+    const firstCall = api.sendGuideMessage.mock.calls[0];
+    expect(firstCall).toEqual([
+      "ses_guide_1",
+      expect.stringMatching(/^msg_/),
+      "视频里的说法可信吗？",
+      1,
+    ]);
+    expect(api.sendGuideMessage.mock.calls[1]).toEqual(firstCall);
+    expect(api.getGuideSession).toHaveBeenCalledWith("ses_guide_1");
+  });
+
+  it("retries an uncertain comparison POST once with one stable ID and revision before GET", async () => {
+    api.compareProducts.mockRejectedValueOnce(new TypeError("network lost"));
+    api.compareProducts.mockRejectedValueOnce(new TypeError("network lost"));
+    api.getGuideSession.mockResolvedValueOnce(comparisonReadyTurn);
+    const user = await reachRecommendations();
+    await selectFirstTwoCandidates(user);
+
+    await user.click(screen.getByRole("button", { name: "比较已选 2 款" }));
+    await screen.findByRole("table", { name: "商品对比" });
+
+    expect(api.compareProducts).toHaveBeenCalledTimes(2);
+    const firstCall = api.compareProducts.mock.calls[0];
+    expect(firstCall).toEqual([
+      "ses_guide_1",
+      expect.stringMatching(/^cmp_/),
+      ["seoul-shade-daily-fluid", "cloud-veil-mineral"],
+      2,
+    ]);
+    expect(api.compareProducts.mock.calls[1]).toEqual(firstCall);
     expect(api.getGuideSession).toHaveBeenCalledWith("ses_guide_1");
   });
 });

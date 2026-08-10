@@ -34,14 +34,30 @@ const comparisonReadyTurn = {
   guide_status: "ACTIVE",
   guide_view_kind: "COMPARISON_READY",
   guide_revision: 2,
+  conversation_revision: 2,
   facts_snapshot_at: "2026-08-05T12:00:00Z",
-  allowed_actions: ["OPEN_PRODUCT", "RETURN_TO_FEED"],
+  allowed_actions: ["SEND_MESSAGE", "OPEN_PRODUCT", "RETURN_TO_FEED"],
   degraded: false,
   verdict: "SUITABLE",
   recommendations: [],
   evidence: [],
   quick_replies: [],
   comparison,
+  transcript: [
+    {
+      id: "gmsg_comparison",
+      sequence: 1,
+      role: "ASSISTANT",
+      kind: "COMPARISON",
+      text: "已生成 2 款商品的结构化比较。",
+      created_at: "2026-08-05T12:00:00Z",
+      redacted: false,
+      quick_replies: [],
+      recommendations: [],
+      evidence: [],
+      comparison,
+    },
+  ],
 };
 
 describe("Guide comparison snapshot validation", () => {

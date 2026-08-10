@@ -6,6 +6,12 @@ type GuideTurnResponse = components["schemas"]["GuideTurnResponse"];
 type GuideKind = GuideTurnResponse["kind"];
 type GuideAction = components["schemas"]["GuideAction"];
 type GuideViewKind = components["schemas"]["GuideViewKind"];
+type GuideTranscriptMessage = components["schemas"]["GuideTranscriptMessage"];
+type GuideTranscriptKind = components["schemas"]["GuideTranscriptKind"];
+type GuideTranscriptRole = components["schemas"]["GuideTranscriptRole"];
+type RecommendationCard = components["schemas"]["RecommendationCard"];
+type EvidenceReference = components["schemas"]["EvidenceReference"];
+type Verdict = components["schemas"]["Verdict"];
 type CommerceOperationResponse =
   components["schemas"]["CommerceOperationResponse"];
 type CommerceAction = components["schemas"]["CommerceAction"];
@@ -194,6 +200,7 @@ function hasOnlyKnownActions<T extends string>(
 }
 
 const guideActions = new Set<GuideAction>([
+  "SEND_MESSAGE",
   "CONFIRM_CONTEXT",
   "ANSWER_CLARIFICATION",
   "SKIP_CLARIFICATION",
@@ -207,9 +214,15 @@ const guideActions = new Set<GuideAction>([
 ]);
 
 const guideActionsByView: Record<GuideViewKind, readonly GuideAction[]> = {
-  OPENING_CONTEXT: ["RETURN_TO_FEED"],
-  CONTEXT_CONFIRMATION: ["CONFIRM_CONTEXT", "RETURN_TO_FEED"],
+  OPENING_CONTEXT: ["SEND_MESSAGE", "RETURN_TO_FEED"],
+  ANSWER_READY: ["SEND_MESSAGE", "RETURN_TO_FEED"],
+  CONTEXT_CONFIRMATION: [
+    "SEND_MESSAGE",
+    "CONFIRM_CONTEXT",
+    "RETURN_TO_FEED",
+  ],
   WAITING_CLARIFICATION: [
+    "SEND_MESSAGE",
     "ANSWER_CLARIFICATION",
     "SKIP_CLARIFICATION",
     "UPDATE_CONSTRAINTS",
@@ -217,18 +230,20 @@ const guideActionsByView: Record<GuideViewKind, readonly GuideAction[]> = {
   ],
   VERIFYING_FACTS: ["RETURN_TO_FEED"],
   DECISION_READY: [
+    "SEND_MESSAGE",
     "UPDATE_CONSTRAINTS",
     "REQUEST_COMPARISON",
     "OPEN_PRODUCT",
     "RETURN_TO_FEED",
   ],
-  NO_MATCH: ["RELAX_CONSTRAINT", "RETURN_TO_FEED"],
+  NO_MATCH: ["SEND_MESSAGE", "RELAX_CONSTRAINT", "RETURN_TO_FEED"],
   INSUFFICIENT_EVIDENCE: [
+    "SEND_MESSAGE",
     "OPEN_PRODUCT",
     "CONTINUE_WITH_KNOWN",
     "RETURN_TO_FEED",
   ],
-  COMPARISON_READY: ["OPEN_PRODUCT", "RETURN_TO_FEED"],
+  COMPARISON_READY: ["SEND_MESSAGE", "OPEN_PRODUCT", "RETURN_TO_FEED"],
   SAFE_BOUNDARY: ["RETURN_TO_FEED"],
   RECOVERY_REQUIRED: ["RETRY_GUIDE_OPERATION", "RETURN_TO_FEED"],
   FATAL_ERROR: ["RETURN_TO_FEED"],
@@ -256,6 +271,7 @@ const workflowStates = new Set<WorkflowState>([
 const guideKinds = new Set<GuideKind>([
   "opening",
   "clarification",
+  "answer",
   "recommendation",
   "no_match",
   "safety_boundary",
@@ -318,6 +334,39 @@ const commerceStatusByView: Record<CommerceStep, CommerceOperationStatus> = {
 };
 
 const guideViewKinds = new Set<GuideViewKind>(Object.keys(guideActionsByView) as GuideViewKind[]);
+
+const transcriptRoles = new Set<GuideTranscriptRole>(["USER", "ASSISTANT"]);
+const transcriptKinds = new Set<GuideTranscriptKind>([
+  "OPENING",
+  "USER_TEXT",
+  "QUESTION",
+  "ANSWER",
+  "RECOMMENDATION",
+  "COMPARISON",
+  "NO_MATCH",
+  "SAFETY",
+  "RECOVERY",
+]);
+const verdicts = new Set<Verdict>([
+  "SUITABLE",
+  "CONDITIONAL",
+  "NOT_RECOMMENDED",
+  "INSUFFICIENT_EVIDENCE",
+]);
+
+const transcriptViewsByKind: Record<
+  Exclude<GuideTranscriptKind, "USER_TEXT">,
+  readonly GuideViewKind[]
+> = {
+  OPENING: ["OPENING_CONTEXT"],
+  QUESTION: ["CONTEXT_CONFIRMATION", "WAITING_CLARIFICATION"],
+  ANSWER: ["ANSWER_READY"],
+  RECOMMENDATION: ["DECISION_READY", "INSUFFICIENT_EVIDENCE"],
+  COMPARISON: ["COMPARISON_READY"],
+  NO_MATCH: ["NO_MATCH"],
+  SAFETY: ["SAFE_BOUNDARY"],
+  RECOVERY: ["RECOVERY_REQUIRED"],
+};
 const commerceSteps = new Set<CommerceStep>(Object.keys(commerceActionsByView) as CommerceStep[]);
 
 function hasValidGuideContext(value: unknown): value is ContentContextSummary {
@@ -340,6 +389,187 @@ function hasValidGuideContext(value: unknown): value is ContentContextSummary {
   );
 }
 
+function hasExactGuideActions(
+  actual: GuideAction[],
+  expected: readonly GuideAction[],
+) {
+  return (
+    actual.length === expected.length &&
+    actual.every((action, index) => action === expected[index])
+  );
+}
+
+function hasValidEvidenceReference(value: unknown): value is EvidenceReference {
+  return (
+    isRecord(value) &&
+    isNonBlankString(value.evidence_id) &&
+    (value.source_kind === "public_rule" ||
+      value.source_kind === "synthetic_review_aggregate") &&
+    evidenceStatuses.has(value.status as EvidenceStatus) &&
+    typeof value.synthetic === "boolean" &&
+    isNonBlankString(value.title) &&
+    isNonBlankString(value.summary) &&
+    isNonBlankString(value.url)
+  );
+}
+
+function hasValidRecommendation(value: unknown): value is RecommendationCard {
+  return (
+    isRecord(value) &&
+    isNonBlankString(value.product_id) &&
+    isNonBlankString(value.brand) &&
+    isNonBlankString(value.name) &&
+    verdicts.has(value.verdict as Verdict) &&
+    isFiniteNonNegativeNumber(value.starting_price_usd) &&
+    isNonBlankStringArray(value.fit_reasons) &&
+    isNonBlankStringArray(value.tradeoffs) &&
+    isNonBlankStringArray(value.evidence_ids) &&
+    isNonBlankStringArray(value.eligible_sku_ids)
+  );
+}
+
+function hasValidOptionalArray(
+  value: unknown,
+  predicate: (item: unknown) => boolean,
+) {
+  return value === undefined || (Array.isArray(value) && value.every(predicate));
+}
+
+function hasTranscriptAttachments(message: Record<string, unknown>) {
+  return (
+    (Array.isArray(message.quick_replies) && message.quick_replies.length > 0) ||
+    (message.verdict !== undefined && message.verdict !== null) ||
+    (Array.isArray(message.recommendations) &&
+      message.recommendations.length > 0) ||
+    (Array.isArray(message.evidence) && message.evidence.length > 0) ||
+    (message.comparison !== undefined && message.comparison !== null)
+  );
+}
+
+function sameComparison(left: CompareResponse, right: CompareResponse) {
+  return (
+    left.session_id === right.session_id &&
+    left.state === right.state &&
+    left.simulated === right.simulated &&
+    left.product_ids.length === right.product_ids.length &&
+    left.product_ids.every((id, index) => id === right.product_ids[index]) &&
+    comparisonRowKeys.every((key) => {
+      const leftValues = left.rows[key];
+      const rightValues = right.rows[key];
+      return (
+        leftValues.length === rightValues.length &&
+        leftValues.every((item, index) => Object.is(item, rightValues[index]))
+      );
+    })
+  );
+}
+
+export function validateGuideTranscript(
+  value: unknown,
+  expectedSessionId: string,
+  expectedView: GuideViewKind,
+  conversationRevision: number,
+  topLevelComparison?: CompareResponse | null,
+): GuideTranscriptMessage[] | null {
+  if (!Array.isArray(value) || value.length === 0) {
+    return null;
+  }
+
+  const ids = new Set<string>();
+  const sequences = new Set<number>();
+  let previousSequence = 0;
+  let processedConversationActions = 0;
+  const transcript: GuideTranscriptMessage[] = [];
+
+  for (const item of value) {
+    if (
+      !isRecord(item) ||
+      !isNonBlankString(item.id) ||
+      ids.has(item.id) ||
+      !isPositiveInteger(item.sequence) ||
+      sequences.has(item.sequence) ||
+      item.sequence <= previousSequence ||
+      !transcriptRoles.has(item.role as GuideTranscriptRole) ||
+      !transcriptKinds.has(item.kind as GuideTranscriptKind) ||
+      !isNonBlankString(item.text) ||
+      !isTimestamp(item.created_at) ||
+      typeof item.redacted !== "boolean" ||
+      !hasValidOptionalArray(item.quick_replies, isNonBlankString) ||
+      !hasValidOptionalArray(item.recommendations, hasValidRecommendation) ||
+      !hasValidOptionalArray(item.evidence, hasValidEvidenceReference) ||
+      !(
+        item.verdict === undefined ||
+        item.verdict === null ||
+        verdicts.has(item.verdict as Verdict)
+      )
+    ) {
+      return null;
+    }
+
+    const role = item.role as GuideTranscriptRole;
+    const kind = item.kind as GuideTranscriptKind;
+    if (
+      (role === "USER" &&
+        (kind !== "USER_TEXT" || hasTranscriptAttachments(item))) ||
+      (role === "ASSISTANT" && kind === "USER_TEXT")
+    ) {
+      return null;
+    }
+
+    const isComparison = kind === "COMPARISON";
+    const hasComparison = item.comparison !== undefined && item.comparison !== null;
+    if (isComparison !== hasComparison) {
+      return null;
+    }
+    if (hasComparison) {
+      if (
+        !isRecord(item.comparison) ||
+        !Array.isArray(item.comparison.product_ids) ||
+        validateComparisonResponse(
+          item.comparison,
+          expectedSessionId,
+          item.comparison.product_ids as string[],
+        ) === null
+      ) {
+        return null;
+      }
+      processedConversationActions += 1;
+    }
+    if (role === "USER") {
+      processedConversationActions += 1;
+    }
+
+    ids.add(item.id);
+    sequences.add(item.sequence);
+    previousSequence = item.sequence;
+    transcript.push(item as GuideTranscriptMessage);
+  }
+
+  const lastMessage = transcript.at(-1);
+  if (
+    !lastMessage ||
+    lastMessage.role !== "ASSISTANT" ||
+    lastMessage.kind === "USER_TEXT" ||
+    !transcriptViewsByKind[lastMessage.kind].includes(expectedView) ||
+    conversationRevision !== processedConversationActions + 1
+  ) {
+    return null;
+  }
+
+  const transcriptComparison = lastMessage.comparison ?? null;
+  if (
+    expectedView === "COMPARISON_READY"
+      ? !topLevelComparison ||
+        !transcriptComparison ||
+        !sameComparison(topLevelComparison, transcriptComparison)
+      : transcriptComparison !== null || topLevelComparison != null
+  ) {
+    return null;
+  }
+
+  return transcript;
+}
+
 export function validateGuideTurnResponse(value: unknown): GuideTurnResponse | null {
   if (
     !isRecord(value) ||
@@ -351,25 +581,32 @@ export function validateGuideTurnResponse(value: unknown): GuideTurnResponse | n
     !guideKinds.has(value.kind as GuideKind) ||
     !isNonBlankString(value.text) ||
     !isPositiveInteger(value.guide_revision) ||
+    !isPositiveInteger(value.conversation_revision) ||
     !isTimestamp(value.facts_snapshot_at) ||
     !hasValidGuideContext(value.context) ||
     !guideViewKinds.has(value.guide_view_kind as GuideViewKind) ||
-    !hasOnlyKnownActions(value.allowed_actions, guideActions)
+    !hasOnlyKnownActions(value.allowed_actions, guideActions) ||
+    typeof value.degraded !== "boolean" ||
+    !hasValidOptionalArray(value.quick_replies, isNonBlankString) ||
+    !hasValidOptionalArray(value.recommendations, hasValidRecommendation) ||
+    !hasValidOptionalArray(value.evidence, hasValidEvidenceReference) ||
+    !(
+      value.verdict === undefined ||
+      value.verdict === null ||
+      verdicts.has(value.verdict as Verdict)
+    )
   ) {
     return null;
   }
 
   const allowedForView = guideActionsByView[value.guide_view_kind as GuideViewKind];
-  if (!value.allowed_actions.every((action) => allowedForView.includes(action))) {
+  if (!hasExactGuideActions(value.allowed_actions, allowedForView)) {
     return null;
   }
   const isComparisonReady = value.guide_view_kind === "COMPARISON_READY";
   if (isComparisonReady) {
     if (
       value.state !== "COMPARE" ||
-      value.allowed_actions.length !== 2 ||
-      value.allowed_actions[0] !== "OPEN_PRODUCT" ||
-      value.allowed_actions[1] !== "RETURN_TO_FEED" ||
       !isRecord(value.comparison) ||
       !Array.isArray(value.comparison.product_ids) ||
       validateComparisonResponse(
@@ -381,6 +618,17 @@ export function validateGuideTurnResponse(value: unknown): GuideTurnResponse | n
       return null;
     }
   } else if (value.comparison !== undefined && value.comparison !== null) {
+    return null;
+  }
+  if (
+    validateGuideTranscript(
+      value.transcript,
+      value.session_id,
+      value.guide_view_kind as GuideViewKind,
+      value.conversation_revision,
+      (value.comparison as CompareResponse | null | undefined) ?? null,
+    ) === null
+  ) {
     return null;
   }
   return value as GuideTurnResponse;

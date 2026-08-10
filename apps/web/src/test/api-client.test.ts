@@ -44,9 +44,30 @@ const guideTurn = {
   guide_status: "WAITING_USER",
   guide_view_kind: "WAITING_CLARIFICATION",
   guide_revision: 1,
+  conversation_revision: 1,
   facts_snapshot_at: "2026-08-05T00:00:00Z",
-  allowed_actions: ["ANSWER_CLARIFICATION", "RETURN_TO_FEED"],
+  allowed_actions: [
+    "SEND_MESSAGE",
+    "ANSWER_CLARIFICATION",
+    "SKIP_CLARIFICATION",
+    "UPDATE_CONSTRAINTS",
+    "RETURN_TO_FEED",
+  ],
   degraded: false,
+  transcript: [
+    {
+      id: "gmsg_question",
+      sequence: 1,
+      role: "ASSISTANT",
+      kind: "QUESTION",
+      text: "What matters most for your sunscreen?",
+      created_at: "2026-08-05T00:00:00Z",
+      redacted: false,
+      quick_replies: [],
+      recommendations: [],
+      evidence: [],
+    },
+  ],
 } satisfies components["schemas"]["GuideTurnResponse"];
 
 const compareResponse = {
@@ -381,31 +402,44 @@ describe("shopping guide client", () => {
   });
 
   it("posts the exact guide-message contract", async () => {
-    const fetchMock = mockJson(guideTurn);
+    const fetchMock = mockJson({ ...guideTurn, session_id: "ses/test value" });
 
-    await sendGuideMessage("ses_test", "msg_test", "Daily commute");
+    await sendGuideMessage("ses/test value", "msg_test", "Daily commute", 1);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://127.0.0.1:8000/api/v1/guide/sessions/ses_test/messages",
+      "http://127.0.0.1:8000/api/v1/guide/sessions/ses%2Ftest%20value/messages",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message_id: "msg_test", text: "Daily commute" }),
+        body: JSON.stringify({
+          message_id: "msg_test",
+          text: "Daily commute",
+          expected_conversation_revision: 1,
+        }),
       },
     );
   });
 
   it("posts the exact comparison contract", async () => {
-    const fetchMock = mockJson(compareResponse);
+    const fetchMock = mockJson({ ...compareResponse, session_id: "ses/test value" });
 
-    await compareProducts("ses_test", ["product_one", "product_two"]);
+    await compareProducts(
+      "ses/test value",
+      "cmp_test",
+      ["product_one", "product_two"],
+      1,
+    );
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://127.0.0.1:8000/api/v1/guide/sessions/ses_test/compare",
+      "http://127.0.0.1:8000/api/v1/guide/sessions/ses%2Ftest%20value/compare",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ product_ids: ["product_one", "product_two"] }),
+        body: JSON.stringify({
+          request_id: "cmp_test",
+          product_ids: ["product_one", "product_two"],
+          expected_conversation_revision: 1,
+        }),
       },
     );
   });
@@ -416,7 +450,14 @@ describe("shopping guide client", () => {
       rows: { ...compareResponse.rows, finish: ["natural"] },
     });
 
-    await expect(compareProducts("ses_test", ["product_one", "product_two"])).rejects.toMatchObject({
+    await expect(
+      compareProducts(
+        "ses_test",
+        "cmp_test",
+        ["product_one", "product_two"],
+        1,
+      ),
+    ).rejects.toMatchObject({
       status: 200,
       code: "INVALID_API_RESPONSE",
       message: "INVALID_API_RESPONSE",
@@ -668,7 +709,12 @@ describe("shopping guide client", () => {
   it("preserves the server's stable error code", async () => {
     mockJson({ detail: { code: "SESSION_NOT_FOUND" } }, 404);
 
-    const request = sendGuideMessage("ses_missing", "msg_test", "Daily commute");
+    const request = sendGuideMessage(
+      "ses_missing",
+      "msg_test",
+      "Daily commute",
+      1,
+    );
 
     await expect(request).rejects.toBeInstanceOf(ApiError);
     await expect(request).rejects.toMatchObject({

@@ -145,25 +145,34 @@ export const sendGuideMessage = (
   sessionId: string,
   messageId: string,
   text: string,
+  expectedConversationRevision: number,
 ) =>
-  post<GuideTurn>(`/guide/sessions/${sessionId}/messages`, {
+  post<GuideTurn>(`/guide/sessions/${encodeURIComponent(sessionId)}/messages`, {
     message_id: messageId,
     text,
+    expected_conversation_revision: expectedConversationRevision,
   }, validateGuideTurnResponse);
 
-export const compareProducts = (sessionId: string, productIds: string[]) =>
-  post<CompareResponse>(`/guide/sessions/${sessionId}/compare`, {
+export const compareProducts = (
+  sessionId: string,
+  requestId: string,
+  productIds: string[],
+  expectedConversationRevision: number,
+) =>
+  post<CompareResponse>(`/guide/sessions/${encodeURIComponent(sessionId)}/compare`, {
+    request_id: requestId,
     product_ids: productIds,
+    expected_conversation_revision: expectedConversationRevision,
   }, (payload) => validateComparisonResponse(payload, sessionId, productIds));
 
 export const previewCart = (sessionId: string, skuId: string) =>
-  post<CartPreview>(`/guide/sessions/${sessionId}/cart/preview`, {
+  post<CartPreview>(`/guide/sessions/${encodeURIComponent(sessionId)}/cart/preview`, {
     sku_id: skuId,
     quantity: 1,
   });
 
 export const addCartItem = (sessionId: string, confirmationToken: string) =>
-  post<CartItem>(`/guide/sessions/${sessionId}/cart/items`, {
+  post<CartItem>(`/guide/sessions/${encodeURIComponent(sessionId)}/cart/items`, {
     confirmation_token: confirmationToken,
   });
 

@@ -42,14 +42,30 @@ const clarificationTurn: GuideTurn = {
   guide_status: "WAITING_USER",
   guide_view_kind: "WAITING_CLARIFICATION",
   guide_revision: 1,
+  conversation_revision: 1,
   facts_snapshot_at: "2026-08-05T00:00:00Z",
   allowed_actions: [
+    "SEND_MESSAGE",
     "ANSWER_CLARIFICATION",
     "SKIP_CLARIFICATION",
     "UPDATE_CONSTRAINTS",
     "RETURN_TO_FEED",
   ],
   degraded: false,
+  transcript: [
+    {
+      id: "gmsg_clarification",
+      sequence: 1,
+      role: "ASSISTANT",
+      kind: "QUESTION",
+      text: "主要是日常通勤，还是需要 40/80 分钟防水？",
+      created_at: "2026-08-05T00:00:00Z",
+      redacted: false,
+      quick_replies: ["日常通勤", "40 分钟", "80 分钟", "跳过"],
+      recommendations: [],
+      evidence: [],
+    },
+  ],
 };
 
 const awaitingCommerceOperation: components["schemas"]["CommerceOperationResponse"] = {

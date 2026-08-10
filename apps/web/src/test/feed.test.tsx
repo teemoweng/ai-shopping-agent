@@ -190,8 +190,15 @@ const GUIDE_DECISION: components["schemas"]["GuideTurnResponse"] = {
   guide_status: "ACTIVE",
   guide_view_kind: "DECISION_READY",
   guide_revision: 1,
+  conversation_revision: 1,
   facts_snapshot_at: "2026-08-05T00:00:00Z",
-  allowed_actions: ["OPEN_PRODUCT", "RETURN_TO_FEED"],
+  allowed_actions: [
+    "SEND_MESSAGE",
+    "UPDATE_CONSTRAINTS",
+    "REQUEST_COMPARISON",
+    "OPEN_PRODUCT",
+    "RETURN_TO_FEED",
+  ],
   degraded: false,
   verdict: "SUITABLE",
   recommendations: [
@@ -208,6 +215,20 @@ const GUIDE_DECISION: components["schemas"]["GuideTurnResponse"] = {
     },
   ],
   evidence: [],
+  transcript: [
+    {
+      id: "gmsg_feed_recommendation",
+      sequence: 1,
+      role: "ASSISTANT",
+      kind: "RECOMMENDATION",
+      text: "当前商品适合日常通勤，进入 PDP 前请复核商品事实。",
+      created_at: "2026-08-05T00:00:00Z",
+      redacted: false,
+      recommendations: [],
+      evidence: [],
+      quick_replies: [],
+    },
+  ],
 };
 
 function renderFeed(
@@ -266,6 +287,7 @@ function installDeferredPlayback() {
 }
 
 beforeEach(() => {
+  sessionStorage.clear();
   vi.mocked(getFeed).mockResolvedValue(FEED);
   vi.mocked(getProduct).mockResolvedValue(PRODUCT_DETAIL);
   vi.mocked(createGuideSession).mockImplementation(
@@ -282,6 +304,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  sessionStorage.clear();
   vi.restoreAllMocks();
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
