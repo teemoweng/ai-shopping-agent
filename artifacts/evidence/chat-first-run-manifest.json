@@ -29,7 +29,14 @@
     {
       "command": "uv --directory apps/api run ruff check app tests ../../evals",
       "exit_code": 0,
-      "duration_seconds": 0.000003,
+      "duration_seconds": 0.13,
+      "duration_source": "/usr/bin/time -p real",
+      "raw_timing": {
+        "real_seconds": 0.13,
+        "user_seconds": 0.01,
+        "sys_seconds": 0.03,
+        "resolution_seconds": 0.01
+      },
       "counts": {
         "errors": 0
       }
@@ -65,7 +72,15 @@
     {
       "command": "git diff --exit-code -- packages/contracts/openapi.json packages/contracts/src/api.ts",
       "exit_code": 0,
-      "duration_seconds": 0.000003,
+      "duration_seconds": 0.0,
+      "duration_source": "/usr/bin/time -p real",
+      "duration_observation": "less than 0.01 seconds at the timer's 0.01-second display resolution",
+      "raw_timing": {
+        "real_seconds": 0.0,
+        "user_seconds": 0.0,
+        "sys_seconds": 0.0,
+        "resolution_seconds": 0.01
+      },
       "counts": {
         "changed_generated_contract_files": 0
       }
@@ -151,7 +166,7 @@
       "skipped": 28,
       "capture_tests_enabled": 3
     },
-    "duration_seconds": 35.4,
+    "duration_seconds": 39.1,
     "web_mode": "next build && next start",
     "api_mode": "uvicorn --no-access-log --workers 1",
     "browser": "Chromium",
@@ -248,7 +263,7 @@
     "limitation": "Field names and privacy-rejection fixtures remain in source by design; the zero-match claim applies to retained artifacts and credential-shaped value assignments, not to schema identifiers or labeled synthetic test constants."
   },
   "evidence_artifacts": {
-    "artifacts/evidence/chat-first-verification.md": "5b992022063bbea42cab1ea19a932ac0079a7c12361b029bcebeabe62338d25b"
+    "artifacts/evidence/chat-first-verification.md": "590c5928a1619ccf85fa5ac450e96350f0e3005e0731b03d562fc7afb72e5f6d"
   },
   "verification_history": [
     {

@@ -4,7 +4,7 @@
 
 ## Release result
 
-The chat-first slice passed the contract, static, production-build, API, Web, browser, Foundation-eval, artifact, and privacy gates below. The final Task 9 browser run collected 70 tests: 39 passed, 31 were intentional project/capture routing skips, and 0 failed. The Task 8 Fix Round 3 production-capture run on the same final source tree collected the same 70 tests: 42 passed, 28 routed skips, and 0 failed; the three-test delta is exactly the opted-in screenshot set.
+The chat-first slice passed the contract, static, production-build, API, Web, browser, Foundation-eval, artifact, and privacy gates below. The final Task 9 browser run collected 70 tests: 39 passed, 31 were intentional project/capture routing skips, and 0 failed. The Task 8 Fix Round 3 production-capture run on the same final source tree collected the same 70 tests: 42 passed, 28 routed skips, and 0 failed in 39.1 seconds; the three-test delta is exactly the opted-in screenshot set.
 
 This evidence upgrades only the narrow engineering maturity to **implemented and evaluated on frozen synthetic fixtures in local Chromium**. It does not close Phase 1's real LLM, Hybrid Retrieval, data-expansion, durable persistence, user-research, deployment, or business-result work.
 
@@ -39,11 +39,11 @@ The fixes changed E2E readiness synchronization, not product authority or UI beh
 | Gate | Exact command | Observed result | Duration |
 | --- | --- | --- | ---: |
 | Contracts | `pnpm --dir packages/contracts check` | Exit 0; OpenAPI export and TypeScript generation completed; generated diff empty | 1.022 s |
-| API lint | `uv --directory apps/api run ruff check app tests ../../evals` | Exit 0; `All checks passed!` | <0.001 s |
+| API lint | `uv --directory apps/api run ruff check app tests ../../evals` | Exit 0; `All checks passed!`; `/usr/bin/time -p` raw `real 0.13`, `user 0.01`, `sys 0.03` | 0.13 s |
 | Web lint | `pnpm lint:web` | Exit 0; 0 errors / 0 warnings | 2.598 s |
 | Layout foundation | `pnpm check:layout` | Exit 0; `Foundation layout is valid` | 0.106 s |
 | Web production build | `pnpm --dir apps/web build` | Exit 0; compile, TypeScript, and 2 static routes completed | 3.991 s |
-| Generated integrity | `git diff --exit-code -- packages/contracts/openapi.json packages/contracts/src/api.ts` | Exit 0; 0 changed generated files | <0.001 s |
+| Generated integrity | `git diff --exit-code -- packages/contracts/openapi.json packages/contracts/src/api.ts` | Exit 0; 0 changed generated files; `/usr/bin/time -p` raw `real 0.00`, `user 0.00`, `sys 0.00` | <0.01 s at 0.01 s timer resolution |
 | API full | `uv --directory apps/api run pytest tests -q` | 318 passed; 0 failed; 0 skipped; 1 upstream warning | 2.58 s |
 | Web full | `pnpm test:web` | 11 files; 280 passed; 0 failed; 0 skipped | 4.52 s |
 | Browser full | `pnpm test:e2e` | 70 collected; 39 passed; 31 routed skips; 0 failed | 31.9 s |
