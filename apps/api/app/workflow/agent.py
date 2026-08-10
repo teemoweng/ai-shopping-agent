@@ -1,16 +1,23 @@
+from enum import StrEnum
+
 from app.domain.contracts import GuideAction, GuideMessageRequest, GuideViewKind
 
 _ALLOWED_ACTIONS_BY_VIEW = {
-    GuideViewKind.OPENING_CONTEXT: (GuideAction.RETURN_TO_FEED,),
+    GuideViewKind.OPENING_CONTEXT: (
+        GuideAction.SEND_MESSAGE,
+        GuideAction.RETURN_TO_FEED,
+    ),
     GuideViewKind.ANSWER_READY: (
         GuideAction.SEND_MESSAGE,
         GuideAction.RETURN_TO_FEED,
     ),
     GuideViewKind.CONTEXT_CONFIRMATION: (
+        GuideAction.SEND_MESSAGE,
         GuideAction.CONFIRM_CONTEXT,
         GuideAction.RETURN_TO_FEED,
     ),
     GuideViewKind.WAITING_CLARIFICATION: (
+        GuideAction.SEND_MESSAGE,
         GuideAction.ANSWER_CLARIFICATION,
         GuideAction.SKIP_CLARIFICATION,
         GuideAction.UPDATE_CONSTRAINTS,
@@ -18,16 +25,19 @@ _ALLOWED_ACTIONS_BY_VIEW = {
     ),
     GuideViewKind.VERIFYING_FACTS: (GuideAction.RETURN_TO_FEED,),
     GuideViewKind.DECISION_READY: (
+        GuideAction.SEND_MESSAGE,
         GuideAction.UPDATE_CONSTRAINTS,
         GuideAction.REQUEST_COMPARISON,
         GuideAction.OPEN_PRODUCT,
         GuideAction.RETURN_TO_FEED,
     ),
     GuideViewKind.NO_MATCH: (
+        GuideAction.SEND_MESSAGE,
         GuideAction.RELAX_CONSTRAINT,
         GuideAction.RETURN_TO_FEED,
     ),
     GuideViewKind.INSUFFICIENT_EVIDENCE: (
+        GuideAction.SEND_MESSAGE,
         GuideAction.OPEN_PRODUCT,
         GuideAction.CONTINUE_WITH_KNOWN,
         GuideAction.RETURN_TO_FEED,
@@ -43,6 +53,14 @@ _ALLOWED_ACTIONS_BY_VIEW = {
     ),
     GuideViewKind.FATAL_ERROR: (GuideAction.RETURN_TO_FEED,),
 }
+
+
+class GuideQuestionIntent(StrEnum):
+    FIT = "FIT"
+    CLAIM_WHITE_CAST = "CLAIM_WHITE_CAST"
+    COMPARE = "COMPARE"
+    RECOMMEND_OR_CONSTRAINT = "RECOMMEND_OR_CONSTRAINT"
+    GENERAL = "GENERAL"
 
 SAFETY_TERMS = (
     "diagnose",
@@ -85,6 +103,75 @@ URGENT_SAFETY_TERMS = (
     "呼吸困难",
 )
 
+_COMPARISON_TERMS = (
+    "比比",
+    "比较",
+    "对比",
+    "compare",
+    "versus",
+    " vs ",
+)
+_FIT_TERMS = ("适合", "suitable", "good for", "work for")
+_SKIN_TYPE_TERMS = (
+    "油皮",
+    "干皮",
+    "敏感肌",
+    "混合皮",
+    "oily",
+    "dry skin",
+    "sensitive skin",
+    "combination skin",
+)
+_WHITE_CAST_TERMS = ("泛白", "白膜", "white cast")
+_QUESTION_TERMS = ("会不会", "是否", "吗", "does", "will", "is it")
+_RECOMMENDATION_TERMS = (
+    "帮我选",
+    "推荐",
+    "选一款",
+    "日常通勤",
+    "户外出汗或玩水",
+    "防水",
+    "预算",
+    "无香",
+    "香精",
+    "妆效",
+    "哑光",
+    "水润",
+    "泛白",
+    "取消",
+    "不限",
+    "深肤色",
+    "under $",
+    "fragrance",
+    "water resistance",
+    "water-resistant",
+    "daily commute",
+    "natural finish",
+    "matte",
+    "dewy",
+    "recommend",
+    "help me choose",
+    "find ",
+)
+
+
+def classify_question(text: str) -> GuideQuestionIntent:
+    """Route Foundation messages with deterministic lexical rules, not an LLM."""
+    normalized = f" {text.casefold().strip()} "
+    if any(term in normalized for term in _COMPARISON_TERMS):
+        return GuideQuestionIntent.COMPARE
+    if any(term in normalized for term in _FIT_TERMS) and any(
+        term in normalized for term in _SKIN_TYPE_TERMS
+    ):
+        return GuideQuestionIntent.FIT
+    if any(term in normalized for term in _WHITE_CAST_TERMS) and any(
+        term in normalized for term in _QUESTION_TERMS
+    ):
+        return GuideQuestionIntent.CLAIM_WHITE_CAST
+    if any(term in normalized for term in _RECOMMENDATION_TERMS):
+        return GuideQuestionIntent.RECOMMEND_OR_CONSTRAINT
+    return GuideQuestionIntent.GENERAL
+
 
 def allowed_actions_for(view_kind: GuideViewKind) -> list[GuideAction]:
     return list(_ALLOWED_ACTIONS_BY_VIEW[view_kind])
@@ -102,19 +189,49 @@ def is_urgent_medical_boundary(request: GuideMessageRequest) -> bool:
 
 def clarification_question(locale: str = "en-US") -> str:
     if locale == "zh-CN":
-        return "主要是日常通勤，还是需要 40/80 分钟防水？"
-    return "Is water resistance a must, or is this mainly for a daily commute?"
+        return "主要是日常通勤，还是户外出汗或玩水？"
+    return "Is this mainly for a daily commute, or for sweating or water?"
 
 
 def clarification_quick_replies(locale: str = "en-US") -> list[str]:
     if locale == "zh-CN":
-        return ["日常通勤", "40 分钟", "80 分钟", "跳过"]
-    return [
-        "Daily commute",
-        "40 min water resistance",
-        "80 min water resistance",
-        "Skip",
-    ]
+        return ["日常通勤", "户外出汗或玩水"]
+    return ["Daily commute", "Sweating or water"]
+
+
+def opening_text(locale: str = "en-US") -> str:
+    if locale == "zh-CN":
+        return "我看到你在看 Seoul Shade。你最想确认什么？"
+    return "I see you're looking at Seoul Shade. What would you like to confirm?"
+
+
+def opening_quick_replies(locale: str = "en-US") -> list[str]:
+    if locale == "zh-CN":
+        return ["适合油皮吗？", "会不会泛白？", "和防水款比比"]
+    return ["Good for oily skin?", "Will it leave a white cast?", "Compare water-resistant"]
+
+
+def white_cast_answer_text(locale: str, *, white_cast_risk: str) -> str:
+    if locale == "zh-CN":
+        risk = {"low": "低", "medium": "中等", "high": "高"}[white_cast_risk]
+        return (
+            f"这款的结构化商品事实标注为{risk}泛白风险；但现有证据不足以支持"
+            "创作者所说的“所有肤色都绝不泛白”。"
+        )
+    return (
+        f"The structured product fact lists {white_cast_risk} white-cast risk; "
+        "available evidence does not support the creator's claim that it never "
+        "casts on every complexion."
+    )
+
+
+def general_answer_text(locale: str) -> str:
+    if locale == "zh-CN":
+        return "我可以先核对这款的商品事实。你可以问适配、泛白，或要求和防水款比较。"
+    return (
+        "I can check this product's facts first. Ask about fit, white cast, "
+        "or a comparison with a water-resistant option."
+    )
 
 
 def safety_boundary_text(locale: str, *, urgent: bool) -> str:

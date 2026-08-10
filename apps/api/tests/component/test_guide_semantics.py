@@ -52,10 +52,15 @@ def test_request_digest_uses_canonical_unicode_json() -> None:
 
 def test_every_guide_view_has_explicit_server_actions() -> None:
     expected = {
-        "OPENING_CONTEXT": ["RETURN_TO_FEED"],
+        "OPENING_CONTEXT": ["SEND_MESSAGE", "RETURN_TO_FEED"],
         "ANSWER_READY": ["SEND_MESSAGE", "RETURN_TO_FEED"],
-        "CONTEXT_CONFIRMATION": ["CONFIRM_CONTEXT", "RETURN_TO_FEED"],
+        "CONTEXT_CONFIRMATION": [
+            "SEND_MESSAGE",
+            "CONFIRM_CONTEXT",
+            "RETURN_TO_FEED",
+        ],
         "WAITING_CLARIFICATION": [
+            "SEND_MESSAGE",
             "ANSWER_CLARIFICATION",
             "SKIP_CLARIFICATION",
             "UPDATE_CONSTRAINTS",
@@ -63,13 +68,15 @@ def test_every_guide_view_has_explicit_server_actions() -> None:
         ],
         "VERIFYING_FACTS": ["RETURN_TO_FEED"],
         "DECISION_READY": [
+            "SEND_MESSAGE",
             "UPDATE_CONSTRAINTS",
             "REQUEST_COMPARISON",
             "OPEN_PRODUCT",
             "RETURN_TO_FEED",
         ],
-        "NO_MATCH": ["RELAX_CONSTRAINT", "RETURN_TO_FEED"],
+        "NO_MATCH": ["SEND_MESSAGE", "RELAX_CONSTRAINT", "RETURN_TO_FEED"],
         "INSUFFICIENT_EVIDENCE": [
+            "SEND_MESSAGE",
             "OPEN_PRODUCT",
             "CONTINUE_WITH_KNOWN",
             "RETURN_TO_FEED",
@@ -119,7 +126,7 @@ def _opening_turn(
         guide_view_kind=GuideViewKind.OPENING_CONTEXT,
         guide_revision=1,
         facts_snapshot_at=datetime.now(UTC),
-        allowed_actions=[GuideAction.RETURN_TO_FEED],
+        allowed_actions=[GuideAction.SEND_MESSAGE, GuideAction.RETURN_TO_FEED],
         conversation_revision=1,
         transcript=transcript,
     )

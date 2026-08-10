@@ -25,7 +25,9 @@ def create_content_session(locale: str | None = None) -> dict:
 def test_create_content_session_returns_inherited_context() -> None:
     body = create_content_session()
     assert body["session_id"].startswith("ses_")
-    assert body["state"] == "CLARIFY"
+    assert body["state"] == "UNDERSTAND"
+    assert body["kind"] == "opening"
+    assert body["guide_view_kind"] == "OPENING_CONTEXT"
     assert body["context"]["anchor_product_id"] == "seoul-shade-daily-fluid"
     assert body["context"]["anchor_product_name"] == "Seoul Shade Daily Fluid"
     assert body["conversation_revision"] == 1
@@ -195,21 +197,65 @@ def test_search_contract_is_accepted_but_execution_is_explicitly_unavailable() -
     assert response.json()["detail"]["code"] == "SEARCH_EXECUTION_NOT_AVAILABLE"
 
 
-def test_chinese_session_returns_one_skippable_fixed_clarification() -> None:
+def test_chinese_session_returns_the_approved_lightweight_opening() -> None:
     body = create_content_session(locale="zh-CN")
     assert body["locale"] == "zh-CN"
     assert body["guide_status"] == "WAITING_USER"
-    assert body["guide_view_kind"] == "WAITING_CLARIFICATION"
+    assert body["guide_view_kind"] == "OPENING_CONTEXT"
     assert body["guide_revision"] == 1
     assert body["facts_snapshot_at"] is not None
-    assert body["text"] == "主要是日常通勤，还是需要 40/80 分钟防水？"
-    assert body["quick_replies"] == ["日常通勤", "40 分钟", "80 分钟", "跳过"]
-    assert body["allowed_actions"] == [
-        "ANSWER_CLARIFICATION",
-        "SKIP_CLARIFICATION",
-        "UPDATE_CONSTRAINTS",
-        "RETURN_TO_FEED",
-    ]
+    assert body["text"] == "我看到你在看 Seoul Shade。你最想确认什么？"
+    assert body["quick_replies"] == ["适合油皮吗？", "会不会泛白？", "和防水款比比"]
+    assert body["allowed_actions"] == ["SEND_MESSAGE", "RETURN_TO_FEED"]
+
+
+def test_chinese_fit_clarification_short_answer_and_decision_are_progressive() -> None:
+    fit_session = create_content_session(locale="zh-CN")
+    fit = client.post(
+        f"/api/v1/guide/sessions/{fit_session['session_id']}/messages",
+        json={
+            "message_id": "api_msg_fit",
+            "text": "适合油皮吗？",
+            "expected_conversation_revision": fit_session["conversation_revision"],
+        },
+    )
+    assert fit.status_code == 200
+    fit_body = fit.json()
+    assert fit_body["guide_view_kind"] == "WAITING_CLARIFICATION"
+    assert fit_body["quick_replies"] == ["日常通勤", "户外出汗或玩水"]
+    assert fit_body["text"].count("？") <= 1
+    assert fit_body["recommendations"] == []
+
+    decision = client.post(
+        f"/api/v1/guide/sessions/{fit_session['session_id']}/messages",
+        json={
+            "message_id": "api_msg_commute",
+            "text": "日常通勤",
+            "expected_conversation_revision": fit_body["conversation_revision"],
+        },
+    )
+    assert decision.status_code == 200
+    assert decision.json()["guide_view_kind"] == "DECISION_READY"
+    assert decision.json()["recommendations"]
+
+    claim_session = create_content_session(locale="zh-CN")
+    claim = client.post(
+        f"/api/v1/guide/sessions/{claim_session['session_id']}/messages",
+        json={
+            "message_id": "api_msg_cast",
+            "text": "会不会泛白？",
+            "expected_conversation_revision": claim_session[
+                "conversation_revision"
+            ],
+        },
+    )
+    assert claim.status_code == 200
+    claim_body = claim.json()
+    assert claim_body["guide_view_kind"] == "ANSWER_READY"
+    assert claim_body["recommendations"] == []
+    assert "低泛白风险" in claim_body["text"]
+    assert "所有肤色" in claim_body["text"]
+    assert claim_body["guide_revision"] == claim_session["guide_revision"]
 
 
 def test_chinese_message_returns_decision_ready_recommendation() -> None:
@@ -229,6 +275,7 @@ def test_chinese_message_returns_decision_ready_recommendation() -> None:
     assert "满足你明确条件" in body["text"]
     assert body["recommendations"]
     assert body["allowed_actions"] == [
+        "SEND_MESSAGE",
         "UPDATE_CONSTRAINTS",
         "REQUEST_COMPARISON",
         "OPEN_PRODUCT",
@@ -247,7 +294,11 @@ def test_chinese_no_match_has_only_recovery_actions() -> None:
     )
     body = response.json()
     assert body["guide_view_kind"] == "NO_MATCH"
-    assert body["allowed_actions"] == ["RELAX_CONSTRAINT", "RETURN_TO_FEED"]
+    assert body["allowed_actions"] == [
+        "SEND_MESSAGE",
+        "RELAX_CONSTRAINT",
+        "RETURN_TO_FEED",
+    ]
     assert body["recommendations"] == []
     assert "不会悄悄放宽" in body["text"]
 
@@ -266,6 +317,7 @@ def test_chinese_insufficient_evidence_has_no_comparison_action(monkeypatch) -> 
     body = response.json()
     assert body["guide_view_kind"] == "INSUFFICIENT_EVIDENCE"
     assert body["allowed_actions"] == [
+        "SEND_MESSAGE",
         "OPEN_PRODUCT",
         "CONTINUE_WITH_KNOWN",
         "RETURN_TO_FEED",

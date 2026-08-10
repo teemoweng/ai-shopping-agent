@@ -18,15 +18,21 @@ from app.domain.contracts import (
 from app.domain.events import GuideSession
 from app.repositories.session_repository import SessionRepository
 from app.workflow.agent import (
+    GuideQuestionIntent,
     allowed_actions_for,
     clarification_question,
     clarification_quick_replies,
+    classify_question,
     fallback_recommendation_text,
+    general_answer_text,
     is_medical_boundary,
     is_urgent_medical_boundary,
     no_match_text,
+    opening_quick_replies,
+    opening_text,
     recommendation_text,
     safety_boundary_text,
+    white_cast_answer_text,
 )
 from app.workflow.filtering import parse_preferences
 from app.workflow.tools import ShoppingTools
@@ -166,23 +172,22 @@ class WorkflowEngine:
 
     def open_session(self, session: GuideSession) -> GuideTurnResponse:
         self._transition(session, WorkflowState.UNDERSTAND)
-        self._transition(session, WorkflowState.CLARIFY)
         return GuideTurnResponse(
             session_id=session.id,
             trace_id=session.trace_id,
             locale=session.locale,
             state=session.state,
-            kind="clarification",
-            text=clarification_question(session.locale),
+            kind="opening",
+            text=opening_text(session.locale),
             context=self._context(session),
             guide_status=GuideStatus.WAITING_USER,
-            guide_view_kind=GuideViewKind.WAITING_CLARIFICATION,
+            guide_view_kind=GuideViewKind.OPENING_CONTEXT,
             guide_revision=session.guide_revision,
             facts_snapshot_at=self._facts_snapshot_at(session),
             allowed_actions=allowed_actions_for(
-                GuideViewKind.WAITING_CLARIFICATION
+                GuideViewKind.OPENING_CONTEXT
             ),
-            quick_replies=clarification_quick_replies(session.locale),
+            quick_replies=opening_quick_replies(session.locale),
         )
 
     def handle_message(
@@ -217,12 +222,53 @@ class WorkflowEngine:
                 allowed_actions=allowed_actions_for(GuideViewKind.SAFE_BOUNDARY),
             )
 
+        intent = classify_question(request.text)
+        if intent is GuideQuestionIntent.CLAIM_WHITE_CAST:
+            context = self._context(session)
+            anchor_product = self.tools.get_product(context.anchor_product_id)
+            return GuideTurnResponse(
+                session_id=session.id,
+                trace_id=session.trace_id,
+                locale=session.locale,
+                state=session.state,
+                kind="answer",
+                text=white_cast_answer_text(
+                    session.locale,
+                    white_cast_risk=anchor_product.white_cast_risk,
+                ),
+                context=context,
+                guide_status=GuideStatus.WAITING_USER,
+                guide_view_kind=GuideViewKind.ANSWER_READY,
+                guide_revision=session.guide_revision,
+                facts_snapshot_at=anchor_product.observed_at,
+                allowed_actions=allowed_actions_for(GuideViewKind.ANSWER_READY),
+            )
+
+        if intent is GuideQuestionIntent.GENERAL:
+            return GuideTurnResponse(
+                session_id=session.id,
+                trace_id=session.trace_id,
+                locale=session.locale,
+                state=session.state,
+                kind="answer",
+                text=general_answer_text(session.locale),
+                context=self._context(session),
+                guide_status=GuideStatus.WAITING_USER,
+                guide_view_kind=GuideViewKind.ANSWER_READY,
+                guide_revision=session.guide_revision,
+                facts_snapshot_at=self._facts_snapshot_at(session),
+                allowed_actions=allowed_actions_for(GuideViewKind.ANSWER_READY),
+            )
+
         parsed = parse_preferences(request.text)
+        hard_updates = {
+            field: getattr(parsed.hard, field)
+            for field in parsed.hard.model_fields_set
+        }
+        if "户外出汗或玩水" in request.text:
+            hard_updates["water_resistance_minutes"] = 40
         merged_hard = session.hard_constraints.model_copy(
-            update={
-                field: getattr(parsed.hard, field)
-                for field in parsed.hard.model_fields_set
-            }
+            update=hard_updates
         )
         merged_soft = session.soft_preferences.model_copy(
             update={
@@ -238,6 +284,25 @@ class WorkflowEngine:
             session.soft_preferences = merged_soft
             session.guide_revision += 1
             self.sessions.save(session)
+        if intent is GuideQuestionIntent.FIT:
+            self._transition(session, WorkflowState.CLARIFY)
+            return GuideTurnResponse(
+                session_id=session.id,
+                trace_id=session.trace_id,
+                locale=session.locale,
+                state=session.state,
+                kind="clarification",
+                text=clarification_question(session.locale),
+                context=self._context(session),
+                guide_status=GuideStatus.WAITING_USER,
+                guide_view_kind=GuideViewKind.WAITING_CLARIFICATION,
+                guide_revision=session.guide_revision,
+                facts_snapshot_at=self._facts_snapshot_at(session),
+                allowed_actions=allowed_actions_for(
+                    GuideViewKind.WAITING_CLARIFICATION
+                ),
+                quick_replies=clarification_quick_replies(session.locale),
+            )
         self._transition(session, WorkflowState.VERIFY_CURRENT_PRODUCT)
         evidence_argument_summary: dict[str, object] = {
             "content_context_available": session.content_context_id is not None,

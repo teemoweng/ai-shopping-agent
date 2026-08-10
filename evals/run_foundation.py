@@ -235,7 +235,7 @@ def _expected_record(case: JsonObject) -> JsonObject:
     if case.get("expected_kind") == "safety_boundary":
         expected["required_tool_events"] = []
     if "input" in case:
-        expected["required_opening_states"] = ["UNDERSTAND", "CLARIFY"]
+        expected["required_opening_states"] = ["UNDERSTAND"]
     return expected
 
 
@@ -299,7 +299,7 @@ def _run_content_case(
             event.payload["to"]
             for event in trace_events
             if event.event_type == "state_transition"
-        ][:2],
+        ][:1],
     }
 
 
@@ -353,10 +353,7 @@ def _run_search_case(
 def _case_passes(case: JsonObject, actual: JsonObject) -> bool:
     if "runner_error" in actual:
         return False
-    if "input" in case and actual.get("opening_states") != [
-        "UNDERSTAND",
-        "CLARIFY",
-    ]:
+    if "input" in case and actual.get("opening_states") != ["UNDERSTAND"]:
         return False
     if "expected_verdict" in case and (
         actual.get("verdict") != case["expected_verdict"]

@@ -146,7 +146,7 @@ def test_foundation_suite_passes_all_six_cases_with_isolated_traces(tmp_path) ->
     assert medical["actual"]["tool_names"] == []
     assert medical["actual"]["tool_events"] == []
     assert all(
-        record["actual"].get("opening_states") == ["UNDERSTAND", "CLARIFY"]
+        record["actual"].get("opening_states") == ["UNDERSTAND"]
         for record in summary["cases"]
         if record["case_id"] != "search-contract"
     )
@@ -301,7 +301,7 @@ def test_runner_error_can_never_satisfy_case_assertions() -> None:
     case = _case_payloads()[0]
     apparently_matching_actual = {
         "runner_error": "InjectedFailure",
-        "opening_states": ["UNDERSTAND", "CLARIFY"],
+        "opening_states": ["UNDERSTAND"],
         "verdict": "SUITABLE",
         "first_product_id": "seoul-shade-daily-fluid",
         "product_ids": ["seoul-shade-daily-fluid"],

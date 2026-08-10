@@ -6,7 +6,9 @@ from pydantic import ValidationError
 from app.domain.contracts import (
     EntryPoint,
     EvidenceStatus,
+    GuideAction,
     GuideMessageRequest,
+    GuideViewKind,
     RecommendationCard,
     Verdict,
     WorkflowState,
@@ -50,11 +52,22 @@ def build_engine_without_matching_evidence(
 
 def test_content_entry_opens_with_one_high_information_question(tmp_path) -> None:
     engine, sessions = build_engine(tmp_path)
-    session = sessions.create(EntryPoint.CONTENT, "morning-routine-uv-001", None)
+    session = sessions.create(
+        EntryPoint.CONTENT,
+        "morning-routine-uv-001",
+        None,
+        locale="zh-CN",
+    )
     turn = engine.open_session(session)
-    assert turn.state is WorkflowState.CLARIFY
-    assert turn.kind == "clarification"
-    assert turn.text.count("?") == 1
+    assert turn.state is WorkflowState.UNDERSTAND
+    assert turn.kind == "opening"
+    assert turn.guide_view_kind is GuideViewKind.OPENING_CONTEXT
+    assert turn.text == "我看到你在看 Seoul Shade。你最想确认什么？"
+    assert turn.quick_replies == ["适合油皮吗？", "会不会泛白？", "和防水款比比"]
+    assert turn.allowed_actions == [
+        GuideAction.SEND_MESSAGE,
+        GuideAction.RETURN_TO_FEED,
+    ]
     assert turn.context.anchor_product_id == "seoul-shade-daily-fluid"
     assert turn.context.anchor_product_name == "Seoul Shade Daily Fluid"
     assert {claim.status for claim in turn.context.claims} == {
@@ -63,6 +76,117 @@ def test_content_entry_opens_with_one_high_information_question(tmp_path) -> Non
         EvidenceStatus.INSUFFICIENT_EVIDENCE,
         EvidenceStatus.SUBJECTIVE_MIXED,
     }
+    events = sessions.events_for_trace(session.trace_id)
+    assert [
+        event.payload["to"]
+        for event in events
+        if event.event_type == "state_transition"
+    ] == ["UNDERSTAND"]
+    assert not any(event.event_type.startswith("tool_") for event in events)
+
+
+def test_chinese_questions_progress_from_fit_to_decision_or_short_answer(
+    tmp_path,
+) -> None:
+    engine, sessions = build_engine(tmp_path)
+    session = sessions.create(
+        EntryPoint.CONTENT,
+        "morning-routine-uv-001",
+        None,
+        locale="zh-CN",
+    )
+    opening = engine.open_session(session)
+
+    fit = engine.handle_message(
+        session,
+        GuideMessageRequest(message_id="fit", text="适合油皮吗？"),
+    )
+
+    assert fit.guide_view_kind is GuideViewKind.WAITING_CLARIFICATION
+    assert fit.quick_replies == ["日常通勤", "户外出汗或玩水"]
+    assert fit.text.count("？") <= 1
+    assert fit.recommendations == []
+    assert session.soft_preferences.skin_type == "oily"
+    assert fit.guide_revision == opening.guide_revision + 1
+
+    decision = engine.handle_message(
+        session,
+        GuideMessageRequest(message_id="commute", text="日常通勤"),
+    )
+
+    assert decision.guide_view_kind is GuideViewKind.DECISION_READY
+    assert decision.recommendations
+
+    fresh_session = sessions.create(
+        EntryPoint.CONTENT,
+        "morning-routine-uv-001",
+        None,
+        locale="zh-CN",
+    )
+    fresh_opening = engine.open_session(fresh_session)
+    claim = engine.handle_message(
+        fresh_session,
+        GuideMessageRequest(message_id="cast", text="会不会泛白？"),
+    )
+
+    assert claim.guide_view_kind is GuideViewKind.ANSWER_READY
+    assert claim.recommendations == []
+    assert "低泛白风险" in claim.text
+    assert "所有肤色" in claim.text
+    assert claim.guide_revision == fresh_opening.guide_revision
+    claim_events = sessions.events_for_trace(fresh_session.trace_id)
+    assert not any(event.event_type.startswith("tool_") for event in claim_events)
+
+
+def test_explicit_comparison_intent_prepares_anchor_and_water_resistant_candidate(
+    tmp_path,
+) -> None:
+    engine, sessions = build_engine(tmp_path)
+    session = sessions.create(
+        EntryPoint.CONTENT,
+        "morning-routine-uv-001",
+        None,
+        locale="zh-CN",
+    )
+    engine.open_session(session)
+
+    turn = engine.handle_message(
+        session,
+        GuideMessageRequest(message_id="compare", text="和防水款比比"),
+    )
+
+    product_ids = {card.product_id for card in turn.recommendations}
+    assert turn.guide_view_kind is GuideViewKind.DECISION_READY
+    assert "seoul-shade-daily-fluid" in product_ids
+    assert product_ids & {"cloud-veil-mineral", "jeju-sport-sun-gel"}
+
+
+def test_outdoor_clarification_requires_a_water_resistant_decision(tmp_path) -> None:
+    engine, sessions = build_engine(tmp_path)
+    session = sessions.create(
+        EntryPoint.CONTENT,
+        "morning-routine-uv-001",
+        None,
+        locale="zh-CN",
+    )
+    engine.open_session(session)
+    engine.handle_message(
+        session,
+        GuideMessageRequest(message_id="fit-outdoor", text="适合油皮吗？"),
+    )
+
+    turn = engine.handle_message(
+        session,
+        GuideMessageRequest(message_id="outdoor", text="户外出汗或玩水"),
+    )
+
+    assert turn.guide_view_kind is GuideViewKind.DECISION_READY
+    assert turn.recommendations
+    assert all(
+        card.product_id != "seoul-shade-daily-fluid"
+        for card in turn.recommendations
+    )
+    assert session.hard_constraints.water_resistance_minutes == 40
 
 
 def test_context_product_name_is_resolved_from_product_facts(tmp_path) -> None:
