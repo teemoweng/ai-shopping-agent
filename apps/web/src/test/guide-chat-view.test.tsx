@@ -152,6 +152,11 @@ describe("GuideChatView", () => {
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(screen.getAllByText("AI 生成 · 合成原型")).toHaveLength(1);
     expect(document.querySelectorAll("details")).toHaveLength(1);
+    expect(screen.getByText("AI 生成 · 合成原型")).toHaveStyle({
+      minHeight: "44px",
+      display: "inline-flex",
+      alignItems: "center",
+    });
   });
 
   it("keeps a short answer conversational without rendering product results", () => {
@@ -308,30 +313,60 @@ describe("GuideChatView", () => {
   });
 
   it("never exposes product, comparison, or evidence actions for a safety turn", () => {
+    const recommendationMessage: TranscriptMessage = {
+      id: "gmsg_previous_recommendation",
+      sequence: 2,
+      role: "ASSISTANT",
+      kind: "RECOMMENDATION",
+      text: "Seoul Shade 是当前首选。",
+      redacted: false,
+      recommendations,
+      evidence: [evidence],
+      quick_replies: [],
+    };
+    const redactedUserMessage: TranscriptMessage = {
+      id: "gmsg_redacted_user",
+      sequence: 3,
+      role: "USER",
+      kind: "USER_TEXT",
+      text: "已隐藏一条健康相关描述",
+      redacted: true,
+      recommendations: [],
+      evidence: [],
+      quick_replies: [],
+    };
     const safetyMessage: TranscriptMessage = {
       id: "gmsg_safety",
-      sequence: 2,
+      sequence: 4,
       role: "ASSISTANT",
       kind: "SAFETY",
       text: "如果出现严重过敏或药物相关问题，请停止使用并咨询专业人士。",
-      redacted: true,
-      recommendations,
-      evidence: [evidence],
-      comparison,
+      redacted: false,
+      recommendations: [],
+      evidence: [],
       quick_replies: [],
     };
 
     render(
       <GuideChatView
-        turn={turnWith([openingMessage, safetyMessage], {
-          kind: "safety_boundary",
-          guide_status: "SAFE_EXIT",
-          guide_view_kind: "SAFE_BOUNDARY",
-          recommendations,
-          evidence: [evidence],
-          comparison,
-        })}
+        turn={turnWith(
+          [
+            openingMessage,
+            recommendationMessage,
+            redactedUserMessage,
+            safetyMessage,
+          ],
+          {
+            kind: "safety_boundary",
+            guide_status: "SAFE_EXIT",
+            guide_view_kind: "SAFE_BOUNDARY",
+            recommendations,
+            evidence: [evidence],
+            comparison,
+          },
+        )}
         mode="expanded"
+        statusText="安全信息已更新"
         onSubmit={vi.fn()}
         onQuickReply={vi.fn()}
         onOpenProduct={vi.fn()}
@@ -341,13 +376,31 @@ describe("GuideChatView", () => {
       />,
     );
 
+    const log = screen.getByRole("log", { name: "导购对话" });
+    expect(within(log).getAllByRole("article")).toHaveLength(2);
+    expect(screen.getByText(redactedUserMessage.text)).toBeVisible();
     expect(screen.getByText(safetyMessage.text)).toBeVisible();
+    expect(screen.getByLabelText("安全提示")).toHaveTextContent(
+      "商品建议已隐藏",
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("安全信息已更新");
+    expect(screen.getByRole("button", { name: "关闭导购" })).toBeVisible();
+    expect(screen.queryByText(/Seoul Shade/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("当前视频商品")).not.toBeInTheDocument();
+    expect(screen.queryByText(openingMessage.text)).not.toBeInTheDocument();
+    expect(screen.queryByText(recommendationMessage.text)).not.toBeInTheDocument();
+    expect(screen.queryByText(evidence.title)).not.toBeInTheDocument();
     expect(screen.queryByRole("article", { name: /商品建议/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", {
+        name: /商品对比|其他选择|依据/,
+      }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /看商品|比较|依据/ })).not.toBeInTheDocument();
   });
 
-  it("submits once on Enter, ignores composition Enter, and keeps Shift+Enter for a new line", async () => {
+  it("submits once on Enter, ignores composition Enter, and preserves a real Shift+Enter line break", () => {
     const onSubmit = vi.fn();
     render(
       <GuideChatView
@@ -368,12 +421,53 @@ describe("GuideChatView", () => {
 
     fireEvent.keyDown(composer, { key: "Enter", code: "Enter", shiftKey: true });
     expect(onSubmit).not.toHaveBeenCalled();
-    expect(composer).toHaveValue("油皮适合吗");
+    fireEvent.change(composer, {
+      target: { value: "油皮适合吗\n还想确认泛白" },
+    });
+    expect(composer).toHaveValue("油皮适合吗\n还想确认泛白");
 
     fireEvent.keyDown(composer, { key: "Enter", code: "Enter" });
     expect(onSubmit).toHaveBeenCalledTimes(1);
-    expect(onSubmit).toHaveBeenCalledWith("油皮适合吗");
+    expect(onSubmit).toHaveBeenCalledWith("油皮适合吗\n还想确认泛白");
     expect(composer).toHaveValue("");
+  });
+
+  it("grows from one through three rows using scroll geometry, caps the fourth, and shrinks after submit", () => {
+    const onSubmit = vi.fn();
+    render(
+      <GuideChatView
+        turn={turnWith([openingMessage])}
+        mode="compact"
+        onSubmit={onSubmit}
+        onQuickReply={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    const composer = screen.getByPlaceholderText(
+      "问问这款商品…",
+    ) as HTMLTextAreaElement;
+    Object.defineProperty(composer, "scrollHeight", {
+      configurable: true,
+      get: () => 42 + (String(composer.value).split("\n").length - 1) * 20,
+    });
+
+    fireEvent.change(composer, { target: { value: "第一行\n第二行" } });
+    expect(composer).toHaveStyle({ height: "64px", overflowY: "hidden" });
+
+    fireEvent.change(composer, {
+      target: { value: "第一行\n第二行\n第三行" },
+    });
+    expect(composer).toHaveStyle({ height: "84px", overflowY: "hidden" });
+
+    fireEvent.change(composer, {
+      target: { value: "第一行\n第二行\n第三行\n第四行" },
+    });
+    expect(composer).toHaveStyle({ height: "84px", overflowY: "auto" });
+
+    fireEvent.keyDown(composer, { key: "Enter", code: "Enter" });
+    expect(onSubmit).toHaveBeenCalledWith("第一行\n第二行\n第三行\n第四行");
+    expect(composer).toHaveValue("");
+    expect(composer).toHaveStyle({ height: "44px", overflowY: "hidden" });
   });
 
   it("uses polite status and assertive error semantics supplied by the controller", () => {

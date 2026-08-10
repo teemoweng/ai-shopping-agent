@@ -16,6 +16,10 @@ type Subview =
   | { kind: "alternatives"; messageId: string }
   | null;
 
+const COMPOSER_MIN_HEIGHT = 44;
+const COMPOSER_MAX_HEIGHT = 84;
+const COMPOSER_BORDER_HEIGHT = 2;
+
 export interface GuideChatViewProps {
   turn: GuideTurn;
   mode: GuideMode;
@@ -54,6 +58,7 @@ export function GuideChatView({
   const [draft, setDraft] = useState("");
   const [subview, setSubview] = useState<Subview>(null);
   const composingRef = useRef(false);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const logRef = useRef<HTMLDivElement>(null);
   const nearBottomRef = useRef(true);
   const evidenceTriggerRef = useRef<HTMLButtonElement>(null);
@@ -71,6 +76,25 @@ export function GuideChatView({
   const isOpening = latestMessage?.kind === "OPENING";
   const isSafety =
     latestMessage?.kind === "SAFETY" || turn.guide_view_kind === "SAFE_BOUNDARY";
+  const safetyTranscript = isSafety
+    ? [
+        [...transcript]
+          .reverse()
+          .find(
+            (message) =>
+              message.role === "USER" &&
+              message.kind === "USER_TEXT" &&
+              message.redacted &&
+              message.text === "已隐藏一条健康相关描述",
+          ),
+        [...transcript]
+          .reverse()
+          .find(
+            (message) =>
+              message.role === "ASSISTANT" && message.kind === "SAFETY",
+          ),
+      ].filter((message) => message !== undefined)
+    : transcript;
   const primaryRecommendation = recommendations[0];
   const productNames = Object.fromEntries(
     recommendations.map((item) => [item.product_id, item.name]),
@@ -81,7 +105,7 @@ export function GuideChatView({
     if (log && nearBottomRef.current) {
       log.scrollTop = log.scrollHeight;
     }
-  }, [transcript.length]);
+  }, [safetyTranscript.length]);
 
   useEffect(() => {
     if (activeSubview || !pendingFocusRestoreRef.current) {
@@ -107,6 +131,22 @@ export function GuideChatView({
     }
     onSubmit(text);
     setDraft("");
+    if (composerRef.current) {
+      composerRef.current.style.height = `${COMPOSER_MIN_HEIGHT}px`;
+      composerRef.current.style.overflowY = "hidden";
+    }
+  }
+
+  function resizeComposer(node: HTMLTextAreaElement) {
+    node.style.height = `${COMPOSER_MIN_HEIGHT}px`;
+    const contentHeight = node.scrollHeight + COMPOSER_BORDER_HEIGHT;
+    const nextHeight = Math.min(
+      Math.max(contentHeight, COMPOSER_MIN_HEIGHT),
+      COMPOSER_MAX_HEIGHT,
+    );
+    node.style.height = `${nextHeight}px`;
+    node.style.overflowY =
+      contentHeight > COMPOSER_MAX_HEIGHT ? "auto" : "hidden";
   }
 
   function roleFor(recommendation: Recommendation): ProductRole {
@@ -154,11 +194,18 @@ export function GuideChatView({
       aria-label="AI 商品导购"
     >
       <header className="guideChatHeader">
-        <div className="guideSourceChip" aria-label="当前视频商品">
-          <span aria-hidden="true">▶</span>
+        <div
+          className="guideSourceChip"
+          aria-label={isSafety ? "安全提示" : "当前视频商品"}
+        >
+          <span aria-hidden="true">{isSafety ? "!" : "▶"}</span>
           <p>
-            <strong>{turn.context.anchor_product_name}</strong>
-            <small>{turn.context.creator_handle}</small>
+            <strong>
+              {isSafety ? "安全提示" : turn.context.anchor_product_name}
+            </strong>
+            <small>
+              {isSafety ? "商品建议已隐藏" : turn.context.creator_handle}
+            </small>
           </p>
         </div>
         <button
@@ -184,7 +231,7 @@ export function GuideChatView({
             node.scrollHeight - node.scrollTop - node.clientHeight <= 48;
         }}
       >
-        {transcript.map((message) => (
+        {safetyTranscript.map((message) => (
           <article
             key={message.id}
             className={`guideChatMessage guideChatMessage-${message.role.toLowerCase()}`}
@@ -288,7 +335,7 @@ export function GuideChatView({
         ) : null}
       </div>
 
-      {!activeSubview && quickReplies.length > 0 ? (
+      {!isSafety && !activeSubview && quickReplies.length > 0 ? (
         <div className="guideChatQuickReplies" role="group" aria-label="你可以这样问">
           {quickReplies.slice(0, isOpening ? 3 : 4).map((reply) => (
             <button
@@ -316,6 +363,7 @@ export function GuideChatView({
       >
         <label htmlFor="guide-chat-input">继续提问</label>
         <textarea
+          ref={composerRef}
           id="guide-chat-input"
           name="guide-chat-input"
           rows={1}
@@ -323,7 +371,11 @@ export function GuideChatView({
           disabled={disabled}
           enterKeyHint="send"
           placeholder="问问这款商品…"
-          onChange={(event) => setDraft(event.target.value)}
+          style={{ height: COMPOSER_MIN_HEIGHT, overflowY: "hidden" }}
+          onChange={(event) => {
+            setDraft(event.target.value);
+            resizeComposer(event.currentTarget);
+          }}
           onCompositionStart={() => {
             composingRef.current = true;
           }}
@@ -349,7 +401,11 @@ export function GuideChatView({
       </form>
 
       <details className="guideChatDisclosure">
-        <summary>AI 生成 · 合成原型</summary>
+        <summary
+          style={{ minHeight: 44, display: "inline-flex", alignItems: "center" }}
+        >
+          AI 生成 · 合成原型
+        </summary>
         <p>商品、内容和用户场景均为合成数据；价格与库存需在商品页再次核验。</p>
       </details>
     </section>

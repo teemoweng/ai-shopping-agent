@@ -75,3 +75,76 @@ git diff --check
 
 - `next build` emits the existing worktree multi-lockfile workspace-root inference warning. Compilation, TypeScript, static generation, and the production build complete successfully; changing repository-level Turbopack configuration is outside Task 6 ownership.
 - Task 6 intentionally does not integrate `GuideChatView` into `GuideSheet` or modify navigation/commerce controllers. Production Chromium geometry, Sheet mode switching, and end-to-end focus/navigation evidence remain Task 7 scope; this task locks the pure presentation behavior and scoped responsive CSS only.
+
+---
+
+# Independent Review Fix Round 1
+
+## Status
+
+DONE_WITH_CONCERNS
+
+## Findings Fixed
+
+1. **The composer now grows through three real text rows.** `GuideChatView` owns only presentation-local textarea geometry: it reads the element's `scrollHeight`, adds the fixed two-pixel border box, grows from 44px to 64px and 84px, caps a fourth row at 84px with vertical overflow, and resets to 44px after submit. The regression uses actual newline-containing values and retains composition Enter, ordinary Enter, and Shift+Enter behavior.
+2. **Safety presentation no longer leaks commercial context.** A safety turn replaces the product source chip with a generic `安全提示 / 商品建议已隐藏` header. The conversation log contains only the latest exact redacted user placeholder when present and the latest safety assistant answer; historical opening/recommendation text, the product name, evidence, cards, comparison, alternatives, quick replies, and open/compare actions are absent from the DOM and accessibility tree. Controller-supplied status and the close/return action remain available.
+3. **The sole disclosure has a 44px target.** Its summary now has an explicit 44px minimum height, inline-flex alignment, visible disclosure marker, and existing readable detail copy. There is still exactly one disclosure.
+
+## RED Evidence
+
+All three review regressions were written before the fix and run together:
+
+```text
+pnpm --dir apps/web exec vitest run src/test/guide-chat-view.test.tsx src/test/decision-actions.test.tsx
+# exit 1
+# 1 file failed, 1 passed
+# 3 failed, 16 passed / 19 total
+```
+
+The three failures were independent: the summary remained a default `list-item` without 44px geometry; the safety log exposed four historical messages instead of only the redacted user and latest safety answer; and a real two-line value with mocked `scrollHeight=62` did not change textarea height or overflow.
+
+## GREEN and Final Verification
+
+Each minimal fix passed its own targeted regression before the combined run:
+
+```text
+pnpm --dir apps/web exec vitest run src/test/guide-chat-view.test.tsx -t "grows from one through three rows"
+# 1 passed, 7 skipped
+
+pnpm --dir apps/web exec vitest run src/test/guide-chat-view.test.tsx -t "never exposes product"
+# 1 passed, 7 skipped
+
+pnpm --dir apps/web exec vitest run src/test/guide-chat-view.test.tsx -t "compact opening"
+# 1 passed, 7 skipped
+```
+
+Combined and full verification:
+
+```text
+pnpm --dir apps/web exec vitest run src/test/guide-chat-view.test.tsx src/test/decision-actions.test.tsx
+# 2 files passed; 19 passed / 19 total
+
+pnpm test:web
+# 11 files passed; 254 passed / 254 total
+
+pnpm lint:web
+# Passed; 0 errors, 0 warnings
+
+pnpm --dir apps/web exec tsc --noEmit
+# Passed
+
+pnpm --dir apps/web build
+# Production build passed; 4/4 static pages generated
+
+git diff --check
+# Passed with no output
+```
+
+## Commit
+
+- Fix-round commit: the independent commit containing these review fixes, tests, CSS, and this report section; its exact hash is returned as the final Task 6 HEAD because a commit cannot contain its own hash.
+
+## Remaining Concerns
+
+- `next build` continues to emit the pre-existing worktree multi-lockfile workspace-root inference warning. Compilation, TypeScript, static generation, and the production build complete successfully.
+- Task 7 still owns `GuideSheet` integration and production Chromium geometry/E2E evidence; this review round does not cross that boundary.
