@@ -14,19 +14,15 @@ test("Vercel builds the monorepo Web app from the repository root", async () => 
   assert.equal(config.outputDirectory, "apps/web/.next");
 });
 
-test("Railway starts one quiet API worker and checks the real health route", async () => {
-  const config = JSON.parse(await readFile(path.join(projectRoot, "apps/api/railway.json"), "utf8"));
-  assert.equal(config.$schema, "https://railway.com/railway.schema.json");
-  assert.equal(config.build.builder, "RAILPACK");
-  assert.match(config.deploy.startCommand, /--workers 1/);
-  assert.match(config.deploy.startCommand, /--no-access-log/);
-  assert.match(config.deploy.startCommand, /\$\{PORT:-8000\}/);
-  assert.equal(config.deploy.healthcheckPath, "/api/v1/health");
+test("Vercel can discover the FastAPI app from the API project root", async () => {
+  const pyproject = await readFile(path.join(projectRoot, "apps/api/pyproject.toml"), "utf8");
+  assert.match(pyproject, /\[tool\.vercel\]/);
+  assert.match(pyproject, /^entrypoint\s*=\s*"app\.main:app"$/m);
 });
 
 test("the environment example contains only public configuration placeholders", async () => {
   const example = await readFile(path.join(projectRoot, ".env.example"), "utf8");
-  assert.match(example, /^NEXT_PUBLIC_API_BASE_URL=https:\/\/your-api-domain\.up\.railway\.app\/api\/v1$/m);
+  assert.match(example, /^NEXT_PUBLIC_API_BASE_URL=https:\/\/your-api-project\.vercel\.app\/api\/v1$/m);
   assert.match(example, /^ALLOWED_ORIGINS=https:\/\/your-web-domain\.vercel\.app$/m);
   assert.doesNotMatch(example, /(token|secret|password|api_key)\s*=/i);
 });
@@ -35,7 +31,7 @@ test("README documents public operation without overstating persistence", async 
   const readme = await readFile(path.join(projectRoot, "README.md"), "utf8");
   assert.match(readme, /## 公网部署/);
   assert.match(readme, /Vercel/);
-  assert.match(readme, /Railway/);
+  assert.match(readme, /Vercel FastAPI/);
   assert.match(readme, /进程内/);
-  assert.match(readme, /服务重启后.*会话/);
+  assert.match(readme, /Function.*会话/);
 });

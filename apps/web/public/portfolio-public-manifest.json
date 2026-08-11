@@ -169,8 +169,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 23252,
-      "sha256": "4f2dfa642c1f7002fba5320e7463ab454e636cfe82c5ebb5f06a20c5f58b09c7"
+      "bytes": 23317,
+      "sha256": "5db372588eeab2e539010d76deac85ca0b50f9f327b701305d76995cf0753ec5"
     },
     {
       "path": "TASKS.md",
@@ -179,8 +179,8 @@
     },
     {
       "path": "vibe-coding-case-study.html",
-      "bytes": 277130,
-      "sha256": "6ae3edf7e283d406a1bdbfb9ee1da4b67439dd02a8508e47e1325624788592ba"
+      "bytes": 277206,
+      "sha256": "4812a349d0bc1acbf099474a87e8c1a98564171adb3f9cd64f88e72019f71699"
     }
   ]
 }

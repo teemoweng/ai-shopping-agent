@@ -6,18 +6,17 @@
 
 ## 2. 已比较的方案
 
-### 方案 A：Vercel 前端 + Railway API + GitHub 公开仓库（采用）
+### 方案 A：Vercel Web + Vercel FastAPI + GitHub 公开仓库（采用）
 
-- Vercel 承载 Next.js Demo 与静态案例页；
-- Railway 以单 worker 运行 FastAPI；
+- 两个独立 Vercel Project 分别承载 Next.js Web 与 FastAPI Function；
 - GitHub 保存代码与部署配置，作为作品集的可核验源；
 - 案例页在公网环境跳转到同站 Demo，本地 `file://` 仍跳转到 `127.0.0.1:3000`。
 
-优点是适配当前技术栈，前后端职责清楚，案例页与 Demo 可使用同一前端域名。代价是需要维护两个云服务，并处理精确 CORS。
+优点是适配当前技术栈、无需新增付费平台，前后端职责清楚，案例页与 Demo 可使用同一前端域名。代价是仍需维护两个 Project、处理精确 CORS，并接受 Serverless Function 的进程内状态不稳定边界。
 
-### 方案 B：前后端全部放 Railway（不采用）
+### 方案 B：Vercel 前端 + Railway API（未采用）
 
-服务数量较少，但 Next.js 静态资源/CDN、预览与前端发布体验不如 Vercel 直接；也没有必要为作品集把既有前端部署能力降级。
+容器与单 worker 更贴近本地 Uvicorn 形态，但现有 Railway workspace 需要升级付费计划。本次作品集无需为进程内 Demo 增加新的订阅，因此改用 Vercel 官方 Python Runtime。
 
 ### 方案 C：只发布静态案例页，Demo 继续本地（不采用）
 
@@ -40,7 +39,7 @@
 
 - CORS 默认仍只允许本地两个开发源；生产通过 `ALLOWED_ORIGINS` 显式追加 HTTPS 前端域名；
 - 禁止通配符、带凭证 URL、路径、查询和 fragment；
-- Railway 使用一个 Uvicorn worker，关闭 access log，避免 operation identifier 出现在 URL 日志；
+- API 作为一个 FastAPI Vercel Function 运行，入口固定为 `app.main:app`；
 - 使用现有 `/api/v1/health` 作为部署健康检查；
 - 会话与模拟交易仍是进程内状态：服务重启后会话丢失。这是作品集 Demo 的公开限制，不包装成生产架构。
 
@@ -73,5 +72,5 @@
 
 - 这是使用冻结合成商品与确定性 Workflow 的作品集原型，不是真实 TikTok Shop 产品；
 - 没有真实 LLM、真实库存、真实支付、持久化数据库和用户账号；
-- Railway 冷启动、免费额度和进程重启可能使会话失效；
+- Vercel Function 冷启动、扩缩容、归档恢复和重新部署都可能使会话失效；
 - 本次上线证明“可公开体验与可复现”，不证明用户价值、推荐质量或转化提升。

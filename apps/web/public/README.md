@@ -226,17 +226,17 @@ pnpm test:e2e
 
 ## 公网部署
 
-公网作品集采用 **Vercel Web + Railway API + GitHub 公开源码**：Vercel 从 monorepo 根目录执行 `pnpm --dir apps/web build`，Demo 位于 `/`，案例页位于 `/case-study`；Railway 以一个 Uvicorn worker 运行 `apps/api`，健康检查为 `/api/v1/health`。
+公网作品集采用 **Vercel Web + Vercel FastAPI + GitHub 公开源码**：Web 项目从 monorepo 根目录执行 `pnpm --dir apps/web build`，Demo 位于 `/`，案例页位于 `/case-study`；API 项目以 `apps/api` 为根目录，Vercel Python Runtime 从 `app.main:app` 加载 FastAPI，健康检查为 `/api/v1/health`。
 
 部署只需要两项非敏感配置，格式见 [`.env.example`](./.env.example)：
 
 - Vercel：`NEXT_PUBLIC_API_BASE_URL=https://<api-domain>/api/v1`；
-- Railway：`ALLOWED_ORIGINS=https://<web-domain>`，必须是精确 origin，不接受 `*`、路径或带凭证 URL。
+- FastAPI：`ALLOWED_ORIGINS=https://<web-domain>`，必须是精确 origin，不接受 `*`、路径或带凭证 URL。
 
 案例页不是人工复制的第二份正文。`pnpm build:portfolio-public` 会把权威 HTML、六份全文证据及页面引用资产同步到 `apps/web/public/`；Web production build 先运行 `--check`，发现线上资源包过期就直接失败。直接双击根目录 HTML 时，Demo 入口仍指向本机；从公网 `/case-study` 打开时，入口自动指向同站 `/`。
 
 > [!WARNING]
-> 当前 `GuideSession`、模拟交易和幂等状态保存在 API **进程内**。Railway 服务重启后、重新部署后或进程替换后，已有会话会失效；这是公开作品集 Demo 的已知限制，不是生产级持久化方案。公开部署仍使用冻结合成商品、确定性 Workflow 和模拟加购，不接真实 TikTok、真实 LLM、真实库存或支付。
+> 当前 `GuideSession`、模拟交易和幂等状态保存在 API **进程内**。Vercel Function 冷启动、扩缩容、归档恢复或重新部署后，已有会话可能失效；这是公开作品集 Demo 的已知限制，不是生产级持久化方案。公开部署仍使用冻结合成商品、确定性 Workflow 和模拟加购，不接真实 TikTok、真实 LLM、真实库存或支付。
 
 正式 Chat-first 截图使用单独的 production capture gate：
 

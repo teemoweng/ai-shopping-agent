@@ -2428,7 +2428,7 @@
 
           <!-- EVIDENCE_DOCUMENTS_START -->
     <template id="evidence-document-overview">
-      <section class="embedded-evidence" data-evidence-key="overview" data-source="README.md" data-sha256="4f2dfa642c1f7002fba5320e7463ab454e636cfe82c5ebb5f06a20c5f58b09c7" data-title="产品概览与边界" data-kicker="Project overview">
+      <section class="embedded-evidence" data-evidence-key="overview" data-source="README.md" data-sha256="5db372588eeab2e539010d76deac85ca0b50f9f327b701305d76995cf0753ec5" data-title="产品概览与边界" data-kicker="Project overview">
         <p class="evidence-document-summary">产品面向谁、从哪里进入、完成什么任务，以及 AI 建议如何衔接到模拟交易。</p>
         <nav class="evidence-document-toc" aria-label="产品概览与边界目录"><ol><li data-level="2"><a href="#overview-为什么做这个产品">为什么做这个产品</a></li><li data-level="2"><a href="#overview-mvp-定义">MVP 定义</a></li><li data-level="2"><a href="#overview-体验主路径">体验主路径</a></li><li data-level="2"><a href="#overview-产品架构与真实能力边界">产品架构与真实能力边界</a></li><li data-level="2"><a href="#overview-数据与评测承诺">数据与评测承诺</a></li><li data-level="2"><a href="#overview-foundation-证据快照">Foundation 证据快照</a></li><li data-level="2"><a href="#overview-tiktok-重设计证据快照">TikTok 重设计证据快照</a></li><li data-level="2"><a href="#overview-chat-first-轻量导购证据快照">Chat-first 轻量导购证据快照</a></li><li data-level="2"><a href="#overview-本地安装-启动与验证">本地安装、启动与验证</a></li><li data-level="2"><a href="#overview-公网部署">公网部署</a></li><li data-level="2"><a href="#overview-当前状态">当前状态</a></li><li data-level="2"><a href="#overview-双层项目索引">双层项目索引</a></li><li data-level="2"><a href="#overview-文档入口">文档入口</a></li></ol></nav>
         <article class="evidence-document-content"><h1 id="overview-ai-shopping-agent-us-k-beauty-sunscreen-guide">AI Shopping Agent — US K-Beauty Sunscreen Guide</h1>
@@ -2529,11 +2529,11 @@ pnpm --dir apps/web build
 uv --directory apps/api run python ../../evals/run_foundation.py
 pnpm test:e2e</code></pre>
 <h2 id="overview-公网部署">公网部署</h2>
-<p>公网作品集采用 <strong>Vercel Web + Railway API + GitHub 公开源码</strong>：Vercel 从 monorepo 根目录执行 <code>pnpm --dir apps/web build</code>，Demo 位于 <code>/</code>，案例页位于 <code>/case-study</code>；Railway 以一个 Uvicorn worker 运行 <code>apps/api</code>，健康检查为 <code>/api/v1/health</code>。</p>
+<p>公网作品集采用 <strong>Vercel Web + Vercel FastAPI + GitHub 公开源码</strong>：Web 项目从 monorepo 根目录执行 <code>pnpm --dir apps/web build</code>，Demo 位于 <code>/</code>，案例页位于 <code>/case-study</code>；API 项目以 <code>apps/api</code> 为根目录，Vercel Python Runtime 从 <code>app.main:app</code> 加载 FastAPI，健康检查为 <code>/api/v1/health</code>。</p>
 <p>部署只需要两项非敏感配置，格式见 <a href="#artifacts" data-config-reference="true" title="环境变量示例请在公开源码仓库查看"><code>.env.example</code></a>：</p>
-<ul><li>Vercel：<code>NEXT_PUBLIC_API_BASE_URL=https://&lt;api-domain&gt;/api/v1</code>；</li><li>Railway：<code>ALLOWED_ORIGINS=https://&lt;web-domain&gt;</code>，必须是精确 origin，不接受 <code>*</code>、路径或带凭证 URL。</li></ul>
+<ul><li>Vercel：<code>NEXT_PUBLIC_API_BASE_URL=https://&lt;api-domain&gt;/api/v1</code>；</li><li>FastAPI：<code>ALLOWED_ORIGINS=https://&lt;web-domain&gt;</code>，必须是精确 origin，不接受 <code>*</code>、路径或带凭证 URL。</li></ul>
 <p>案例页不是人工复制的第二份正文。<code>pnpm build:portfolio-public</code> 会把权威 HTML、六份全文证据及页面引用资产同步到 <code>apps/web/public/</code>；Web production build 先运行 <code>--check</code>，发现线上资源包过期就直接失败。直接双击根目录 HTML 时，Demo 入口仍指向本机；从公网 <code>/case-study</code> 打开时，入口自动指向同站 <code>/</code>。</p>
-<aside class="markdown-callout" data-kind="warning"><strong>WARNING</strong><p>当前 <code>GuideSession</code>、模拟交易和幂等状态保存在 API <strong>进程内</strong>。Railway 服务重启后、重新部署后或进程替换后，已有会话会失效；这是公开作品集 Demo 的已知限制，不是生产级持久化方案。公开部署仍使用冻结合成商品、确定性 Workflow 和模拟加购，不接真实 TikTok、真实 LLM、真实库存或支付。</p></aside>
+<aside class="markdown-callout" data-kind="warning"><strong>WARNING</strong><p>当前 <code>GuideSession</code>、模拟交易和幂等状态保存在 API <strong>进程内</strong>。Vercel Function 冷启动、扩缩容、归档恢复或重新部署后，已有会话可能失效；这是公开作品集 Demo 的已知限制，不是生产级持久化方案。公开部署仍使用冻结合成商品、确定性 Workflow 和模拟加购，不接真实 TikTok、真实 LLM、真实库存或支付。</p></aside>
 <p>正式 Chat-first 截图使用单独的 production capture gate：</p>
 <pre><code class="language-bash">CAPTURE_CHAT_FIRST_EVIDENCE=1 pnpm test:e2e</code></pre>
 <p>Foundation 历史 release gate 见 <a href="./artifacts/evidence/foundation-verification.md">Foundation 验证记录</a>；TikTok 重设计历史证据见 <a href="./artifacts/evidence/tiktok-redesign-verification.md">TikTok 重设计验证记录</a>；当前 Chat-first 命令、真实计数、隐私扫描与制品校验见 <a href="./artifacts/evidence/chat-first-verification.md">Chat-first 验证记录</a> 和 <a href="./artifacts/evidence/chat-first-run-manifest.json">machine manifest</a>。</p>
