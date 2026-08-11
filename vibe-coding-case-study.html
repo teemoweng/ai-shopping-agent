@@ -250,30 +250,28 @@
       }
 
       h1 {
-        max-width: 730px;
+        max-width: 720px;
         margin-bottom: 28px;
-        font-family: var(--display);
-        font-size: clamp(56px, 7vw, 98px);
-        font-weight: 850;
-        line-height: 0.98;
-        letter-spacing: -0.055em;
+        font-family: var(--body);
+        font-size: clamp(52px, 5.9vw, 84px);
+        font-weight: 800;
+        line-height: 1.02;
+        letter-spacing: -0.06em;
+      }
+
+      .hero-line {
+        display: block;
+      }
+
+      .hero-title-mobile {
+        display: none;
       }
 
       .hero-highlight {
-        position: relative;
-        display: inline-block;
-        z-index: 0;
-      }
-
-      .hero-highlight::after {
-        content: "";
-        position: absolute;
-        z-index: -1;
-        left: -2px;
-        right: -8px;
-        bottom: 0.04em;
-        height: 0.24em;
-        background: var(--cyan);
+        padding-inline: 0.02em;
+        background: linear-gradient(transparent 76%, var(--cyan) 76%, var(--cyan) 96%, transparent 96%);
+        box-decoration-break: clone;
+        -webkit-box-decoration-break: clone;
       }
 
       .hero-lead {
@@ -807,13 +805,16 @@
       .screens {
         margin-top: 70px;
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        align-items: end;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        align-items: stretch;
         gap: 24px;
       }
 
       .screen-card {
+        margin: 0;
         padding: 13px;
+        display: flex;
+        flex-direction: column;
         background: #292c34;
         border: 1px solid #41444e;
         border-radius: 28px;
@@ -821,6 +822,9 @@
 
       .screen-card img {
         width: 100%;
+        height: auto;
+        aspect-ratio: 390 / 844;
+        object-fit: cover;
         border-radius: 19px;
       }
 
@@ -830,15 +834,6 @@
         font-family: var(--mono);
         font-size: 10px;
         line-height: 1.5;
-      }
-
-      .screen-card.desktop {
-        grid-column: span 2;
-      }
-
-      .screen-card.desktop img {
-        aspect-ratio: 1.44 / 1;
-        object-fit: cover;
       }
 
       .evaluation-thesis {
@@ -1026,7 +1021,7 @@
 
       .evidence-card:hover,
       .evidence-card:focus-visible,
-      .evidence-card.is-open {
+      .evidence-card.is-active {
         z-index: 11;
         transform: translateY(-3px);
         border-color: var(--ink);
@@ -1053,48 +1048,111 @@
         color: var(--signal);
       }
 
-      .evidence-preview {
+      .evidence-modal {
+        width: min(560px, calc(100vw - 32px));
+        max-width: none;
+        padding: 0;
+        color: var(--ink);
+        background: transparent;
+        border: 0;
+        overflow: visible;
+      }
+
+      .evidence-modal::backdrop {
+        background: rgba(16, 17, 20, 0.66);
+        -webkit-backdrop-filter: blur(5px);
+        backdrop-filter: blur(5px);
+      }
+
+      .evidence-modal[open] {
+        animation: modal-in 180ms ease-out both;
+      }
+
+      @keyframes modal-in {
+        from {
+          opacity: 0;
+          transform: translateY(16px) scale(0.97);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      .evidence-modal-card {
+        position: relative;
+        padding: 34px;
+        background: var(--white);
+        border: 2px solid var(--ink);
+        border-radius: 20px;
+        box-shadow: 12px 12px 0 var(--cyan), 0 32px 90px rgba(0, 0, 0, 0.28);
+      }
+
+      .evidence-modal-close {
         position: absolute;
-        z-index: 12;
-        top: calc(100% - 16px);
-        left: 16px;
-        right: 16px;
-        padding: 18px;
+        top: 18px;
+        right: 18px;
+        width: 44px;
+        height: 44px;
+        display: grid;
+        place-items: center;
         color: var(--white);
-        pointer-events: none;
-        opacity: 0;
-        transform: translateY(8px);
-        background: var(--night);
-        border: 1px solid #393d47;
-        border-radius: 12px;
-        box-shadow: 0 18px 38px rgba(16, 17, 20, 0.25);
-        transition: opacity 160ms ease, transform 160ms ease;
+        cursor: pointer;
+        background: var(--ink);
+        border: 0;
+        border-radius: 50%;
+        font-size: 24px;
+        line-height: 1;
       }
 
-      .evidence-preview-copy {
-        display: block;
-        margin: 0;
-        color: #d7d9df;
-        font-size: 13px;
-        line-height: 1.65;
+      .evidence-modal-close:focus-visible {
+        outline: 3px solid var(--signal);
+        outline-offset: 3px;
       }
 
-      .evidence-preview small {
+      .evidence-modal-kicker {
         display: block;
-        margin-top: 12px;
-        color: #8fded9;
+        margin-bottom: 30px;
+        padding-right: 54px;
+        color: var(--signal);
         font-family: var(--mono);
-        font-size: 9px;
-        letter-spacing: 0.08em;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.1em;
         text-transform: uppercase;
       }
 
-      .evidence-card:hover .evidence-preview,
-      .evidence-card:focus-visible .evidence-preview,
-      .evidence-card.is-open .evidence-preview {
-        pointer-events: auto;
-        opacity: 1;
-        transform: translateY(0);
+      .evidence-modal h3 {
+        max-width: 420px;
+        margin-bottom: 16px;
+        font-family: var(--display);
+        font-size: 42px;
+        line-height: 1.05;
+        letter-spacing: -0.035em;
+      }
+
+      .evidence-modal-copy {
+        margin-bottom: 22px;
+        color: #4d515a;
+        font-size: 16px;
+        line-height: 1.75;
+      }
+
+      .evidence-modal-detail {
+        margin-bottom: 20px;
+        padding: 16px 18px;
+        background: var(--paper);
+        border-left: 4px solid var(--cyan);
+        font-size: 14px;
+        line-height: 1.65;
+      }
+
+      .evidence-modal-source {
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
       }
 
       .final-cta {
@@ -1218,14 +1276,6 @@
           grid-column: span 2;
         }
 
-        .screens {
-          grid-template-columns: 1fr 1fr;
-        }
-
-        .screen-card.desktop {
-          grid-column: 1 / -1;
-        }
-
         .artifact-links {
           grid-template-columns: repeat(2, 1fr);
         }
@@ -1255,7 +1305,17 @@
         }
 
         h1 {
-          font-size: clamp(50px, 17vw, 70px);
+          font-size: 48px;
+          line-height: 1.04;
+          letter-spacing: -0.065em;
+        }
+
+        .hero-title-desktop {
+          display: none;
+        }
+
+        .hero-title-mobile {
+          display: block;
         }
 
         .hero-visual {
@@ -1347,21 +1407,28 @@
         }
 
         .screens {
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: none;
+          grid-auto-flow: column;
+          grid-auto-columns: minmax(220px, 72vw);
           gap: 12px;
+          padding: 0 2px 8px;
+          overflow-x: auto;
+          scroll-snap-type: x mandatory;
+          scrollbar-width: none;
         }
 
         .screen-card {
           padding: 8px;
           border-radius: 18px;
+          scroll-snap-align: start;
         }
 
         .screen-card img {
           border-radius: 12px;
         }
 
-        .screen-card.desktop {
-          grid-column: 1 / -1;
+        .screens::-webkit-scrollbar {
+          display: none;
         }
 
         .evaluation-thesis {
@@ -1372,22 +1439,13 @@
           min-height: 142px;
         }
 
-        .evidence-preview {
-          position: static;
-          max-height: 0;
-          margin-top: 0;
-          padding: 0;
-          overflow: hidden;
-          border: 0;
-          box-shadow: none;
+        .evidence-modal-card {
+          padding: 28px 24px 26px;
+          box-shadow: 7px 7px 0 var(--cyan), 0 24px 70px rgba(0, 0, 0, 0.3);
         }
 
-        .evidence-card:hover .evidence-preview,
-        .evidence-card:focus-visible .evidence-preview,
-        .evidence-card.is-open .evidence-preview {
-          max-height: 220px;
-          margin-top: 18px;
-          padding: 16px;
+        .evidence-modal h3 {
+          font-size: 34px;
         }
 
         .final-cta {
@@ -1470,7 +1528,17 @@
         <div class="hero-inner">
           <div class="hero-copy" data-reveal>
             <div class="eyebrow">TikTok Shop-inspired · AI Shopping Guide</div>
-            <h1>基于 TikTok Shop 的<span class="hero-highlight">AI 导购产品原型</span>。</h1>
+            <h1>
+              <span class="hero-title-desktop">
+                <span class="hero-line">基于 TikTok Shop 的</span>
+                <span class="hero-line"><span class="hero-highlight">AI 导购产品原型</span></span>
+              </span>
+              <span class="hero-title-mobile">
+                <span class="hero-line">基于 TikTok Shop</span>
+                <span class="hero-line">的 <span class="hero-highlight">AI 导购</span></span>
+                <span class="hero-line"><span class="hero-highlight">产品原型</span></span>
+              </span>
+            </h1>
             <p class="hero-lead">
               面向美国市场的 K-Beauty 防晒购物场景，在短视频种草之后，通过轻量对话回答商品是否适合、为什么适合、是否有更合适的替代，并衔接到商品详情与模拟加购。
             </p>
@@ -1848,8 +1916,18 @@
             </p>
           </div>
 
-          <div class="screens">
-            <figure class="screen-card" data-reveal>
+          <div class="screens" data-reveal>
+            <figure class="screen-card">
+              <img
+                src="./artifacts/screenshots/tiktok-redesign-mobile.png"
+                alt="可购物短视频中的问问这款入口"
+                width="390"
+                height="844"
+                loading="lazy"
+              />
+              <figcaption>STATE / FEED · 在商品内容中提供轻量入口</figcaption>
+            </figure>
+            <figure class="screen-card">
               <img
                 src="./artifacts/screenshots/chat-first-opening-mobile.png"
                 alt="Chat-first AI 导购轻量开场界面"
@@ -1859,7 +1937,7 @@
               />
               <figcaption>STATE / OPENING · 一句上下文 + 三个具体问题</figcaption>
             </figure>
-            <figure class="screen-card" data-reveal>
+            <figure class="screen-card">
               <img
                 src="./artifacts/screenshots/chat-first-decision-mobile.png"
                 alt="Chat-first AI 导购决策界面"
@@ -1868,16 +1946,6 @@
                 loading="lazy"
               />
               <figcaption>STATE / DECISION · 先结论，再出现一款首选</figcaption>
-            </figure>
-            <figure class="screen-card desktop" data-reveal>
-              <img
-                src="./artifacts/screenshots/chat-first-desktop.png"
-                alt="AI 导购桌面演示界面，左侧为实时手机原型，右侧为辅助讲解面板"
-                width="1440"
-                height="1000"
-                loading="lazy"
-              />
-              <figcaption>MODE / DESKTOP · 同一条手机路径为主，讲解面板为辅</figcaption>
             </figure>
           </div>
         </div>
@@ -1889,54 +1957,41 @@
             <div class="section-index">05 / 关键证据</div>
             <div>
               <h2>关键证据</h2>
-              <p class="section-intro">悬停、聚焦或点击卡片即可查看摘要。产品定义、交互规格、评测结果和交付状态分别保留，便于快速了解原型的依据与边界。</p>
+              <p class="section-intro">鼠标悬停时卡片会高亮，点击后会在居中的模态对话框中查看摘要。产品定义、交互规格、评测结果和交付状态分别保留，便于快速了解原型的依据与边界。</p>
             </div>
           </div>
 
           <div class="artifact-links">
-            <button type="button" class="evidence-card" aria-expanded="false" data-reveal>
+            <button type="button" class="evidence-card" data-evidence="overview" aria-haspopup="dialog" data-reveal>
               <span>Project overview</span><strong>产品概览与边界</strong>
-              <span class="evidence-preview" role="tooltip">
-                <span class="evidence-preview-copy">目标用户、内容入口、核心任务、三控制面，以及从对话建议到模拟交易的权限边界。</span>
-                <small>Source · README</small>
-              </span>
             </button>
-            <button type="button" class="evidence-card" aria-expanded="false" data-reveal>
+            <button type="button" class="evidence-card" data-evidence="interaction" aria-haspopup="dialog" data-reveal>
               <span>Interaction spec</span><strong>Chat-first 交互规格</strong>
-              <span class="evidence-preview" role="tooltip">
-                <span class="evidence-preview-copy">轻量开场、单问题澄清、先结论后商品，以及比较与依据按需展开的完整状态设计。</span>
-                <small>Source · Product Spec</small>
-              </span>
             </button>
-            <button type="button" class="evidence-card" aria-expanded="false" data-reveal>
+            <button type="button" class="evidence-card" data-evidence="evaluation" aria-haspopup="dialog" data-reveal>
               <span>Evaluation</span><strong>原型评测</strong>
-              <span class="evidence-preview" role="tooltip">
-                <span class="evidence-preview-copy">13 类 Chat-first 体验契约、8 条交易旅程，以及安全、幂等、焦点和响应式边界的验证结论。</span>
-                <small>Source · Verification Report</small>
-              </span>
             </button>
-            <button type="button" class="evidence-card" aria-expanded="false" data-reveal>
+            <button type="button" class="evidence-card" data-evidence="machine" aria-haspopup="dialog" data-reveal>
               <span>Machine evidence</span><strong>运行证据</strong>
-              <span class="evidence-preview" role="tooltip">
-                <span class="evidence-preview-copy">记录被测版本、测试数量、浏览器环境、输入数据哈希和正式截图哈希，确保结果可追溯。</span>
-                <small>Source · Run Manifest</small>
-              </span>
             </button>
-            <button type="button" class="evidence-card" aria-expanded="false" data-reveal>
+            <button type="button" class="evidence-card" data-evidence="roadmap" aria-haspopup="dialog" data-reveal>
               <span>Roadmap</span><strong>阶段计划</strong>
-              <span class="evidence-preview" role="tooltip">
-                <span class="evidence-preview-copy">区分已完成原型、后续模型接入、Hybrid Retrieval、用户研究与公网演示等阶段。</span>
-                <small>Source · Product Plan</small>
-              </span>
             </button>
-            <button type="button" class="evidence-card" aria-expanded="false" data-reveal>
+            <button type="button" class="evidence-card" data-evidence="delivery" aria-haspopup="dialog" data-reveal>
               <span>Delivery ledger</span><strong>交付状态</strong>
-              <span class="evidence-preview" role="tooltip">
-                <span class="evidence-preview-copy">集中记录已完成能力、对应证据、仍待验证的假设，以及当前原型的已知限制。</span>
-                <small>Source · Task Ledger</small>
-              </span>
             </button>
           </div>
+
+          <dialog class="evidence-modal" id="evidence-modal" aria-labelledby="evidence-modal-title">
+            <article class="evidence-modal-card">
+              <button class="evidence-modal-close" type="button" aria-label="关闭关键证据弹窗">×</button>
+              <span class="evidence-modal-kicker" id="evidence-modal-kicker"></span>
+              <h3 id="evidence-modal-title"></h3>
+              <p class="evidence-modal-copy" id="evidence-modal-copy"></p>
+              <div class="evidence-modal-detail" id="evidence-modal-detail"></div>
+              <span class="evidence-modal-source" id="evidence-modal-source"></span>
+            </article>
+          </dialog>
         </div>
       </section>
 
@@ -1991,35 +2046,84 @@
 
         document.querySelectorAll("[data-reveal]").forEach((item) => revealObserver.observe(item));
 
-        const evidenceCards = [...document.querySelectorAll(".evidence-card")];
-        const closeEvidence = (except = null) => {
-          evidenceCards.forEach((card) => {
-            if (card === except) return;
-            card.classList.remove("is-open");
-            card.setAttribute("aria-expanded", "false");
-          });
+        const evidenceContent = {
+          overview: {
+            kicker: "Project overview",
+            title: "产品概览与边界",
+            copy: "这份概览集中说明产品面向谁、从哪里进入、完成什么任务，以及 AI 建议如何衔接到模拟交易。",
+            detail: "覆盖目标用户、内容入口、核心路径，以及 NavigationState、GuideSession、CommerceOperation 三个控制面的职责。",
+            source: "Key evidence · README"
+          },
+          interaction: {
+            kicker: "Interaction spec",
+            title: "Chat-first 交互规格",
+            copy: "导购默认保持轻量：先承接当前商品，再通过一个高信息量问题补齐约束，最后逐步展示结论、商品与比较。",
+            detail: "覆盖轻量开场、单问题澄清、先结论后商品，以及比较与依据按需展开的状态设计。",
+            source: "Key evidence · Product spec"
+          },
+          evaluation: {
+            kicker: "Evaluation",
+            title: "原型评测",
+            copy: "评测分别观察任务完整性、体验契约、系统边界和仍待真人验证的产品假设。",
+            detail: "包含 13 类 Chat-first 体验契约、8 条交易旅程，以及安全、幂等、焦点和响应式边界。",
+            source: "Key evidence · Verification report"
+          },
+          machine: {
+            kicker: "Machine evidence",
+            title: "运行证据",
+            copy: "运行记录把页面结论绑定到一个明确版本，避免把不同轮次的测试数字和截图混在一起。",
+            detail: "记录被测提交、测试数量、浏览器环境、输入数据哈希与正式截图哈希。",
+            source: "Key evidence · Run manifest"
+          },
+          roadmap: {
+            kicker: "Roadmap",
+            title: "阶段计划",
+            copy: "路线图把当前可运行原型与后续能力分开，说明哪些已经实现，哪些仍属于下一阶段。",
+            detail: "后续包括真实模型接入、Hybrid Retrieval、用户研究与公网演示。",
+            source: "Key evidence · Product plan"
+          },
+          delivery: {
+            kicker: "Delivery ledger",
+            title: "交付状态",
+            copy: "交付记录把每项能力与对应证据放在一起，同时保留尚未完成的假设和已知限制。",
+            detail: "用于区分已完成的原型能力、可复现证据，以及仍需进一步验证的内容。",
+            source: "Key evidence · Task ledger"
+          }
         };
 
-        evidenceCards.forEach((card, index) => {
-          const preview = card.querySelector(".evidence-preview");
-          const previewId = `evidence-preview-${index + 1}`;
-          preview.id = previewId;
-          card.setAttribute("aria-controls", previewId);
-          card.addEventListener("click", (event) => {
-            event.stopPropagation();
-            const shouldOpen = !card.classList.contains("is-open");
-            closeEvidence(card);
-            card.classList.toggle("is-open", shouldOpen);
-            card.setAttribute("aria-expanded", String(shouldOpen));
+        const evidenceCards = [...document.querySelectorAll(".evidence-card")];
+        const evidenceModal = document.querySelector("#evidence-modal");
+        const modalKicker = document.querySelector("#evidence-modal-kicker");
+        const modalTitle = document.querySelector("#evidence-modal-title");
+        const modalCopy = document.querySelector("#evidence-modal-copy");
+        const modalDetail = document.querySelector("#evidence-modal-detail");
+        const modalSource = document.querySelector("#evidence-modal-source");
+        const modalClose = evidenceModal.querySelector(".evidence-modal-close");
+        let activeEvidenceCard = null;
+
+        evidenceCards.forEach((card) => {
+          card.addEventListener("click", () => {
+            const content = evidenceContent[card.dataset.evidence];
+            if (!content) return;
+            activeEvidenceCard?.classList.remove("is-active");
+            activeEvidenceCard = card;
+            card.classList.add("is-active");
+            modalKicker.textContent = content.kicker;
+            modalTitle.textContent = content.title;
+            modalCopy.textContent = content.copy;
+            modalDetail.textContent = content.detail;
+            modalSource.textContent = content.source;
+            evidenceModal.showModal();
           });
         });
 
-        document.addEventListener("click", () => closeEvidence());
-        document.addEventListener("keydown", (event) => {
-          if (event.key !== "Escape") return;
-          const openCard = document.querySelector(".evidence-card.is-open");
-          closeEvidence();
-          openCard?.focus();
+        modalClose.addEventListener("click", () => evidenceModal.close());
+        evidenceModal.addEventListener("click", (event) => {
+          if (event.target === evidenceModal) evidenceModal.close();
+        });
+        evidenceModal.addEventListener("close", () => {
+          activeEvidenceCard?.classList.remove("is-active");
+          activeEvidenceCard?.focus();
         });
 
         const sectionObserver = new IntersectionObserver(
