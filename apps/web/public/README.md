@@ -228,12 +228,27 @@ pnpm test:e2e
 
 公网作品集采用 **Vercel Web + Vercel FastAPI + GitHub 公开源码**：Web 项目从 monorepo 根目录执行 `pnpm --dir apps/web build`，Demo 位于 `/`，案例页位于 `/case-study`；API 项目以 `apps/api` 为根目录，Vercel Python Runtime 从 `app.main:app` 加载 FastAPI，健康检查为 `/api/v1/health`。
 
+| 公开入口 | 地址 |
+|---|---|
+| 产品案例页 | [https://ai-shopping-agent.vercel.app/case-study](https://ai-shopping-agent.vercel.app/case-study) |
+| 可交互 Demo | [https://ai-shopping-agent.vercel.app](https://ai-shopping-agent.vercel.app) |
+| API 健康检查 | [https://ai-shopping-agent-api.vercel.app/api/v1/health](https://ai-shopping-agent-api.vercel.app/api/v1/health) |
+| GitHub 源码 | [https://github.com/teemoweng/ai-shopping-agent](https://github.com/teemoweng/ai-shopping-agent) |
+
 部署只需要两项非敏感配置，格式见 [`.env.example`](./.env.example)：
 
 - Vercel：`NEXT_PUBLIC_API_BASE_URL=https://<api-domain>/api/v1`；
 - FastAPI：`ALLOWED_ORIGINS=https://<web-domain>`，必须是精确 origin，不接受 `*`、路径或带凭证 URL。
 
 案例页不是人工复制的第二份正文。`pnpm build:portfolio-public` 会把权威 HTML、六份全文证据及页面引用资产同步到 `apps/web/public/`；Web production build 先运行 `--check`，发现线上资源包过期就直接失败。直接双击根目录 HTML 时，Demo 入口仍指向本机；从公网 `/case-study` 打开时，入口自动指向同站 `/`。
+
+线上验收可复跑：
+
+```bash
+pnpm verify:public-deployment
+```
+
+该脚本使用真实 Chromium 核验案例页、全文证据弹窗、同站 Demo 入口、AI 决策、PDP 与模拟加购回执，并生成两张公网截图。完整结果与失败历史见 [公网发布验证记录](./artifacts/evidence/public-deployment-verification.md)。
 
 > [!WARNING]
 > 当前 `GuideSession`、模拟交易和幂等状态保存在 API **进程内**。Vercel Function 冷启动、扩缩容、归档恢复或重新部署后，已有会话可能失效；这是公开作品集 Demo 的已知限制，不是生产级持久化方案。公开部署仍使用冻结合成商品、确定性 Workflow 和模拟加购，不接真实 TikTok、真实 LLM、真实库存或支付。
@@ -251,7 +266,7 @@ Foundation 历史 release gate 见 [Foundation 验证记录](./artifacts/evidenc
 | 能力 | 状态 |
 |---|---|
 | 产品范围与关键原则 | 已确认 |
-| 可运行前后端 | Chat-first 轻量导购本地链路已实现并在 production Chromium 验证 |
+| 可运行前后端 | Chat-first 轻量导购已公开部署；本地与公网 Chromium 主路径均已验证 |
 | 合成商品与场景数据 | 3 SPU / 6 SKU、1 ContentContext、3 evidence documents |
 | Workflow / Tools | 确定性基线已实现并评测；真实 LLM Agent 未实现 |
 | RAG | 词法证据检索基线已评测；向量/Hybrid/Reranker 未实现 |
@@ -261,8 +276,8 @@ Foundation 历史 release gate 见 [Foundation 验证记录](./artifacts/evidenc
 | Chat-first 浏览器旅程 | 普通 E2E 39 passed / 31 intentional routed skips / 0 failed；production capture 42 passed / 28 routed skips / 0 failed；其中 13 条 Chat-first、8 条原交易旅程均通过 |
 | Chat-first 会话可靠性 | 服务端有界 transcript、`conversation_revision` / `guide_revision` 分离、message/compare 幂等、关闭/PDP 往返恢复已在 API/Web/Chromium 回归 |
 | 三控制面 | `NavigationState` / 可选 `GuideSession` / `CommerceOperation` 已实现并回归；AI 无购物车写权限 |
-| 用户/业务结果 | 未研究、未上线、未测转化 |
-| 部署地址 | 无 |
+| 用户/业务结果 | 未开展真人研究、未测转化；公网可用不等于业务价值已验证 |
+| 部署地址 | [案例页](https://ai-shopping-agent.vercel.app/case-study) · [Demo](https://ai-shopping-agent.vercel.app) · [API health](https://ai-shopping-agent-api.vercel.app/api/v1/health) · [GitHub](https://github.com/teemoweng/ai-shopping-agent) |
 
 ## 双层项目索引
 

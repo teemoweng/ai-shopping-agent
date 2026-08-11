@@ -162,9 +162,10 @@
 
 ### 当前已完成的作品集切片
 
-- 已交付一份可独立打开的 [AI 导购产品案例页](./vibe-coding-case-study.html)，从用户问题出发串联产品定义、PRD、关键设计、原型评测和 Vibe Coding 构建方式，并提供本地 Demo 一键入口；
+- 已交付一份可独立打开的 [AI 导购产品案例页](./vibe-coding-case-study.html)，从用户问题出发串联产品定义、PRD、关键设计、原型评测和 Vibe Coding 构建方式，并提供本地与公网 Demo 一键入口；
 - 页面复用当前正式截图和可追溯证据，不把冻结合成 fixture、本地 Chromium 回归或规则案例包装成真实用户、模型或业务结果；
-- 公网部署、讲解录屏与真实任务型用户研究仍未开始，因此 Phase 4 尚未整体完成。
+- [公网案例页](https://ai-shopping-agent.vercel.app/case-study)、[可交互 Demo](https://ai-shopping-agent.vercel.app)、[API health](https://ai-shopping-agent-api.vercel.app/api/v1/health) 与 [GitHub 源码](https://github.com/teemoweng/ai-shopping-agent) 已发布；线上 Chromium 已完成“案例页 → 全文证据 → AI 决策 → PDP → 模拟加购回执”验收；
+- 讲解录屏与真实任务型用户研究仍未开始，因此 Phase 4 尚未整体完成。
 
 ### 交付包
 

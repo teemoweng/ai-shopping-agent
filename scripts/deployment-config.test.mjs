@@ -53,3 +53,18 @@ test("README documents public operation without overstating persistence", async 
   assert.match(readme, /进程内/);
   assert.match(readme, /Function.*会话/);
 });
+
+test("the public release has a reproducible browser verification command", async () => {
+  const rootPackage = JSON.parse(await readFile(path.join(projectRoot, "package.json"), "utf8"));
+  const verifier = await readFile(
+    path.join(projectRoot, "scripts/verify-public-deployment.mjs"),
+    "utf8",
+  );
+  assert.equal(
+    rootPackage.scripts["verify:public-deployment"],
+    "node scripts/verify-public-deployment.mjs",
+  );
+  assert.match(verifier, /https:\/\/ai-shopping-agent\.vercel\.app/);
+  assert.match(verifier, /https:\/\/ai-shopping-agent-api\.vercel\.app\/api\/v1/);
+  assert.match(verifier, /模拟加购回执/);
+});

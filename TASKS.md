@@ -5,11 +5,11 @@
 > 最后更新：2026-08-11
 > 本文件只反映可核验的真实状态；规划目标不等于已实现结果。
 
-## 正在进行 — 公网作品集发布
+## 已完成 — 公网作品集发布
 
-| 状态 | 工作包 | 完成定义 | 预期证据 |
+| 状态 | 工作包 | 用户结果 | 已验证证据 |
 |---|---|---|---|
-| 🚧 IN PROGRESS | 发布可分享的案例页与可交互 Demo | 公开案例页可直接进入 Demo；前端与 API 均使用 HTTPS；生产 CORS、健康检查、合成数据披露和内存会话限制清楚；GitHub 源码、部署配置、线上旅程和截图均可核验 | 公网 URL、GitHub 仓库、部署设计与实施计划、API 健康检查、线上浏览器验收、发布验证报告 |
+| ✅ DONE | 发布可分享的案例页与可交互 Demo | 读者可从公开案例页查看完整证据并一键进入同站 Demo；前端与 API 均为 HTTPS，合成数据与进程内会话限制保持可见 | [案例页](https://ai-shopping-agent.vercel.app/case-study) · [Demo](https://ai-shopping-agent.vercel.app) · [API health](https://ai-shopping-agent-api.vercel.app/api/v1/health) · [GitHub](https://github.com/teemoweng/ai-shopping-agent) · [发布验证](./artifacts/evidence/public-deployment-verification.md) · [桌面截图](./artifacts/screenshots/public-case-study-desktop.png) · [移动截图](./artifacts/screenshots/public-demo-mobile.png) |
 
 ## 状态图例
 
@@ -65,10 +65,10 @@
 
 | 状态 | 工作包 | 用户结果 | 已验证证据 |
 |---|---|---|---|
-| ✅ DONE | 交付 AI 导购产品案例页 | 读者可在一个响应式 HTML 页面中理解用户问题、产品定义、PRD、关键设计、原型评测与 Vibe Coding 构建方式，并可一键进入本地 Demo；页面明确区分工程回归与尚未开展的真人/业务验证 | [AI 导购产品案例页](./vibe-coding-case-study.html) · [Chat-first 验证记录](./artifacts/evidence/chat-first-verification.md) |
+| ✅ DONE | 交付 AI 导购产品案例页 | 读者可在一个响应式 HTML 页面中理解用户问题、产品定义、PRD、关键设计、原型评测与 Vibe Coding 构建方式，并可一键进入本地或公网 Demo；页面明确区分工程回归与尚未开展的真人/业务验证 | [本地案例页](./vibe-coding-case-study.html) · [公网案例页](https://ai-shopping-agent.vercel.app/case-study) · [Chat-first 验证记录](./artifacts/evidence/chat-first-verification.md) |
 | ✅ DONE | 为关键证据增加离线完整文档阅读器 | 读者点击证据卡后，可在带遮罩的居中 Document Reader Modal 中阅读六份完整富文本文件；直接双击 HTML 的 `file://` 场景同样可用；目录、原文件、哈希、Escape、遮罩关闭和焦点返回均可核验 | [阅读器设计规格](./docs/superpowers/specs/2026-08-11-offline-evidence-document-reader-design.md) · [验证记录](./artifacts/evidence/case-study-evidence-reader-verification.md) · [桌面截图](./artifacts/screenshots/case-study-evidence-desktop.png) · [390×844](./artifacts/screenshots/case-study-evidence-mobile.png) · [320×700](./artifacts/screenshots/case-study-evidence-mobile-compact.png) |
 
-该完成项只代表静态案例页与本地演示入口已交付，不代表公网部署、讲解录屏、真实 LLM、用户研究或业务效果已经完成。
+该完成项与上方公网发布共同证明案例页和原型可公开访问；不代表讲解录屏、真实 LLM、用户研究或业务效果已经完成。
 
 ## Next — Phase 1 扩展（均未开始）
 
@@ -89,7 +89,7 @@
 |---|---|---|
 | 🧊 LATER | Phase 2 | 约 60 SPU / 180 SKU、扩展场景、混合检索、长期授权偏好、高保真完整 MVP |
 | 🧊 LATER | Phase 3 | 编排、检索、模型路由和澄清策略的对照实验；坏例聚类与用户研究 |
-| 🧊 LATER | Phase 4 | 公网演示、作品集叙事、演示录屏、架构与评测报告、面试证据包 |
+| 🧊 LATER | Phase 4 剩余项 | 演示录屏、真实任务型用户研究与面试证据包维护；公网演示与作品集叙事已完成 |
 | 🧊 LATER | Search expansion | 自然语言探索式搜索、精确搜索分流、跨入口连续性和专项评测 |
 | 🧊 LATER | Beyond MVP | 图片 / 包装识别、完整护肤 routine、直播辅助和更多品类；每项需重新立项 |
 
@@ -120,7 +120,8 @@
 | TikTok 体验纠偏与三控制面 | [重设计验证记录](./artifacts/evidence/tiktok-redesign-verification.md) · [产品 E2E](./apps/web/e2e/tiktok-demo.spec.ts) | 8 条必需旅程在冻结合成 fixture 上已评测；真实 LLM / 用户价值未评测 |
 | Chat-first 轻量会话与渐进披露 | [Chat-first 验证记录](./artifacts/evidence/chat-first-verification.md) · [machine manifest](./artifacts/evidence/chat-first-run-manifest.json) · [Chat-first E2E](./apps/web/e2e/chat-first.spec.ts) | 13 条会话/响应式契约与 8 条原交易旅程在本地 Chromium 通过；真人理解/转化/生产可靠性未评测 |
 | 正式浏览器画面 | [Chat-first 移动开场](./artifacts/screenshots/chat-first-opening-mobile.png) · [移动结论](./artifacts/screenshots/chat-first-decision-mobile.png) · [桌面面试态](./artifacts/screenshots/chat-first-desktop.png) · [历史重设计 Feed](./artifacts/screenshots/tiktok-redesign-mobile.png) | Production Chromium 已视觉检查；历史图片未覆盖；不是跨浏览器认证或真人研究 |
-| 部署与用户研究 | 尚无 | 未开始 |
+| 公网部署 | [发布验证](./artifacts/evidence/public-deployment-verification.md) · [案例页](https://ai-shopping-agent.vercel.app/case-study) · [Demo](https://ai-shopping-agent.vercel.app) · [GitHub](https://github.com/teemoweng/ai-shopping-agent) | 已发布并完成线上 Chromium 主路径验收；进程内状态不是生产级持久化 |
+| 用户研究 | 尚无 | 未开始；浏览器自动化不作为真人研究或业务效果 |
 
 ## 更新规则
 

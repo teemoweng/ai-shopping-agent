@@ -31,11 +31,11 @@
 - Produces: `parse_allowed_origins(raw: str | None) -> tuple[str, ...]`
 - Produces: `create_app(allowed_origins: tuple[str, ...] | None = None) -> FastAPI`
 
-- [ ] 写失败测试：默认本地 origin、逗号分隔 HTTPS origin、去重、通配符/路径/凭证拒绝。
-- [ ] 运行 settings/CORS 测试并确认因接口缺失而失败。
-- [ ] 实现 settings 与 app factory；保留 `app = create_app()` 公共入口。
-- [ ] 保留本地 Uvicorn 运行方式，并声明 Vercel FastAPI 入口 `app.main:app`。
-- [ ] 运行聚焦测试、完整 API 测试与 Ruff。
+- [x] 写失败测试：默认本地 origin、逗号分隔 HTTPS origin、去重、通配符/路径/凭证拒绝。
+- [x] 运行 settings/CORS 测试并确认因接口缺失而失败。
+- [x] 实现 settings 与 app factory；保留 `app = create_app()` 公共入口。
+- [x] 保留本地 Uvicorn 运行方式，并声明 Vercel FastAPI 入口 `app.main:app`。
+- [x] 运行聚焦测试、完整 API 测试与 Ruff。
 
 ### Task 2: 生成可部署的案例页资源包
 
@@ -55,11 +55,11 @@
 - Produces: `buildPortfolioBundle(projectRoot, { check })`
 - Produces: `/case-study -> /vibe-coding-case-study.html`
 
-- [ ] 写失败测试：文件 registry、哈希 manifest、check mode、Demo 链接的 file/http 双行为、全部本地资源存在。
-- [ ] 运行测试，确认 generator 与生产链接缺失。
-- [ ] 实现 runtime Demo URL 和确定性复制/哈希脚本。
-- [ ] 生成并提交 public bundle；把 `--check` 接入 Web prebuild。
-- [ ] 运行案例页测试、bundle check、Web 测试、lint 与 production build。
+- [x] 写失败测试：文件 registry、哈希 manifest、check mode、Demo 链接的 file/http 双行为、全部本地资源存在。
+- [x] 运行测试，确认 generator 与生产链接缺失。
+- [x] 实现 runtime Demo URL 和确定性复制/哈希脚本。
+- [x] 生成并提交 public bundle；把 `--check` 接入 Web prebuild。
+- [x] 运行案例页测试、bundle check、Web 测试、lint 与 production build。
 
 ### Task 3: 部署配置、公开文档与安全门
 
@@ -75,11 +75,11 @@
 - Consumes: `ALLOWED_ORIGINS`、`NEXT_PUBLIC_API_BASE_URL`
 - Produces: 可复制但不包含密钥的部署说明与验证模板。
 
-- [ ] 写静态验证，确认 Web build/output、FastAPI entrypoint、环境变量示例和文档边界完整。
-- [ ] 运行验证并确认文档/配置尚不完整。
-- [ ] 补齐 Vercel monorepo 配置、环境变量示例和公开运行说明。
-- [ ] 扫描 Git 历史候选文件、当前 tracked files 与 public bundle，确认没有凭证/隐私/运行时 token。
-- [ ] 运行完整本地 release gate，保存精确结果。
+- [x] 写静态验证，确认 Web build/output、FastAPI entrypoint、环境变量示例和文档边界完整。
+- [x] 运行验证并确认文档/配置尚不完整。
+- [x] 补齐 Vercel monorepo 配置、环境变量示例和公开运行说明。
+- [x] 扫描 Git 历史候选文件、当前 tracked files 与 public bundle，确认没有凭证/隐私/运行时 token。
+- [x] 运行完整本地 release gate，保存精确结果。
 
 ### Task 4: GitHub、Vercel Web、Vercel FastAPI 与线上验收
 
@@ -93,9 +93,9 @@
 **Interfaces:**
 - Produces: GitHub URL、Web URL、API URL 与线上验证记录。
 
-- [ ] 提交并公开推送当前 source，确认公开仓库页面与敏感信息扫描。
-- [ ] 以 `apps/api` 为根目录部署 Vercel FastAPI，生成域名并验证 `/api/v1/health`。
-- [ ] 部署 Vercel Web，注入公网 API base，生成生产域名。
-- [ ] 把精确 Web origin 配进 FastAPI Project，重新验证允许/拒绝两类 CORS。
-- [ ] 在公网执行案例页、证据阅读器和 Demo 核心旅程，保存桌面/移动截图。
-- [ ] 更新 URL、source commit、测试与限制；最后才把 `TASKS.md` 改为 `DONE`。
+- [x] 提交并公开推送当前 source，确认公开仓库页面与敏感信息扫描。
+- [x] 以 `apps/api` 为根目录部署 Vercel FastAPI，生成域名并验证 `/api/v1/health`。
+- [x] 部署 Vercel Web，注入公网 API base，生成生产域名。
+- [x] 把精确 Web origin 配进 FastAPI Project，重新验证允许/拒绝两类 CORS。
+- [x] 在公网执行案例页、证据阅读器和 Demo 核心旅程，保存桌面/移动截图。
+- [x] 更新 URL、source commit、测试与限制；最后才把 `TASKS.md` 改为 `DONE`。

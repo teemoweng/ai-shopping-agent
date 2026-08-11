@@ -43,6 +43,11 @@
       "sha256": "a25f2647259d964b4126d3593e6e690a10eda4e408144a46ceec582453ac5c12"
     },
     {
+      "path": "artifacts/evidence/public-deployment-verification.md",
+      "bytes": 5668,
+      "sha256": "3f89440ad4166b5bfedc525b215fa49f0679979f16df3e6b3540df88aa0095d5"
+    },
+    {
       "path": "artifacts/evidence/tiktok-redesign-verification.md",
       "bytes": 10298,
       "sha256": "f5ad4605b24bef7870fb0d2cc95bc60fe1d847d3d7981747ee4772ece7fc7305"
@@ -81,6 +86,16 @@
       "path": "artifacts/screenshots/foundation-mobile.png",
       "bytes": 92216,
       "sha256": "cc7be098e23cd10add2cf7bfbc4c501bbde3f255a69700ed59357660b6b6e676"
+    },
+    {
+      "path": "artifacts/screenshots/public-case-study-desktop.png",
+      "bytes": 103635,
+      "sha256": "f0b771e46334d288468a50588f5673fa486a6c0212721add2f0774a9d129a415"
+    },
+    {
+      "path": "artifacts/screenshots/public-demo-mobile.png",
+      "bytes": 244713,
+      "sha256": "95ab930aa1702c4ed806478ab0a2b35e53ed75c1d6620baa3605de3487584c4f"
     },
     {
       "path": "artifacts/screenshots/tiktok-redesign-desktop.png",
@@ -154,23 +169,23 @@
     },
     {
       "path": "PLAN.md",
-      "bytes": 21042,
-      "sha256": "714bd97101422638be303464cc8badce8cba9abd14eb9338c97863d736fa7ebe"
+      "bytes": 21425,
+      "sha256": "6fa79ee8aadee1ce7cdfdf9f62d240d2154e3dbd3270e66fb9bcabfe6c9052b1"
     },
     {
       "path": "README.md",
-      "bytes": 23317,
-      "sha256": "5db372588eeab2e539010d76deac85ca0b50f9f327b701305d76995cf0753ec5"
+      "bytes": 24466,
+      "sha256": "7a15ab1b96ddd3716dfb97844abd7be8136ff755f91291da134eecdf037464e2"
     },
     {
       "path": "TASKS.md",
-      "bytes": 14600,
-      "sha256": "e393cc485f4eb9c0aa76893ae8eb23a97ab089dd38fb5bea74d8c97bc9cc0612"
+      "bytes": 15367,
+      "sha256": "07364b3935a81b93703b5dd43161fbba5d376ca770377c7d68f25a233be2c2ff"
     },
     {
       "path": "vibe-coding-case-study.html",
-      "bytes": 277466,
-      "sha256": "ac5e9e3200a3ce4104a3b90bde6b7fabcb67d8d2d0eb55c41b61c4c149e384ce"
+      "bytes": 280929,
+      "sha256": "d13733c0bd73a3379d03798048e830148f30e24d2dcbb2ee523fe0909f28eb9e"
     }
   ]
 }
