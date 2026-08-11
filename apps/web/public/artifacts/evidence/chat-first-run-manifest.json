@@ -1,0 +1,391 @@
+{
+  "schema_version": 1,
+  "evidence_id": "chat-first-lightweight-guide-local-release-2026-08-10",
+  "captured_at_utc": "2026-08-10T18:32:29Z",
+  "source": {
+    "commit": "659596537efe7bd7a879aeb3b49bee17b01f5e73",
+    "branch": "codex/chat-first-lightweight-guide",
+    "dirty_before_release_gates": false,
+    "declaration": "The accepted second Task 9 release gate and the sole production capture began from a clean worktree at this source commit. Retained-artifact scans ran after capture outputs existed and before the evidence commit. This manifest, the human report, screenshots, README/PLAN/TASKS, and Task 11 report are evidence outputs and are not part of the source commit under test."
+  },
+  "environment": {
+    "host": "Darwin 25.5.0 arm64",
+    "node": "v24.14.0",
+    "pnpm": "11.20.0",
+    "python": "3.14.5",
+    "uv": "0.11.14",
+    "playwright": "1.62.1",
+    "chromium": "151.0.7922.34"
+  },
+  "release_gates": [
+    {
+      "command": "pnpm --dir packages/contracts check",
+      "exit_code": 0,
+      "duration_seconds": 0.95,
+      "counts": {
+        "generated_diffs": 0
+      }
+    },
+    {
+      "command": "uv --directory apps/api run ruff check app tests ../../evals",
+      "exit_code": 0,
+      "duration_seconds": 0.02,
+      "duration_source": "/usr/bin/time -p real",
+      "raw_timing": {
+        "real_seconds": 0.02,
+        "user_seconds": 0.01,
+        "sys_seconds": 0.01,
+        "resolution_seconds": 0.01
+      },
+      "counts": {
+        "errors": 0
+      }
+    },
+    {
+      "command": "pnpm lint:web",
+      "exit_code": 0,
+      "duration_seconds": 2.84,
+      "counts": {
+        "errors": 0,
+        "warnings": 0
+      }
+    },
+    {
+      "command": "pnpm check:layout",
+      "exit_code": 0,
+      "duration_seconds": 0.2,
+      "result": "Foundation layout is valid",
+      "claim_boundary": "Asset and layout-foundation gate only; not visual proof."
+    },
+    {
+      "command": "pnpm --dir apps/web build",
+      "exit_code": 0,
+      "duration_seconds": 4.04,
+      "counts": {
+        "static_routes": 2,
+        "build_errors": 0
+      },
+      "warnings": [
+        "Next.js emitted the existing multiple-lockfile workspace-root inference warning."
+      ]
+    },
+    {
+      "command": "git diff --exit-code -- packages/contracts/openapi.json packages/contracts/src/api.ts",
+      "exit_code": 0,
+      "duration_seconds": 0.01,
+      "duration_source": "/usr/bin/time -p real",
+      "raw_timing": {
+        "real_seconds": 0.01,
+        "user_seconds": 0.0,
+        "sys_seconds": 0.0,
+        "resolution_seconds": 0.01
+      },
+      "counts": {
+        "changed_generated_contract_files": 0
+      }
+    },
+    {
+      "command": "uv --directory apps/api run pytest tests -q",
+      "exit_code": 0,
+      "duration_seconds": 3.19,
+      "counts": {
+        "collected": 324,
+        "passed": 324,
+        "failed": 0,
+        "skipped": 0,
+        "warnings": 1
+      },
+      "duration_source": "/usr/bin/time -p real"
+    },
+    {
+      "command": "pnpm test:web",
+      "exit_code": 0,
+      "duration_seconds": 5.34,
+      "counts": {
+        "test_files": 11,
+        "tests": 281,
+        "passed": 281,
+        "failed": 0,
+        "skipped": 0
+      },
+      "duration_source": "/usr/bin/time -p real"
+    },
+    {
+      "command": "pnpm test:e2e",
+      "exit_code": 0,
+      "duration_seconds": 31.41,
+      "counts": {
+        "collected": 70,
+        "passed": 39,
+        "failed": 0,
+        "skipped": 31,
+        "chat_first_passed": 13,
+        "foundation_guide_passed": 4,
+        "pdp_focus_passed": 6,
+        "commerce_journeys_passed": 8,
+        "responsive_passed": 8
+      },
+      "skip_policy": "All 31 skips are explicit project or opt-in-capture routing; no failure was converted to a skip.",
+      "duration_source": "/usr/bin/time -p real"
+    },
+    {
+      "command": "uv --directory apps/api run pytest tests/eval/test_foundation_eval.py -q",
+      "exit_code": 0,
+      "duration_seconds": 0.46,
+      "counts": {
+        "collected": 15,
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0,
+        "warnings": 1
+      },
+      "duration_source": "/usr/bin/time -p real"
+    },
+    {
+      "command": "uv --directory apps/api run python ../../evals/run_foundation.py",
+      "exit_code": 0,
+      "duration_seconds": 0.23,
+      "counts": {
+        "total": 6,
+        "passed": 6,
+        "failed": 0
+      },
+      "pass_rate": 1.0,
+      "scorer": "deterministic_rule_scorer",
+      "llm_judge": false,
+      "duration_source": "/usr/bin/time -p real"
+    }
+  ],
+  "formal_browser_evidence": {
+    "capture_command": "CAPTURE_CHAT_FIRST_EVIDENCE=1 pnpm test:e2e",
+    "capture_source": "Task 11 formal production capture run exactly once after the accepted second full release gate on the same clean final source tree.",
+    "counts": {
+      "collected": 70,
+      "passed": 42,
+      "failed": 0,
+      "skipped": 28,
+      "capture_tests_enabled": 3
+    },
+    "duration_seconds": 33.13,
+    "duration_source": "/usr/bin/time -p real",
+    "web_mode": "next build && next start",
+    "api_mode": "uvicorn --no-access-log --workers 1",
+    "browser": "Chromium",
+    "workers": 1,
+    "fully_parallel": false,
+    "reuse_existing_server": false,
+    "trace": "off",
+    "fixed_browser_time": "2026-08-10T12:00:00Z",
+    "font_ready_wait": true,
+    "videos_paused_and_seeked": true,
+    "motion_and_caret_disabled": true,
+    "viewports": [
+      {
+        "project": "mobile-chromium",
+        "width": 390,
+        "height": 844
+      },
+      {
+        "project": "desktop-interview",
+        "width": 1440,
+        "height": 1000
+      }
+    ]
+  },
+  "input_sha256": {
+    "data/fixtures/products.json": "32bddb748791e78f17c04ae6106ecd059b47ed6289e02762c45a665c10424361",
+    "data/fixtures/content-contexts.json": "756fb06bf7d9172c7a45db19be324c5f8782167c2e9b5fd53ab5988111b7b548",
+    "data/fixtures/evidence.json": "520990ebabca72a5818fa21ceb1d45fe95f33a748b3c0da69fe291aed5a961e6",
+    "evals/cases/foundation-cases.jsonl": "e4ce5c660dd584c967491ccb291258634b539ce0abd93705a6e585148a6bc087",
+    "evals/run_foundation.py": "8654fc8142c72cd4756e72a885fb0830d791351d13fc1abf5cd79889a15d24c4",
+    "packages/contracts/openapi.json": "84c6c3513f6d288ec47fed16de1b5130a8aa9a9c840436e742d0d5860deeccdf",
+    "packages/contracts/src/api.ts": "955a875d894a5a0b22891455783d47852987778385c33ece893df835616c6e39",
+    "apps/api/tests/component/test_trace_coverage.py": "26612a6e58eb9a7732bbc874eda26e76dad1b487633f00c71c734b82baa37e78",
+    "apps/web/e2e/chat-first.spec.ts": "a3b2c6a481e886a37d259c33c662bdfbd498b5640bb5e8773be52ad0545a6ce9",
+    "apps/web/e2e/tiktok-demo.spec.ts": "486f3f39a672c0d18ac67cee25811a979f47301717d2567a2b4bbba5e5d07c77",
+    "apps/web/e2e/tiktok-responsive.spec.ts": "13a4c2219fb9917a94d710d7b74d1701d03fce75df447c50ac9896c88ae17dbe",
+    "apps/web/playwright.config.ts": "4a5c2e7c2bada25314eeacb1575d6cbab6989b55ab46acf12b96597db351b307"
+  },
+  "fixture_summary": {
+    "spu": 3,
+    "sku": 6,
+    "content_contexts": 1,
+    "evidence_documents": 3,
+    "foundation_cases": 6,
+    "synthetic_product_content_and_comment_data": true
+  },
+  "screenshots": [
+    {
+      "path": "artifacts/screenshots/chat-first-opening-mobile.png",
+      "width": 390,
+      "height": 844,
+      "bytes": 223333,
+      "sha256": "670297d95460415b75c60761b437934f179cc5b5b383f26e1936b4a3fbabc17a"
+    },
+    {
+      "path": "artifacts/screenshots/chat-first-decision-mobile.png",
+      "width": 390,
+      "height": 844,
+      "bytes": 242594,
+      "sha256": "bcfd411c0e3d47629f02eb975d1d701b6aeed7f4247af9c01b11371977cd97ae"
+    },
+    {
+      "path": "artifacts/screenshots/chat-first-desktop.png",
+      "width": 1440,
+      "height": 1000,
+      "bytes": 719968,
+      "sha256": "1dec9a3819a408c1c89bf26cfac146d8e062f52bb1d13ae786faa65e13902abd"
+    }
+  ],
+  "screenshot_delta_from_pre_review_canonical": [
+    {
+      "path": "artifacts/screenshots/chat-first-opening-mobile.png",
+      "changed_pixels": 1022,
+      "total_pixels": 329160,
+      "changed_ratio": 0.0031,
+      "bounding_box_xyxy": [10, 26, 62, 47],
+      "observation": "Only the status-clock rasterization region changed; the opening composition is otherwise stable."
+    },
+    {
+      "path": "artifacts/screenshots/chat-first-decision-mobile.png",
+      "changed_pixels": 52999,
+      "total_pixels": 329160,
+      "changed_ratio": 0.161,
+      "bounding_box_xyxy": [2, 26, 388, 734],
+      "observation": "Expected hierarchy, localized card copy, and duplicate-disclosure removal changes; the conclusion is fully visible before the card."
+    },
+    {
+      "path": "artifacts/screenshots/chat-first-desktop.png",
+      "changed_pixels": 316540,
+      "total_pixels": 1440000,
+      "changed_ratio": 0.2198,
+      "bounding_box_xyxy": [311, 105, 1189, 937],
+      "observation": "Expected phone decision hierarchy and simplified walkthrough-panel changes; the live phone remains primary."
+    }
+  ],
+  "artifact_and_privacy_checks": {
+    "new_screenshots_nonempty": true,
+    "screenshot_dimensions_match_contract": true,
+    "tracked_unlabeled_credential_shaped_assignments_found": 0,
+    "retained_artifact_unlabeled_runtime_generated_value_matches": 0,
+    "retained_artifact_raw_health_matches": 0,
+    "retained_artifact_client_message_id_value_matches": 0,
+    "retained_artifact_chain_of_thought_value_matches": 0,
+    "explicit_synthetic_constants": [
+      {
+        "location": "apps/web/e2e/tiktok-responsive.spec.ts",
+        "example": "cft_e2e_text_resize",
+        "label": "synthetic E2E confirmation-token fixture; not a runtime credential"
+      },
+      {
+        "location": "apps/api/tests/api/test_commerce_api.py and apps/api/tests/component/test_commerce_service.py",
+        "example": "idem_*",
+        "label": "synthetic idempotency test constants; not captured runtime operation identifiers"
+      },
+      {
+        "location": "apps/web/src/test/api-client.test.ts",
+        "example": "syntheticConfirmation",
+        "label": "explicitly named synthetic unit-test value; not a runtime credential"
+      },
+      {
+        "location": "apps/api/tests/component/test_trace_coverage.py",
+        "example": "secret=customer@example.com and secret=do-not-persist-this",
+        "label": "explicit synthetic privacy-rejection fixtures that assert caller-controlled and exception text is not retained; not credentials"
+      }
+    ],
+    "limitation": "Field names and explicit synthetic urgent-health/privacy-rejection fixtures remain in test source by design. The zero raw-health-text claim applies only to retained runtime artifacts, not those source fixtures; other zero-match claims apply to retained artifacts and credential-shaped value assignments, not schema identifiers or labeled synthetic constants."
+  },
+  "evidence_artifacts": {
+    "artifacts/evidence/chat-first-verification.md": "a8fc9fcda4a21c3997dd82c6e86378948b47827ec4737dfdb4080cfcb2ad60ec",
+    ".superpowers/sdd/2026-08-10-chat-first-lightweight-guide/task-11-report.md": "b3914a2f198bf3cecd6adba488d01e20eda694dc67b1a69c249705822d48480a"
+  },
+  "verification_history": [
+    {
+      "stage": "initial_task_9_release",
+      "source_commit": "add3f885fd0f70a979507c3de795bdc2f6bd1e3c",
+      "result": "39 passed, 31 routed skips, 0 failed",
+      "note": "The first full release run was green, but a later finishing rerun exposed a readiness race, so this result was not accepted as final stability evidence."
+    },
+    {
+      "stage": "finishing_rerun_1",
+      "source_commit": "c13b38b",
+      "result": "38 passed, 31 routed skips, 1 failed",
+      "failure": "Reduced-motion focus test dispatched Shift+Tab or Escape while the loading close button was being replaced by the final GuideChatView button; an immediate focused rerun also failed.",
+      "disposition": "Task 9 stopped and routed the non-owned E2E readiness race to Task 8."
+    },
+    {
+      "stage": "task_8_fix_round_2",
+      "source_commit": "c5d28aec26246e83eea96c987e4d359f82fe2e0a",
+      "red_repeat_50": "46 passed, 4 failed",
+      "green_repeat_50": "50 passed, 0 failed",
+      "result": "Independent scoped review CLEAN",
+      "note": "The reduced-motion test began waiting for authoritative 201 / OPENING_CONTEXT and the final opening UI before keyboard assertions."
+    },
+    {
+      "stage": "task_9_refresh_attempt_1",
+      "source_commit": "c5d28aec26246e83eea96c987e4d359f82fe2e0a",
+      "result": "37 passed, 31 routed skips, 2 failed",
+      "failures": [
+        "320x700 at 200 percent: composer bounding box was null during loading-to-final replacement.",
+        "Responsive desktop-frame path: Escape was dispatched before the final Guide dialog was authoritative."
+      ],
+      "disposition": "Task 9 stopped without retrying for green and routed both non-owned readiness races to Task 8."
+    },
+    {
+      "stage": "task_8_fix_round_3",
+      "source_commit": "46606d36ae1a046f1e0edd601ae0ccbcbd6ce7b9",
+      "interleaved_stability": "150 passed, 0 failed across the two newly exposed scenarios and reduced-motion focus path",
+      "full_non_capture": "39 passed, 31 routed skips, 0 failed",
+      "production_capture": "42 passed, 28 routed skips, 0 failed",
+      "result": "Independent scoped review CLEAN",
+      "note": "Shared helpers now wait for authoritative session readiness and final UI/focus commit. Product behavior did not change."
+    },
+    {
+      "stage": "final_task_9_release",
+      "source_commit": "46606d36ae1a046f1e0edd601ae0ccbcbd6ce7b9",
+      "result": "All 11 release gates exited 0; full E2E 39 passed, 31 routed skips, 0 failed",
+      "accepted_as_final_at_stage": true,
+      "superseded_by": "task_11_final_release"
+    },
+    {
+      "stage": "task_11_first_full_gate_attempt",
+      "source_commit": "0228819d6180846ba9a8c29b8f25c1fd83d454c2",
+      "passed_before_failure": [
+        "contracts",
+        "ruff",
+        "web_lint",
+        "layout_foundation",
+        "web_build",
+        "generated_contract_integrity"
+      ],
+      "result": "Full API stopped at 323 passed, 1 failed; no Web, E2E, eval, or capture gate followed.",
+      "failure": "The golden trace test bypassed GuideService and therefore never committed latest_response, so current-snapshot legacy cart authorization correctly rejected preview.",
+      "disposition": "Retained as a legitimate oracle-harness finding, not hidden as a retry-to-green."
+    },
+    {
+      "stage": "task_11_trace_harness_correction",
+      "source_commit": "659596537efe7bd7a879aeb3b49bee17b01f5e73",
+      "focused_result": "Golden trace 1/1; affected trace plus legacy cart 61/61.",
+      "note": "Only the test harness moved to public GuideService.create/message; engine, repository, cart, events, trace ordering, and privacy assertions remained real, with no mock or manual snapshot assignment."
+    },
+    {
+      "stage": "task_11_final_release",
+      "source_commit": "659596537efe7bd7a879aeb3b49bee17b01f5e73",
+      "result": "All 11 release gates exited 0; API 324/324; Web 281/281; full E2E 39 passed, 31 routed skips, 0 failed; production capture 42/28/0.",
+      "accepted_as_final": true
+    }
+  ],
+  "known_limitations": [
+    "The product, brand, creator, content, comment, price, inventory, and cart data are frozen synthetic fixtures.",
+    "No real LLM, embedding model, vector index, Hybrid RAG, reranker, or LLM judge is used.",
+    "The 6/6 evaluation result applies only to six frozen deterministic cases and is not a real recommendation-quality score.",
+    "Browser evidence is local Chromium only. It is not cross-browser certification, a user study, or production reliability evidence.",
+    "CSS safe-area variables and nominal containment are covered, but no real iOS device with nonzero notch or home-indicator insets was exercised.",
+    "The Sheet has no drag interaction or drag affordance; no fake handle is shown.",
+    "The opening retains a noticeable whitespace gap between the assistant prompt and quick replies.",
+    "The in-memory Guide session does not survive an API process restart and provides no production authentication or durable persistence model.",
+    "No conversion, trust, task-completion, latency, cost, uptime, business-impact, payment, order, or fulfillment claim is supported.",
+    "The idempotency key remains in the reconciliation URL; local evidence disables access logs, but productionization must prevent proxy or access-log retention.",
+    "Next.js still emits the known multiple-lockfile workspace-root warning, and dev E2E still emits the known one-dimension image warning."
+  ]
+}

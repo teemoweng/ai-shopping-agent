@@ -1,0 +1,38 @@
+[
+  {
+    "id": "fda-sunscreen-basics",
+    "authority": "U.S. Food and Drug Administration",
+    "source_kind": "public_rule",
+    "synthetic": false,
+    "title": "Sunscreen: How to Help Protect Your Skin from the Sun",
+    "url": "https://www.fda.gov/drugs/understanding-over-counter-medicines/sunscreen-how-help-protect-your-skin-sun",
+    "accessed_on": "2026-08-05",
+    "jurisdiction": "US",
+    "topics": ["broad spectrum", "spf", "directions"],
+    "summary": "FDA consumer guidance explains how broad-spectrum labeling, SPF, directions, and other sun-protection measures work together. Product-specific application directions remain controlling."
+  },
+  {
+    "id": "fda-water-resistance-labeling",
+    "authority": "U.S. Food and Drug Administration",
+    "source_kind": "public_rule",
+    "synthetic": false,
+    "title": "Sunscreen: How to Help Protect Your Skin from the Sun",
+    "url": "https://www.fda.gov/drugs/understanding-over-counter-medicines/sunscreen-how-help-protect-your-skin-sun",
+    "accessed_on": "2026-08-05",
+    "jurisdiction": "US",
+    "topics": ["water resistant", "40 minutes", "80 minutes", "labeling"],
+    "summary": "FDA guidance distinguishes labeled water resistance for 40 or 80 minutes from unsupported waterproof or all-day claims and directs users to follow reapplication instructions."
+  },
+  {
+    "id": "synthetic-review-finish-aggregate",
+    "authority": "Synthetic benchmark review panel",
+    "source_kind": "synthetic_review_aggregate",
+    "synthetic": true,
+    "title": "Synthetic review aggregate: Seoul Shade finish",
+    "url": "https://evidence.local.invalid/synthetic-review-finish-aggregate",
+    "accessed_on": "2026-08-05",
+    "jurisdiction": "US",
+    "topics": ["finish", "under makeup", "subjective experience"],
+    "summary": "Synthetic benchmark opinions are mixed: some panel records call the finish weightless, while others describe tackiness under makeup. This source exists only to exercise subjective-claim handling and is not external user research."
+  }
+]

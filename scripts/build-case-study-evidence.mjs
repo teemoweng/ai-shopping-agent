@@ -125,7 +125,17 @@ function renderInline(value, context) {
     .replace(/(^|[^_])_([^_]+)_/g, "$1<em>$2</em>")
     .replace(/~~([^~]+)~~/g, "<del>$1</del>");
 
-  return output.replace(/\u0000(\d+)\u0000/g, (_, index) => tokens[Number(index)]);
+  const tokenPattern = /\u0000(\d+)\u0000/g;
+  const resolveToken = (index, ancestors = new Set()) => {
+    const numericIndex = Number(index);
+    if (ancestors.has(numericIndex)) throw new Error("cyclic Markdown inline token");
+    const html = tokens[numericIndex];
+    if (html === undefined) throw new Error(`missing Markdown inline token: ${numericIndex}`);
+    const nextAncestors = new Set(ancestors).add(numericIndex);
+    return html.replace(tokenPattern, (_, nestedIndex) => resolveToken(nestedIndex, nextAncestors));
+  };
+
+  return output.replace(tokenPattern, (_, index) => resolveToken(index));
 }
 
 function isTableDelimiter(line) {

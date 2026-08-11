@@ -79,6 +79,16 @@ test("renders the controlled Markdown vocabulary and escapes raw HTML", () => {
   ]);
 });
 
+test("resolves nested inline code inside Markdown links without leaking placeholders", () => {
+  const result = evidenceModule.renderMarkdown(
+    "See [`config.example`](./config.example).",
+    { key: "nested", source: "README.md" },
+  );
+
+  assert.match(result.html, /<a href="\.\/config\.example"><code>config\.example<\/code><\/a>/);
+  assert.doesNotMatch(result.html, /\u0000/);
+});
+
 test("renders all JSON fields plus escaped formatted source", () => {
   assert.equal(typeof evidenceModule?.renderJson, "function");
   const source = JSON.stringify({

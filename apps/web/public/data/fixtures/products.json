@@ -1,0 +1,125 @@
+[
+  {
+    "id": "seoul-shade-daily-fluid",
+    "brand": "Mirae Lab",
+    "name": "Seoul Shade Daily Fluid",
+    "synthetic": true,
+    "spf": 50,
+    "broad_spectrum": true,
+    "fragrance_free": true,
+    "water_resistance_minutes": null,
+    "finish": "natural",
+    "skin_types": ["combination", "oily", "sensitive"],
+    "white_cast_risk": "low",
+    "active_filter_type": "organic",
+    "ingredient_highlights": ["centella asiatica", "panthenol"],
+    "display_name_zh": "首尔轻透通勤防晒乳",
+    "description_zh": "适合潮湿通勤场景的轻薄 SPF 50 广谱防晒，妆前使用感为自然妆效。",
+    "media": {
+      "kind": "image",
+      "src": "/demo/product-seoul-shade.svg",
+      "poster_src": null,
+      "alt_zh": "Seoul Shade Daily Fluid 合成商品包装图",
+      "license_ref": "自有合成 SVG 资产，见 apps/web/public/demo/ASSET_SOURCES.md"
+    },
+    "shipping": {
+      "market": "US",
+      "fee_usd": 3.99,
+      "eta_min_days": 4,
+      "eta_max_days": 7,
+      "return_summary_zh": "签收后 30 天内可申请退货；商品需保持未开封状态。"
+    },
+    "list_price_usd": 22.0,
+    "promotion": null,
+    "store_name": "Mirae Lab 官方合成店",
+    "facts_version": "catalog-2026-08-05-seoul-v1",
+    "observed_at": "2026-08-05T09:00:00Z",
+    "expires_at": "2026-08-12T09:00:00Z",
+    "skus": [
+      {"id": "seoul-shade-30", "size_ml": 30, "price_usd": 14.0, "in_stock": true, "inventory_units": 18, "label": "30 mL 便携装", "image_src": "/demo/product-seoul-shade.svg"},
+      {"id": "seoul-shade-50", "size_ml": 50, "price_usd": 19.0, "in_stock": true, "inventory_units": 7, "label": "50 mL 正装", "image_src": "/demo/product-seoul-shade.svg"}
+    ]
+  },
+  {
+    "id": "cloud-veil-mineral",
+    "brand": "Han River Skin",
+    "name": "Cloud Veil Mineral SPF",
+    "synthetic": true,
+    "spf": 50,
+    "broad_spectrum": true,
+    "fragrance_free": true,
+    "water_resistance_minutes": 40,
+    "finish": "matte",
+    "skin_types": ["combination", "oily", "sensitive"],
+    "white_cast_risk": "medium",
+    "active_filter_type": "mineral",
+    "ingredient_highlights": ["zinc oxide", "madecassoside"],
+    "display_name_zh": "云感柔焦矿物防晒霜",
+    "description_zh": "SPF 50 矿物防晒，提供 40 分钟防水标示，妆效偏哑光。",
+    "media": {
+      "kind": "image",
+      "src": "/demo/product-cloud-veil.svg",
+      "poster_src": null,
+      "alt_zh": "Cloud Veil Mineral SPF 合成商品包装图",
+      "license_ref": "自有合成 SVG 资产，见 apps/web/public/demo/ASSET_SOURCES.md"
+    },
+    "shipping": {
+      "market": "US",
+      "fee_usd": 4.99,
+      "eta_min_days": 5,
+      "eta_max_days": 8,
+      "return_summary_zh": "签收后 30 天内可申请退货；商品需保持未开封状态。"
+    },
+    "list_price_usd": 27.0,
+    "promotion": "满 2 件减 $4（模拟促销）",
+    "store_name": "Han River Skin 官方合成店",
+    "facts_version": "catalog-2026-08-05-cloud-v1",
+    "observed_at": "2026-08-05T09:00:00Z",
+    "expires_at": "2026-08-12T09:00:00Z",
+    "skus": [
+      {"id": "cloud-veil-30", "size_ml": 30, "price_usd": 17.0, "in_stock": true, "inventory_units": 13, "label": "30 mL 便携装", "image_src": "/demo/product-cloud-veil.svg"},
+      {"id": "cloud-veil-50", "size_ml": 50, "price_usd": 24.0, "in_stock": true, "inventory_units": 4, "label": "50 mL 正装", "image_src": "/demo/product-cloud-veil.svg"}
+    ]
+  },
+  {
+    "id": "jeju-sport-sun-gel",
+    "brand": "Namu Works",
+    "name": "Jeju Sport Sun Gel",
+    "synthetic": true,
+    "spf": 50,
+    "broad_spectrum": true,
+    "fragrance_free": false,
+    "water_resistance_minutes": 80,
+    "finish": "dewy",
+    "skin_types": ["dry", "combination"],
+    "white_cast_risk": "low",
+    "active_filter_type": "hybrid",
+    "ingredient_highlights": ["green tea", "squalane", "fragrance"],
+    "display_name_zh": "济州运动防晒凝胶",
+    "description_zh": "SPF 50 混合型防晒凝胶，提供 80 分钟防水标示，妆效偏水润。",
+    "media": {
+      "kind": "image",
+      "src": "/demo/product-jeju-sport.svg",
+      "poster_src": null,
+      "alt_zh": "Jeju Sport Sun Gel 合成商品包装图",
+      "license_ref": "自有合成 SVG 资产，见 apps/web/public/demo/ASSET_SOURCES.md"
+    },
+    "shipping": {
+      "market": "US",
+      "fee_usd": 3.99,
+      "eta_min_days": 4,
+      "eta_max_days": 7,
+      "return_summary_zh": "签收后 30 天内可申请退货；商品需保持未开封状态。"
+    },
+    "list_price_usd": 25.0,
+    "promotion": null,
+    "store_name": "Namu Works 官方合成店",
+    "facts_version": "catalog-2026-08-05-jeju-v1",
+    "observed_at": "2026-08-05T09:00:00Z",
+    "expires_at": "2026-08-12T09:00:00Z",
+    "skus": [
+      {"id": "jeju-sport-30", "size_ml": 30, "price_usd": 16.0, "in_stock": false, "inventory_units": 0, "label": "30 mL 便携装", "image_src": "/demo/product-jeju-sport.svg"},
+      {"id": "jeju-sport-50", "size_ml": 50, "price_usd": 22.0, "in_stock": true, "inventory_units": 9, "label": "50 mL 正装", "image_src": "/demo/product-jeju-sport.svg"}
+    ]
+  }
+]

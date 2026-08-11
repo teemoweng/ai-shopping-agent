@@ -1,0 +1,186 @@
+{
+  "schema_version": 1,
+  "source": "vibe-coding-case-study.html",
+  "files": [
+    {
+      "path": ".gitignore",
+      "bytes": 1573,
+      "sha256": "add5fcf24e5270415e086c91562c5e4e7720191a4444e2c5a9bcd4e24cdf451e"
+    },
+    {
+      "path": "AGENTS.md",
+      "bytes": 7771,
+      "sha256": "cae53757c5eda7527ff357cad7e8a097dd32e06bd52f6b81590851877ec27014"
+    },
+    {
+      "path": "apps/web/e2e/chat-first.spec.ts",
+      "bytes": 27539,
+      "sha256": "a3b2c6a481e886a37d259c33c662bdfbd498b5640bb5e8773be52ad0545a6ce9"
+    },
+    {
+      "path": "apps/web/e2e/guide.spec.ts",
+      "bytes": 3645,
+      "sha256": "9352ef242322c500cefb8a4dd382b46bf856fb1d4220e400bdf453b19f36cef4"
+    },
+    {
+      "path": "apps/web/e2e/tiktok-demo.spec.ts",
+      "bytes": 19914,
+      "sha256": "486f3f39a672c0d18ac67cee25811a979f47301717d2567a2b4bbba5e5d07c77"
+    },
+    {
+      "path": "artifacts/evidence/case-study-evidence-reader-verification.md",
+      "bytes": 7538,
+      "sha256": "f85cfccbd01747001586c360e8e79c0ddfea86b4a7aaf98afcecdd24999f2b56"
+    },
+    {
+      "path": "artifacts/evidence/chat-first-run-manifest.json",
+      "bytes": 16671,
+      "sha256": "f0e101f13339b42cf107fe1c7619f869b61c52cf6f8247d90852a1ae5b8eb567"
+    },
+    {
+      "path": "artifacts/evidence/chat-first-verification.md",
+      "bytes": 17382,
+      "sha256": "a8fc9fcda4a21c3997dd82c6e86378948b47827ec4737dfdb4080cfcb2ad60ec"
+    },
+    {
+      "path": "artifacts/evidence/foundation-run-manifest.json",
+      "bytes": 7120,
+      "sha256": "2b340146b6afc2e6d9807d6dfc102a9740fbce4a5ff74237fe6d7c450c0f1cd0"
+    },
+    {
+      "path": "artifacts/evidence/foundation-verification.md",
+      "bytes": 7741,
+      "sha256": "a25f2647259d964b4126d3593e6e690a10eda4e408144a46ceec582453ac5c12"
+    },
+    {
+      "path": "artifacts/evidence/tiktok-redesign-verification.md",
+      "bytes": 10298,
+      "sha256": "f5ad4605b24bef7870fb0d2cc95bc60fe1d847d3d7981747ee4772ece7fc7305"
+    },
+    {
+      "path": "artifacts/screenshots/case-study-evidence-desktop.png",
+      "bytes": 186780,
+      "sha256": "e80f5241da7d40842ae70af0d7d25aeb7d69163a03b76f3ec046db9d29a08dad"
+    },
+    {
+      "path": "artifacts/screenshots/case-study-evidence-mobile-compact.png",
+      "bytes": 48573,
+      "sha256": "94ffd2731a126bd45cec3eb3fcb5dcab12291d20fe1c9324370ecc659db6ff40"
+    },
+    {
+      "path": "artifacts/screenshots/case-study-evidence-mobile.png",
+      "bytes": 67694,
+      "sha256": "438cb9519d5ae94d481d6a10f851160cbd554a0d7c86d2b38917d3910a6abf3d"
+    },
+    {
+      "path": "artifacts/screenshots/chat-first-decision-mobile.png",
+      "bytes": 242594,
+      "sha256": "bcfd411c0e3d47629f02eb975d1d701b6aeed7f4247af9c01b11371977cd97ae"
+    },
+    {
+      "path": "artifacts/screenshots/chat-first-desktop.png",
+      "bytes": 719968,
+      "sha256": "1dec9a3819a408c1c89bf26cfac146d8e062f52bb1d13ae786faa65e13902abd"
+    },
+    {
+      "path": "artifacts/screenshots/chat-first-opening-mobile.png",
+      "bytes": 223333,
+      "sha256": "670297d95460415b75c60761b437934f179cc5b5b383f26e1936b4a3fbabc17a"
+    },
+    {
+      "path": "artifacts/screenshots/foundation-mobile.png",
+      "bytes": 92216,
+      "sha256": "cc7be098e23cd10add2cf7bfbc4c501bbde3f255a69700ed59357660b6b6e676"
+    },
+    {
+      "path": "artifacts/screenshots/tiktok-redesign-desktop.png",
+      "bytes": 565162,
+      "sha256": "598d90129838a887d7f389d0329573ecc2090d5cf6b72750b85064f37946d225"
+    },
+    {
+      "path": "artifacts/screenshots/tiktok-redesign-mobile.png",
+      "bytes": 321508,
+      "sha256": "7b434b7b037f522a1bb40b3a3fd920257d0d50eaabb10b9c1c9a32f81cbd07b7"
+    },
+    {
+      "path": "artifacts/screenshots/tiktok-redesign-normal-feed.png",
+      "bytes": 363277,
+      "sha256": "a47b1552b256df4ba8adb0e10f426a36990449ba6692405458eda1fbb60a2714"
+    },
+    {
+      "path": "artifacts/traces/samples/foundation-golden.jsonl",
+      "bytes": 4390,
+      "sha256": "965bc6c03a1cff2b1f9baf2c7221a4dfa4bdb92b323b6d36b8f99f661ce76469"
+    },
+    {
+      "path": "data/fixtures/content-contexts.json",
+      "bytes": 1307,
+      "sha256": "756fb06bf7d9172c7a45db19be324c5f8782167c2e9b5fd53ab5988111b7b548"
+    },
+    {
+      "path": "data/fixtures/evidence.json",
+      "bytes": 2037,
+      "sha256": "520990ebabca72a5818fa21ceb1d45fe95f33a748b3c0da69fe291aed5a961e6"
+    },
+    {
+      "path": "data/fixtures/feed-items.json",
+      "bytes": 1541,
+      "sha256": "b2d13e0994ab50958391eeb5e68a8eafe384e02c2556f2231cbccc03dfcf11b8"
+    },
+    {
+      "path": "data/fixtures/products.json",
+      "bytes": 5154,
+      "sha256": "32bddb748791e78f17c04ae6106ecd059b47ed6289e02762c45a665c10424361"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-08-04-mvp-foundation.md",
+      "bytes": 128195,
+      "sha256": "02c9a9a147e986367e404c1000784f463c9c0b1f513c2818caa0ceaf01f4f564"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-08-05-tiktok-experience-redesign.md",
+      "bytes": 36479,
+      "sha256": "62f0e384698ebcfab8b80b01eeaf38ccd9a3d2892f46f4468387ccca0744b34d"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-08-10-chat-first-lightweight-guide.md",
+      "bytes": 45679,
+      "sha256": "2e235db6b039f98435e33bf2b1f63a6a8a1e741a0d309903395c5686bcf8fb50"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-08-10-chat-first-lightweight-guide-design.md",
+      "bytes": 15657,
+      "sha256": "1336dded9279a82530bb584b1b51e8188f138fa206b8b3e97155547b5a77c510"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-08-11-offline-evidence-document-reader-design.md",
+      "bytes": 6398,
+      "sha256": "2242acc00402111f8182d3fc5db3dce8bb4aceae5413fb3dd9e00001d1406104"
+    },
+    {
+      "path": "evals/cases/foundation-cases.jsonl",
+      "bytes": 1355,
+      "sha256": "e4ce5c660dd584c967491ccb291258634b539ce0abd93705a6e585148a6bc087"
+    },
+    {
+      "path": "PLAN.md",
+      "bytes": 21042,
+      "sha256": "714bd97101422638be303464cc8badce8cba9abd14eb9338c97863d736fa7ebe"
+    },
+    {
+      "path": "README.md",
+      "bytes": 23252,
+      "sha256": "4f2dfa642c1f7002fba5320e7463ab454e636cfe82c5ebb5f06a20c5f58b09c7"
+    },
+    {
+      "path": "TASKS.md",
+      "bytes": 14600,
+      "sha256": "e393cc485f4eb9c0aa76893ae8eb23a97ab089dd38fb5bea74d8c97bc9cc0612"
+    },
+    {
+      "path": "vibe-coding-case-study.html",
+      "bytes": 277130,
+      "sha256": "6ae3edf7e283d406a1bdbfb9ee1da4b67439dd02a8508e47e1325624788592ba"
+    }
+  ]
+}
