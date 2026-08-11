@@ -1,0 +1,36 @@
+[
+  {
+    "id": "morning-routine-uv-001",
+    "synthetic": true,
+    "creator_handle": "@routine.notes",
+    "caption": "A lightweight SPF step for a humid commute",
+    "anchor_product_id": "seoul-shade-daily-fluid",
+    "transcript_excerpt": "This feels light under makeup. Remember that daily sunscreen and water-resistant sunscreen solve different moments.",
+    "claims": [
+      {
+        "id": "claim-daily-broad-spectrum",
+        "text": "Broad-spectrum sunscreen is relevant for daily UV protection.",
+        "evidence_status": "SUPPORTED",
+        "evidence_id": "fda-sunscreen-basics"
+      },
+      {
+        "id": "claim-waterproof-wording",
+        "text": "A sunscreen can be treated as waterproof all day.",
+        "evidence_status": "CONFLICTING",
+        "evidence_id": "fda-water-resistance-labeling"
+      },
+      {
+        "id": "claim-white-cast-guarantee",
+        "text": "This exact formula leaves no white cast on every complexion.",
+        "evidence_status": "INSUFFICIENT_EVIDENCE",
+        "evidence_id": "fda-sunscreen-basics"
+      },
+      {
+        "id": "claim-weightless-finish",
+        "text": "The finish feels weightless under makeup.",
+        "evidence_status": "SUBJECTIVE_MIXED",
+        "evidence_id": "synthetic-review-finish-aggregate"
+      }
+    ]
+  }
+]

@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
 const projectRoot = path.resolve(new URL("..", import.meta.url).pathname);
+const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 
 test("Vercel builds the monorepo Web app from the repository root", async () => {
   const config = JSON.parse(await readFile(path.join(projectRoot, "vercel.json"), "utf8"));
@@ -23,6 +25,14 @@ test("Vercel can discover the FastAPI app from the API project root", async () =
   assert.equal(config.framework, "fastapi");
   assert.equal(Object.hasOwn(config, "installCommand"), false);
   assert.equal(Object.hasOwn(config, "buildCommand"), false);
+});
+
+test("the API deployment bundle mirrors every canonical fixture byte-for-byte", async () => {
+  for (const filename of ["content-contexts.json", "evidence.json", "feed-items.json", "products.json"]) {
+    const canonical = await readFile(path.join(projectRoot, "data/fixtures", filename));
+    const bundled = await readFile(path.join(projectRoot, "apps/api/data/fixtures", filename));
+    assert.equal(sha256(bundled), sha256(canonical), filename);
+  }
 });
 
 test("the environment example contains only public configuration placeholders", async () => {

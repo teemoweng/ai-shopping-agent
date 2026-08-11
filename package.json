@@ -2,10 +2,12 @@
   "name": "ai-shopping-agent",
   "private": true,
   "scripts": {
+    "build:api-deployment": "node scripts/build-api-deployment.mjs",
     "build:portfolio-public": "node scripts/build-portfolio-public.mjs",
     "build:case-study-evidence": "node scripts/build-case-study-evidence.mjs",
     "capture:case-study-evidence": "node scripts/verify-case-study-evidence.mjs --update-screenshots",
     "check:layout": "node scripts/verify-foundation.mjs",
+    "check:api-deployment": "node scripts/build-api-deployment.mjs --check",
     "check:case-study-evidence": "node scripts/build-case-study-evidence.mjs --check",
     "check:portfolio-public": "node scripts/build-portfolio-public.mjs --check",
     "dev:web": "pnpm --dir apps/web dev",
