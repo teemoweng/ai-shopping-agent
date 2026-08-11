@@ -9,11 +9,14 @@ const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 
 test("Vercel builds the monorepo Web app from the repository root", async () => {
   const config = JSON.parse(await readFile(path.join(projectRoot, "vercel.json"), "utf8"));
+  const rootPackage = JSON.parse(await readFile(path.join(projectRoot, "package.json"), "utf8"));
+  const webPackage = JSON.parse(await readFile(path.join(projectRoot, "apps/web/package.json"), "utf8"));
   assert.equal(config.$schema, "https://openapi.vercel.sh/vercel.json");
   assert.equal(config.framework, "nextjs");
   assert.equal(config.installCommand, "pnpm install --frozen-lockfile");
   assert.equal(config.buildCommand, "pnpm --dir apps/web build");
   assert.equal(config.outputDirectory, "apps/web/.next");
+  assert.equal(rootPackage.devDependencies.next, webPackage.dependencies.next);
 });
 
 test("Vercel can discover the FastAPI app from the API project root", async () => {
