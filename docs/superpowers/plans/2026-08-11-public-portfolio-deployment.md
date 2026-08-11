@@ -25,7 +25,7 @@
 - Create: `apps/api/tests/unit/test_settings.py`
 - Modify: `apps/api/app/main.py`
 - Modify: `apps/api/tests/api/test_cors.py`
-- Create: `railway.json`
+- Create: `apps/api/railway.json`
 
 **Interfaces:**
 - Produces: `parse_allowed_origins(raw: str | None) -> tuple[str, ...]`
