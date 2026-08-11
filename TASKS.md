@@ -55,11 +55,11 @@
 
 本切片在 source commit `659596537efe7bd7a879aeb3b49bee17b01f5e73` 的冻结合成 fixture 上验证：API 324、Web 281、Foundation eval pytest 15/15、规则 runner 6/6；普通 E2E 39 passed / 31 intentional routed skips / 0 failed，production capture 42 passed / 28 routed skips / 0 failed。Task 11 已关闭 Safety 输入框、legacy cart 旧授权、推荐授权 revision、结论先于卡片、中文适合点/取舍、重复原型披露与真实 200% Guide 字体问题。首轮全量 API 在 `0228819…` 因旧 trace 测试绕过 `GuideService`、没有保存当前 snapshot 而停于 323/1；测试改走真实公开编排后的第二轮完整 gate 才是最终证据，失败历史未被抹去。`NavigationState` / `GuideSession` / `CommerceOperation` 三控制面、硬约束先过滤、证据不足降级、安全退出、交易事实复核、显式确认和幂等对账均保留。真实 iOS 非零 safe-area、拖拽交互与开场留白仍未关闭；这里的 `DONE` 不代表真实 LLM、Hybrid RAG、持久化、用户研究或业务结果完成。
 
-## 已交付 — Vibe Coding 作品集案例页
+## 已交付 — AI 导购产品案例页
 
 | 状态 | 工作包 | 用户结果 | 已验证证据 |
 |---|---|---|---|
-| ✅ DONE | 将项目重新组织为 AI 产品经理 Vibe Coding 案例 | 招聘方可在一个响应式 HTML 页面中理解从岗位命题、规划、PRD、关键设计、原型迭代到评测边界的完整过程，并可一键进入本地 Demo；页面明确区分工程回归与尚未开展的真人/业务验证 | [Vibe Coding 产品案例页](./vibe-coding-case-study.html) · [Chat-first 验证记录](./artifacts/evidence/chat-first-verification.md) |
+| ✅ DONE | 交付 AI 导购产品案例页 | 读者可在一个响应式 HTML 页面中理解用户问题、产品定义、PRD、关键设计、原型评测与 Vibe Coding 构建方式，并可一键进入本地 Demo；页面明确区分工程回归与尚未开展的真人/业务验证 | [AI 导购产品案例页](./vibe-coding-case-study.html) · [Chat-first 验证记录](./artifacts/evidence/chat-first-verification.md) |
 
 该完成项只代表静态案例页与本地演示入口已交付，不代表公网部署、讲解录屏、真实 LLM、用户研究或业务效果已经完成。
 

@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="AI Shopping Agent Vibe Coding 产品案例：从岗位 JD、产品规划与 PRD，到 Chat-first 交互设计、受控 Agent 架构和原型评测。"
+      content="基于 TikTok Shop 内容场景的 AI 导购产品原型：面向美国 K-Beauty 防晒购物，覆盖轻量问答、商品比较、详情页与模拟加购。"
     />
-    <title>AI Shopping Agent — Vibe Coding 产品案例</title>
+    <title>AI Shopping Agent — 产品案例</title>
     <style>
       :root {
         --paper: #f4f3ee;
@@ -578,128 +578,6 @@
         font-size: 14px;
       }
 
-      .scope-line {
-        margin-top: 28px;
-        padding: 22px 26px;
-        display: flex;
-        align-items: flex-start;
-        gap: 18px;
-        background: var(--signal-soft);
-        border-left: 5px solid var(--signal);
-      }
-
-      .scope-line strong {
-        flex: 0 0 auto;
-      }
-
-      .scope-line p {
-        margin: 0;
-        color: #5e3540;
-      }
-
-      .trace {
-        position: relative;
-        max-width: 1050px;
-        margin-left: auto;
-      }
-
-      .trace::before {
-        content: "";
-        position: absolute;
-        top: 8px;
-        bottom: 8px;
-        left: 115px;
-        width: 2px;
-        background: var(--ink);
-      }
-
-      .trace-step {
-        position: relative;
-        display: grid;
-        grid-template-columns: 116px minmax(0, 1fr);
-        min-height: 250px;
-      }
-
-      .trace-code {
-        padding-top: 4px;
-        font-family: var(--mono);
-        font-size: 11px;
-        font-weight: 700;
-      }
-
-      .trace-code span {
-        display: block;
-        color: var(--muted);
-        font-weight: 500;
-      }
-
-      .trace-content {
-        position: relative;
-        padding: 0 0 70px 58px;
-      }
-
-      .trace-content::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: -7px;
-        width: 13px;
-        height: 13px;
-        background: var(--paper);
-        border: 3px solid var(--signal);
-        border-radius: 50%;
-      }
-
-      .trace-content h3 {
-        margin-bottom: 13px;
-        font-family: var(--display);
-        font-size: 34px;
-        line-height: 1.15;
-        letter-spacing: -0.025em;
-      }
-
-      .trace-content > p {
-        max-width: 720px;
-        color: var(--muted);
-      }
-
-      .decision-row {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 12px;
-        margin-top: 24px;
-      }
-
-      .decision-chip {
-        padding: 14px;
-        background: var(--white);
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        font-size: 13px;
-        line-height: 1.45;
-      }
-
-      .decision-chip b {
-        display: block;
-        margin-bottom: 3px;
-        font-family: var(--mono);
-        font-size: 9px;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-      }
-
-      .decision-chip:nth-child(1) b {
-        color: var(--signal);
-      }
-
-      .decision-chip:nth-child(2) b {
-        color: var(--ok);
-      }
-
-      .decision-chip:nth-child(3) b {
-        color: #6b56ad;
-      }
-
       .design-grid {
         display: grid;
         grid-template-columns: 0.9fr 1.1fr;
@@ -1126,37 +1004,97 @@
         display: grid;
         grid-template-columns: repeat(3, 1fr);
         gap: 14px;
+        align-items: start;
       }
 
-      .artifact-link {
+      .evidence-card {
+        position: relative;
         min-height: 160px;
+        width: 100%;
         padding: 23px;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        text-decoration: none;
+        color: var(--ink);
+        text-align: left;
+        cursor: pointer;
         background: var(--white);
         border: 1px solid var(--line);
         border-radius: 14px;
         transition: border-color 180ms ease, transform 180ms ease;
       }
 
-      .artifact-link:hover {
+      .evidence-card:hover,
+      .evidence-card:focus-visible,
+      .evidence-card.is-open {
+        z-index: 11;
         transform: translateY(-3px);
         border-color: var(--ink);
+        outline: none;
       }
 
-      .artifact-link span {
+      .evidence-card > span {
         color: var(--muted);
         font-family: var(--mono);
         font-size: 10px;
+        letter-spacing: 0.06em;
         text-transform: uppercase;
       }
 
-      .artifact-link strong {
+      .evidence-card > strong {
+        max-width: 90%;
         font-family: var(--display);
         font-size: 24px;
         line-height: 1.15;
+      }
+
+      .evidence-card > strong::after {
+        content: " +";
+        color: var(--signal);
+      }
+
+      .evidence-preview {
+        position: absolute;
+        z-index: 12;
+        top: calc(100% - 16px);
+        left: 16px;
+        right: 16px;
+        padding: 18px;
+        color: var(--white);
+        pointer-events: none;
+        opacity: 0;
+        transform: translateY(8px);
+        background: var(--night);
+        border: 1px solid #393d47;
+        border-radius: 12px;
+        box-shadow: 0 18px 38px rgba(16, 17, 20, 0.25);
+        transition: opacity 160ms ease, transform 160ms ease;
+      }
+
+      .evidence-preview-copy {
+        display: block;
+        margin: 0;
+        color: #d7d9df;
+        font-size: 13px;
+        line-height: 1.65;
+      }
+
+      .evidence-preview small {
+        display: block;
+        margin-top: 12px;
+        color: #8fded9;
+        font-family: var(--mono);
+        font-size: 9px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .evidence-card:hover .evidence-preview,
+      .evidence-card:focus-visible .evidence-preview,
+      .evidence-card.is-open .evidence-preview {
+        pointer-events: auto;
+        opacity: 1;
+        transform: translateY(0);
       }
 
       .final-cta {
@@ -1389,48 +1327,8 @@
           margin-bottom: 40px;
         }
 
-        .scope-line {
-          display: block;
-        }
-
-        .scope-line strong {
-          display: block;
-          margin-bottom: 8px;
-        }
-
-        .trace::before {
-          left: 19px;
-        }
-
-        .trace-step {
-          grid-template-columns: 40px minmax(0, 1fr);
-          min-height: 0;
-        }
-
-        .trace-code {
-          writing-mode: vertical-rl;
-          font-size: 9px;
-        }
-
-        .trace-code span {
-          display: none;
-        }
-
-        .trace-content {
-          padding: 0 0 55px 28px;
-        }
-
-        .trace-content::before {
-          left: -27px;
-        }
-
-        .decision-row,
         .height-study {
           grid-template-columns: 1fr;
-        }
-
-        .decision-row {
-          gap: 8px;
         }
 
         .loop {
@@ -1468,6 +1366,28 @@
 
         .evaluation-thesis {
           margin-left: 0;
+        }
+
+        .evidence-card {
+          min-height: 142px;
+        }
+
+        .evidence-preview {
+          position: static;
+          max-height: 0;
+          margin-top: 0;
+          padding: 0;
+          overflow: hidden;
+          border: 0;
+          box-shadow: none;
+        }
+
+        .evidence-card:hover .evidence-preview,
+        .evidence-card:focus-visible .evidence-preview,
+        .evidence-card.is-open .evidence-preview {
+          max-height: 220px;
+          margin-top: 18px;
+          padding: 16px;
         }
 
         .final-cta {
@@ -1531,13 +1451,13 @@
       <div class="header-inner">
         <a class="brand" href="#top" aria-label="返回页面顶部">
           <span class="brand-mark">AI</span>
-          <span>Vibe Build Log · 2026</span>
+          <span>AI Shopping Guide · Case Study</span>
         </a>
         <nav class="header-nav" aria-label="案例章节">
           <a href="#prd">PRD</a>
           <a href="#design">设计</a>
-          <a href="#build">构建</a>
           <a href="#evaluation">评测</a>
+          <a href="#build">构建</a>
           <a class="button primary" href="http://127.0.0.1:3000" target="_blank" rel="noreferrer">
             打开 Demo <span class="arrow" aria-hidden="true">↗</span>
           </a>
@@ -1549,19 +1469,19 @@
       <section class="hero" id="top">
         <div class="hero-inner">
           <div class="hero-copy" data-reveal>
-            <div class="eyebrow">AI 产品经理 × Vibe Coding</div>
-            <h1>把一份岗位 JD，做成一个<span class="hero-highlight">能跑、能讲、能被追问</span>的 AI 产品原型。</h1>
+            <div class="eyebrow">TikTok Shop-inspired · AI Shopping Guide</div>
+            <h1>基于 TikTok Shop 的<span class="hero-highlight">AI 导购产品原型</span>。</h1>
             <p class="hero-lead">
-              这是一个面向美国 K-Beauty 防晒场景的内容电商 AI 导购 Demo。重点不是“我调用了大模型”，而是展示我如何把用户问题、产品边界、AI 能力和交易风险，快速写进一个可验证的交互原型。
+              面向美国市场的 K-Beauty 防晒购物场景，在短视频种草之后，通过轻量对话回答商品是否适合、为什么适合、是否有更合适的替代，并衔接到商品详情与模拟加购。
             </p>
             <div class="hero-actions">
               <a class="button primary" href="http://127.0.0.1:3000" target="_blank" rel="noreferrer">
                 一键体验可运行 Demo <span class="arrow" aria-hidden="true">↗</span>
               </a>
-              <a class="button secondary" href="#trace">查看完整构建轨迹</a>
+              <a class="button secondary" href="#design">查看关键设计</a>
             </div>
             <div class="hero-meta" aria-label="项目标签">
-              <span class="tag">ROLE / AI PRODUCT MANAGER</span>
+              <span class="tag">FORMAT / MOBILE WEB</span>
               <span class="tag">MARKET / US</span>
               <span class="tag">CATEGORY / K-BEAUTY SPF</span>
               <span class="tag">STATUS / RUNNABLE PROTOTYPE</span>
@@ -1585,7 +1505,7 @@
               <strong>Decision first</strong>
               <span>先给一句结论，再按需出现商品、依据和比较。</span>
             </div>
-            <div class="hero-stamp" aria-hidden="true">FROM JD<br />TO WORKING<br />PROTOTYPE</div>
+            <div class="hero-stamp" aria-hidden="true">CHAT-FIRST<br />COMMERCE<br />PROTOTYPE</div>
           </div>
         </div>
       </section>
@@ -1614,26 +1534,26 @@
       <section class="section" id="brief">
         <div class="section-inner">
           <div class="section-heading" data-reveal>
-            <div class="section-index">00 / 项目起点</div>
+            <div class="section-index">00 / 产品问题</div>
             <div>
-              <h2>不是先想“做个 Agent”，而是先找到用户在哪一步犹豫。</h2>
+              <h2>短视频完成了种草，却没有消除购买前的不确定性。</h2>
               <p class="section-intro">
-                项目来自 TikTok Shop AI 产品经理岗位。岗位要求把前沿 AI 能力转成可感知的电商价值，同时面对幻觉、延迟和能力边界。我的切入点不是泛化聊天，而是内容种草之后、购买决定之前的那段不确定性。
+                用户已经对当前商品产生兴趣，但仍需要判断它是否适合自己的肤质、肤色、预算和使用场景。传统商品详情负责提供信息，AI 导购负责把这些信息组织成与当前用户相关的购买判断。
               </p>
             </div>
           </div>
 
           <div class="brief-grid">
             <article class="brief-card dark" data-reveal>
-              <span class="card-label">JOB SIGNAL</span>
-              <h3>“定义 AI 导购新范式，重构人货匹配逻辑。”</h3>
+              <span class="card-label">CONTENT COMMERCE GAP</span>
+              <h3>内容激发兴趣，购买决定仍需要解释。</h3>
               <p>
-                我把这句话拆成三个可做成原型的问题：如何继承内容上下文、如何用最少追问补齐购买约束、如何让 AI 建议不越过交易权限。
+                商品视频擅长展示效果与氛围，却很难逐一回答肤质、泛白、防水和预算等个人问题。用户需要的是基于当前商品的解释，而不是离开内容场景重新搜索。
               </p>
             </article>
             <article class="brief-card" data-reveal>
-              <span class="card-label">USER TENSION</span>
-              <h3>用户已经被种草，但还不敢买。</h3>
+              <span class="card-label">PRODUCT RESPONSE</span>
+              <h3>在商品上下文中完成提问、比较和确认。</h3>
               <p>
                 她真正想知道的不是“这个产品有什么卖点”，而是：适不适合我的肤质和使用场景？会不会泛白？当前款不合适时，有没有更稳妥的替代？
               </p>
@@ -1651,9 +1571,9 @@
           <div class="section-heading" data-reveal>
             <div class="section-index">01 / PRD</div>
             <div>
-              <h2>先把范围锁死，原型才不会被“AI 什么都能做”带跑。</h2>
+              <h2>产品定义：美国市场、K-Beauty 防晒、内容种草后的购买决策。</h2>
               <p class="section-intro">
-                PRD 的核心不是堆功能，而是形成一份产品契约：谁在什么上下文里，为了完成什么任务，系统可以做什么、不能做什么，最后以什么动作闭环。
+                核心用户是已经在可购物短视频中看到商品、但还不能确认是否适合自己的消费者。产品从“问问这款”进入，以适配判断、替代比较和交易前确认组成完整路径。
               </p>
             </div>
           </div>
@@ -1662,7 +1582,7 @@
             <div class="contract-item">
               <span class="number">01 / MARKET</span>
               <strong>美国市场</strong>
-              <p>贴合 TikTok Shop 国际电商岗位，不做泛地区演示。</p>
+              <p>围绕美元价格、美国消费者表达习惯与跨境护肤购物场景设计。</p>
             </div>
             <div class="contract-item">
               <span class="number">02 / CATEGORY</span>
@@ -1687,108 +1607,21 @@
             <div class="contract-item">
               <span class="number">06 / END STATE</span>
               <strong>模拟加购成功</strong>
-              <p>用户显式确认后结束；不接真实支付、订单和履约。</p>
+              <p>用户显式确认后生成模拟加购回执，完成原型内的交易闭环。</p>
             </div>
           </div>
 
-          <div class="scope-line" data-reveal>
-            <strong>明确不做</strong>
-            <p>
-              真实 TikTok 接入、真实支付、全美妆、实时直播理解、医疗诊断、商家后台和为了显得复杂而拆出的多 Agent。搜索被定义为未来第二入口，但不塞进首个内容导购纵向切片。
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section class="section" id="trace">
-        <div class="section-inner">
-          <div class="section-heading" data-reveal>
-            <div class="section-index">02 / Build Trace</div>
-            <div>
-              <h2>这个原型不是一次 Prompt 生成的，而是经过五轮产品纠偏。</h2>
-              <p class="section-intro">
-                Vibe Coding 的价值不是第一次就做对，而是把判断快速转成界面，用真实反馈和测试暴露问题，再把新的产品认知写回规格、代码和评测。
-              </p>
-            </div>
-          </div>
-
-          <div class="trace">
-            <article class="trace-step" data-reveal>
-              <div class="trace-code">P0<span>PLAN</span></div>
-              <div class="trace-content">
-                <h3>从岗位 JD 提取项目命题</h3>
-                <p>把“AI 导购”拆成内容上下文、用户约束、推荐解释和交易确认四段，并选择美国防晒作为足够具体的首品类。</p>
-                <div class="decision-row">
-                  <div class="decision-chip"><b>Product question</b>导购到底解决哪一步？</div>
-                  <div class="decision-chip"><b>Decision</b>聚焦种草后的购买犹豫</div>
-                  <div class="decision-chip"><b>Evidence</b>项目总控 / MVP 定义</div>
-                </div>
-              </div>
-            </article>
-
-            <article class="trace-step" data-reveal>
-              <div class="trace-code">P1<span>FOUNDATION</span></div>
-              <div class="trace-content">
-                <h3>先用确定性基线跑通完整链路</h3>
-                <p>用 3 个合成商品、6 个 SKU、结构化事实和规则 Workflow，先证明硬约束、证据、确认和加购边界能被测试，不急着用 LLM 掩盖逻辑缺口。</p>
-                <div class="decision-row">
-                  <div class="decision-chip"><b>Product question</b>AI 最容易在哪里失信？</div>
-                  <div class="decision-chip"><b>Decision</b>价格/库存只读结构化事实</div>
-                  <div class="decision-chip"><b>Evidence</b>六案例规则评测 6/6</div>
-                </div>
-              </div>
-            </article>
-
-            <article class="trace-step" data-reveal>
-              <div class="trace-code">P2<span>REALITY CHECK</span></div>
-              <div class="trace-content">
-                <h3>第一次原型“能跑”，但不像真实内容电商</h3>
-                <p>根据真实 TikTok 界面重新研究 Feed、直播、小红车、商城和商品详情，把 Demo 从普通聊天页改成视频现场里的轻量商品入口、PDP 和 AI Sheet。</p>
-                <div class="decision-row">
-                  <div class="decision-chip"><b>Product question</b>用户此刻注意力在哪里？</div>
-                  <div class="decision-chip"><b>Decision</b>Feed 是主场，AI 是条件式能力</div>
-                  <div class="decision-chip"><b>Evidence</b>8 条交易旅程浏览器回归</div>
-                </div>
-              </div>
-            </article>
-
-            <article class="trace-step" data-reveal>
-              <div class="trace-code">P3<span>CHAT-FIRST</span></div>
-              <div class="trace-content">
-                <h3>第二次纠偏：AI 结果面板仍然太重</h3>
-                <p>把默认 65%–75% 的“决策报告”改为约 40% 的对话层。首屏只留一句开场、3 个具体问题和输入框；每轮最多追问一个高信息量问题。</p>
-                <div class="decision-row">
-                  <div class="decision-chip"><b>Product question</b>多少信息才配占用一屏？</div>
-                  <div class="decision-chip"><b>Decision</b>信息重量随任务渐进增加</div>
-                  <div class="decision-chip"><b>Evidence</b>Chat-first 设计 ADR</div>
-                </div>
-              </div>
-            </article>
-
-            <article class="trace-step" data-reveal>
-              <div class="trace-code">P4<span>REVIEW</span></div>
-              <div class="trace-content">
-                <h3>把“看起来对”升级成“关键边界真的对”</h3>
-                <p>独立审查继续暴露安全态仍有输入框、旧交易接口可绕过当前权限、结论被商品卡挤走、中文取舍重复等问题；每个问题先写失败测试，再改实现和证据。</p>
-                <div class="decision-row">
-                  <div class="decision-chip"><b>Product question</b>失败时用户承担什么风险？</div>
-                  <div class="decision-chip"><b>Decision</b>安全、交易、注意力都写成契约</div>
-                  <div class="decision-chip"><b>Evidence</b>API 324 / Web 281</div>
-                </div>
-              </div>
-            </article>
-          </div>
         </div>
       </section>
 
       <section class="section" id="design">
         <div class="section-inner">
           <div class="section-heading" data-reveal>
-            <div class="section-index">03 / 关键设计</div>
+            <div class="section-index">02 / 关键设计</div>
             <div>
-              <h2>AI 能力不是越多越好，关键是每次出现都符合注意力和权限。</h2>
+              <h2>关键设计：让 AI 的信息重量符合短视频场景。</h2>
               <p class="section-intro">
-                我把核心设计判断集中在三个问题：用户此刻能处理多少信息？什么状态应该继续对话？谁有权把一个建议变成交易动作？
+                核心设计围绕三个问题展开：用户此刻能处理多少信息？什么状态应该继续对话？谁有权把一个建议变成交易动作？
               </p>
             </div>
           </div>
@@ -1845,96 +1678,14 @@
         </div>
       </section>
 
-      <section class="section method" id="build">
-        <div class="section-inner">
-          <div class="section-heading" data-reveal>
-            <div class="section-index">04 / Vibe Coding</div>
-            <div>
-              <h2>我用 AI 加速产出，但没有把产品判断外包给 AI。</h2>
-              <p class="section-intro">
-                整个项目采用“产品判断先结构化、代码生成后验证”的循环。每轮 Vibe Coding 都有输入、可见产物和退出条件，而不是在聊天框里反复说“再高级一点”。
-              </p>
-            </div>
-          </div>
-
-          <div class="loop" data-reveal>
-            <div class="loop-step">
-              <span>01 / FRAME</span>
-              <strong>写清问题</strong>
-              <p>用户、场景、任务、风险、非目标先进入 PRD 和 ADR。</p>
-            </div>
-            <div class="loop-step">
-              <span>02 / SPEC</span>
-              <strong>定义契约</strong>
-              <p>把界面状态、权限、失败路径和完成条件写成规格。</p>
-            </div>
-            <div class="loop-step">
-              <span>03 / BUILD</span>
-              <strong>生成原型</strong>
-              <p>让 AI 按已确认范围实现组件、数据和交互。</p>
-            </div>
-            <div class="loop-step">
-              <span>04 / BREAK</span>
-              <strong>主动找错</strong>
-              <p>用失败测试、真实浏览器和独立审查打破“看起来没问题”。</p>
-            </div>
-            <div class="loop-step">
-              <span>05 / RECORD</span>
-              <strong>沉淀证据</strong>
-              <p>把修改原因、取舍、测试和局限写回文档与面试索引。</p>
-            </div>
-          </div>
-
-          <div class="method-note" data-reveal>
-            <strong>Vibe Coding 的 PM 含义</strong>
-            <p>
-              不是用自然语言替代工程师，而是缩短“产品假设 → 可交互界面 → 暴露问题 → 形成新判断”的周期。原型越快，越要用范围、事实源、安全边界和评测防止它快速跑偏。
-            </p>
-          </div>
-
-          <div class="screens">
-            <figure class="screen-card" data-reveal>
-              <img
-                src="./artifacts/screenshots/chat-first-opening-mobile.png"
-                alt="Chat-first AI 导购轻量开场界面"
-                width="390"
-                height="844"
-                loading="lazy"
-              />
-              <figcaption>STATE / OPENING · 一句上下文 + 三个具体问题</figcaption>
-            </figure>
-            <figure class="screen-card" data-reveal>
-              <img
-                src="./artifacts/screenshots/chat-first-decision-mobile.png"
-                alt="Chat-first AI 导购决策界面"
-                width="390"
-                height="844"
-                loading="lazy"
-              />
-              <figcaption>STATE / DECISION · 先结论，再出现一款首选</figcaption>
-            </figure>
-            <figure class="screen-card desktop" data-reveal>
-              <img
-                src="./artifacts/screenshots/chat-first-desktop.png"
-                alt="AI 导购桌面面试演示界面，左侧为实时手机原型，右侧为辅助讲解面板"
-                width="1440"
-                height="1000"
-                loading="lazy"
-              />
-              <figcaption>MODE / INTERVIEW · 同一条手机路径为主，讲解面板为辅</figcaption>
-            </figure>
-          </div>
-        </div>
-      </section>
-
       <section class="section" id="evaluation">
         <div class="section-inner">
           <div class="section-heading" data-reveal>
-            <div class="section-index">05 / 评测思路</div>
+            <div class="section-index">03 / 原型评测</div>
             <div>
-              <h2>原型评测不是给模型打一个总分，而是确认“它值不值得进入下一轮”。</h2>
+              <h2>分别验证流程、体验、系统边界和产品假设。</h2>
               <p class="section-intro">
-                这个项目的首要定位是展示 Vibe Coding 原型能力。因此评测不追求伪装成大规模 Benchmark，而是分层回答：流程能不能走通、体验是否符合场景、关键边界是否可靠，以及哪些产品假设仍必须找真人验证。
+                原型阶段的评测重点是确认流程是否走通、体验是否符合内容场景、关键权限是否可靠，以及哪些产品假设仍必须通过真人任务验证。
               </p>
             </div>
           </div>
@@ -2027,7 +1778,7 @@
               <ul>
                 <li>冻结合成数据上的产品流程、交互和权限边界可以稳定复跑。</li>
                 <li>Chat-first 设计没有破坏原有 PDP、价格重确认与模拟加购链路。</li>
-                <li>原型具备面试现场可演示、可追问、可回到证据的完成度。</li>
+                <li>核心路径具备可复现的工程证据，问题可以回到具体场景与版本。</li>
               </ul>
             </article>
             <article class="result-card limit" data-reveal>
@@ -2050,53 +1801,141 @@
         </div>
       </section>
 
+      <section class="section method" id="build">
+        <div class="section-inner">
+          <div class="section-heading" data-reveal>
+            <div class="section-index">04 / Vibe Coding</div>
+            <div>
+              <h2>缩短从产品假设到可交互原型的验证周期。</h2>
+              <p class="section-intro">
+                项目采用“产品判断结构化、AI 辅助实现、真实浏览器验证”的循环。每一轮都有明确输入、可见产物和退出条件。
+              </p>
+            </div>
+          </div>
+
+          <div class="loop" data-reveal>
+            <div class="loop-step">
+              <span>01 / FRAME</span>
+              <strong>写清问题</strong>
+              <p>用户、场景、任务和风险先进入 PRD 与产品决策记录。</p>
+            </div>
+            <div class="loop-step">
+              <span>02 / SPEC</span>
+              <strong>定义契约</strong>
+              <p>把界面状态、权限、失败路径和完成条件写成规格。</p>
+            </div>
+            <div class="loop-step">
+              <span>03 / BUILD</span>
+              <strong>生成原型</strong>
+              <p>AI 按已确认范围实现组件、合成数据和关键交互。</p>
+            </div>
+            <div class="loop-step">
+              <span>04 / BREAK</span>
+              <strong>主动找错</strong>
+              <p>用失败测试、真实浏览器和视觉审查发现流程问题。</p>
+            </div>
+            <div class="loop-step">
+              <span>05 / RECORD</span>
+              <strong>沉淀证据</strong>
+              <p>把修改原因、产品取舍、测试结果和局限写回文档。</p>
+            </div>
+          </div>
+
+          <div class="method-note" data-reveal>
+            <strong>Vibe Coding 在本项目中的作用</strong>
+            <p>
+              自然语言把产品规格转成可运行界面，自动化检查负责暴露流程与权限问题，人工视觉审查负责判断注意力和信息层级。三者共同缩短迭代周期。
+            </p>
+          </div>
+
+          <div class="screens">
+            <figure class="screen-card" data-reveal>
+              <img
+                src="./artifacts/screenshots/chat-first-opening-mobile.png"
+                alt="Chat-first AI 导购轻量开场界面"
+                width="390"
+                height="844"
+                loading="lazy"
+              />
+              <figcaption>STATE / OPENING · 一句上下文 + 三个具体问题</figcaption>
+            </figure>
+            <figure class="screen-card" data-reveal>
+              <img
+                src="./artifacts/screenshots/chat-first-decision-mobile.png"
+                alt="Chat-first AI 导购决策界面"
+                width="390"
+                height="844"
+                loading="lazy"
+              />
+              <figcaption>STATE / DECISION · 先结论，再出现一款首选</figcaption>
+            </figure>
+            <figure class="screen-card desktop" data-reveal>
+              <img
+                src="./artifacts/screenshots/chat-first-desktop.png"
+                alt="AI 导购桌面演示界面，左侧为实时手机原型，右侧为辅助讲解面板"
+                width="1440"
+                height="1000"
+                loading="lazy"
+              />
+              <figcaption>MODE / DESKTOP · 同一条手机路径为主，讲解面板为辅</figcaption>
+            </figure>
+          </div>
+        </div>
+      </section>
+
       <section class="section" id="artifacts">
         <div class="section-inner">
           <div class="section-heading" data-reveal>
-            <div class="section-index">06 / 证据索引</div>
+            <div class="section-index">05 / 关键证据</div>
             <div>
-              <h2>面试时，每个判断都能回到一个真实工件。</h2>
-              <p class="section-intro">产品叙事留在案例中，源代码、规格、评测和边界保留在各自的权威文件里，避免只剩一张漂亮效果图。</p>
+              <h2>关键证据</h2>
+              <p class="section-intro">悬停、聚焦或点击卡片即可查看摘要。产品定义、交互规格、评测结果和交付状态分别保留，便于快速了解原型的依据与边界。</p>
             </div>
           </div>
 
           <div class="artifact-links">
-            <a class="artifact-link" href="./README.md" target="_blank" rel="noreferrer" data-reveal>
-              <span>Project overview</span><strong>README 与产品边界 ↗</strong>
-            </a>
-            <a
-              class="artifact-link"
-              href="./docs/superpowers/specs/2026-08-10-chat-first-lightweight-guide-design.md"
-              target="_blank"
-              rel="noreferrer"
-              data-reveal
-            >
-              <span>Interaction spec</span><strong>Chat-first 设计规格 ↗</strong>
-            </a>
-            <a
-              class="artifact-link"
-              href="./artifacts/evidence/chat-first-verification.md"
-              target="_blank"
-              rel="noreferrer"
-              data-reveal
-            >
-              <span>Evaluation</span><strong>完整验证记录 ↗</strong>
-            </a>
-            <a
-              class="artifact-link"
-              href="./artifacts/evidence/chat-first-run-manifest.json"
-              target="_blank"
-              rel="noreferrer"
-              data-reveal
-            >
-              <span>Machine evidence</span><strong>运行 Manifest ↗</strong>
-            </a>
-            <a class="artifact-link" href="./PLAN.md" target="_blank" rel="noreferrer" data-reveal>
-              <span>Roadmap</span><strong>阶段计划与后续范围 ↗</strong>
-            </a>
-            <a class="artifact-link" href="./TASKS.md" target="_blank" rel="noreferrer" data-reveal>
-              <span>Delivery ledger</span><strong>任务与完成证据 ↗</strong>
-            </a>
+            <button type="button" class="evidence-card" aria-expanded="false" data-reveal>
+              <span>Project overview</span><strong>产品概览与边界</strong>
+              <span class="evidence-preview" role="tooltip">
+                <span class="evidence-preview-copy">目标用户、内容入口、核心任务、三控制面，以及从对话建议到模拟交易的权限边界。</span>
+                <small>Source · README</small>
+              </span>
+            </button>
+            <button type="button" class="evidence-card" aria-expanded="false" data-reveal>
+              <span>Interaction spec</span><strong>Chat-first 交互规格</strong>
+              <span class="evidence-preview" role="tooltip">
+                <span class="evidence-preview-copy">轻量开场、单问题澄清、先结论后商品，以及比较与依据按需展开的完整状态设计。</span>
+                <small>Source · Product Spec</small>
+              </span>
+            </button>
+            <button type="button" class="evidence-card" aria-expanded="false" data-reveal>
+              <span>Evaluation</span><strong>原型评测</strong>
+              <span class="evidence-preview" role="tooltip">
+                <span class="evidence-preview-copy">13 类 Chat-first 体验契约、8 条交易旅程，以及安全、幂等、焦点和响应式边界的验证结论。</span>
+                <small>Source · Verification Report</small>
+              </span>
+            </button>
+            <button type="button" class="evidence-card" aria-expanded="false" data-reveal>
+              <span>Machine evidence</span><strong>运行证据</strong>
+              <span class="evidence-preview" role="tooltip">
+                <span class="evidence-preview-copy">记录被测版本、测试数量、浏览器环境、输入数据哈希和正式截图哈希，确保结果可追溯。</span>
+                <small>Source · Run Manifest</small>
+              </span>
+            </button>
+            <button type="button" class="evidence-card" aria-expanded="false" data-reveal>
+              <span>Roadmap</span><strong>阶段计划</strong>
+              <span class="evidence-preview" role="tooltip">
+                <span class="evidence-preview-copy">区分已完成原型、后续模型接入、Hybrid Retrieval、用户研究与公网演示等阶段。</span>
+                <small>Source · Product Plan</small>
+              </span>
+            </button>
+            <button type="button" class="evidence-card" aria-expanded="false" data-reveal>
+              <span>Delivery ledger</span><strong>交付状态</strong>
+              <span class="evidence-preview" role="tooltip">
+                <span class="evidence-preview-copy">集中记录已完成能力、对应证据、仍待验证的假设，以及当前原型的已知限制。</span>
+                <small>Source · Task Ledger</small>
+              </span>
+            </button>
           </div>
         </div>
       </section>
@@ -2120,7 +1959,7 @@
 
     <footer>
       <div class="footer-inner">
-        <span>AI SHOPPING AGENT · VIBE CODING CASE STUDY</span>
+        <span>AI SHOPPING AGENT · PRODUCT CASE STUDY</span>
         <span>CONCEPT PROTOTYPE · SYNTHETIC DATA · NOT TIKTOK OFFICIAL</span>
       </div>
     </footer>
@@ -2151,6 +1990,37 @@
         );
 
         document.querySelectorAll("[data-reveal]").forEach((item) => revealObserver.observe(item));
+
+        const evidenceCards = [...document.querySelectorAll(".evidence-card")];
+        const closeEvidence = (except = null) => {
+          evidenceCards.forEach((card) => {
+            if (card === except) return;
+            card.classList.remove("is-open");
+            card.setAttribute("aria-expanded", "false");
+          });
+        };
+
+        evidenceCards.forEach((card, index) => {
+          const preview = card.querySelector(".evidence-preview");
+          const previewId = `evidence-preview-${index + 1}`;
+          preview.id = previewId;
+          card.setAttribute("aria-controls", previewId);
+          card.addEventListener("click", (event) => {
+            event.stopPropagation();
+            const shouldOpen = !card.classList.contains("is-open");
+            closeEvidence(card);
+            card.classList.toggle("is-open", shouldOpen);
+            card.setAttribute("aria-expanded", String(shouldOpen));
+          });
+        });
+
+        document.addEventListener("click", () => closeEvidence());
+        document.addEventListener("keydown", (event) => {
+          if (event.key !== "Escape") return;
+          const openCard = document.querySelector(".evidence-card.is-open");
+          closeEvidence();
+          openCard?.focus();
+        });
 
         const sectionObserver = new IntersectionObserver(
           (entries) => {
