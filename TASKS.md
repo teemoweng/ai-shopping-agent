@@ -60,6 +60,7 @@
 | 状态 | 工作包 | 用户结果 | 已验证证据 |
 |---|---|---|---|
 | ✅ DONE | 交付 AI 导购产品案例页 | 读者可在一个响应式 HTML 页面中理解用户问题、产品定义、PRD、关键设计、原型评测与 Vibe Coding 构建方式，并可一键进入本地 Demo；页面明确区分工程回归与尚未开展的真人/业务验证 | [AI 导购产品案例页](./vibe-coding-case-study.html) · [Chat-first 验证记录](./artifacts/evidence/chat-first-verification.md) |
+| 🚧 IN PROGRESS | 为关键证据增加离线完整文档阅读器 | 读者点击证据卡后，可在带遮罩的居中 Document Reader Modal 中阅读完整富文本文件；直接双击 HTML 的 `file://` 场景同样可用 | [阅读器设计规格](./docs/superpowers/specs/2026-08-11-offline-evidence-document-reader-design.md) · 待补：同步检查、file/http 浏览器验收 |
 
 该完成项只代表静态案例页与本地演示入口已交付，不代表公网部署、讲解录屏、真实 LLM、用户研究或业务效果已经完成。
 
