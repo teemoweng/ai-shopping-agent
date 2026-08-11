@@ -1049,8 +1049,10 @@
       }
 
       .evidence-modal {
-        width: min(560px, calc(100vw - 32px));
+        width: min(1060px, calc(100vw - 32px));
+        height: min(86dvh, 920px);
         max-width: none;
+        max-height: none;
         padding: 0;
         color: var(--ink);
         background: transparent;
@@ -1081,17 +1083,19 @@
 
       .evidence-modal-card {
         position: relative;
-        padding: 34px;
+        height: 100%;
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
         background: var(--white);
         border: 2px solid var(--ink);
         border-radius: 20px;
         box-shadow: 12px 12px 0 var(--cyan), 0 32px 90px rgba(0, 0, 0, 0.28);
+        overflow: hidden;
       }
 
       .evidence-modal-close {
-        position: absolute;
-        top: 18px;
-        right: 18px;
+        position: relative;
+        flex: 0 0 auto;
         width: 44px;
         height: 44px;
         display: grid;
@@ -1112,8 +1116,7 @@
 
       .evidence-modal-kicker {
         display: block;
-        margin-bottom: 30px;
-        padding-right: 54px;
+        margin-bottom: 8px;
         color: var(--signal);
         font-family: var(--mono);
         font-size: 10px;
@@ -1123,36 +1126,354 @@
       }
 
       .evidence-modal h3 {
-        max-width: 420px;
-        margin-bottom: 16px;
+        max-width: 720px;
+        margin-bottom: 0;
         font-family: var(--display);
-        font-size: 42px;
-        line-height: 1.05;
+        font-size: clamp(27px, 3vw, 40px);
+        line-height: 1.08;
         letter-spacing: -0.035em;
       }
 
-      .evidence-modal-copy {
-        margin-bottom: 22px;
-        color: #4d515a;
+      .evidence-reader-header {
+        position: relative;
+        z-index: 2;
+        min-height: 126px;
+        padding: 24px 28px 22px;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 28px;
+        background: var(--white);
+        border-bottom: 1px solid var(--line);
+      }
+
+      .evidence-reader-heading {
+        min-width: 0;
+      }
+
+      .evidence-reader-meta {
+        margin-top: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 14px;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 10px;
+        line-height: 1.5;
+      }
+
+      .evidence-reader-meta a {
+        color: var(--ink);
+        font-weight: 700;
+        text-underline-offset: 3px;
+      }
+
+      .evidence-reader-hash {
+        max-width: min(100%, 510px);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .evidence-reader-layout {
+        min-height: 0;
+        display: grid;
+        grid-template-columns: 248px minmax(0, 1fr);
+        overflow: hidden;
+      }
+
+      .evidence-reader-toc-panel {
+        min-height: 0;
+        margin: 0;
+        padding: 0;
+        background: var(--paper);
+        border-right: 1px solid var(--line);
+        overflow: auto;
+      }
+
+      .evidence-reader-toc-panel > summary {
+        display: none;
+      }
+
+      .evidence-reader-toc {
+        padding: 24px 20px 36px;
+      }
+
+      .evidence-reader-toc::before {
+        content: "本页目录";
+        display: block;
+        margin-bottom: 13px;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+      }
+
+      .evidence-reader-toc ol {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .evidence-reader-toc li + li {
+        margin-top: 8px;
+      }
+
+      .evidence-reader-toc li[data-level="3"] {
+        padding-left: 14px;
+      }
+
+      .evidence-reader-toc a {
+        display: block;
+        padding: 5px 7px;
+        color: #51555e;
+        border-left: 2px solid transparent;
+        text-decoration: none;
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .evidence-reader-toc a:hover,
+      .evidence-reader-toc a:focus-visible {
+        color: var(--ink);
+        background: var(--white);
+        border-left-color: var(--signal);
+      }
+
+      .evidence-reader-body {
+        min-width: 0;
+        min-height: 0;
+        padding: 0 clamp(24px, 4vw, 54px) 52px;
+        overflow: auto;
+        overscroll-behavior: contain;
+        scroll-behavior: smooth;
+        scrollbar-gutter: stable;
+      }
+
+      .evidence-reader-state {
+        margin: 44px 0;
+        padding: 22px;
+        background: var(--signal-soft);
+        border-left: 4px solid var(--signal);
+      }
+
+      .evidence-reader-state[hidden] {
+        display: none;
+      }
+
+      .evidence-reader-content {
+        max-width: 760px;
+        margin: 0 auto;
+      }
+
+      .evidence-document-summary {
+        margin: 0 -4px 32px;
+        padding: 26px 28px;
+        color: #35383f;
+        background: var(--cyan-soft);
+        border-left: 5px solid var(--cyan);
         font-size: 16px;
         line-height: 1.75;
       }
 
-      .evidence-modal-detail {
-        margin-bottom: 20px;
+      .evidence-document-content {
+        padding-bottom: 28px;
+        color: #2c2f35;
+        font-size: 15px;
+        line-height: 1.78;
+      }
+
+      .evidence-document-content h1,
+      .evidence-document-content h2,
+      .evidence-document-content h3,
+      .evidence-document-content h4,
+      .evidence-document-content h5,
+      .evidence-document-content h6 {
+        color: var(--ink);
+        scroll-margin-top: 24px;
+      }
+
+      .evidence-document-content h1 {
+        margin: 46px 0 24px;
+        font-family: var(--display);
+        font-size: clamp(30px, 4vw, 46px);
+        line-height: 1.08;
+        letter-spacing: -0.035em;
+      }
+
+      .evidence-document-content h2 {
+        margin: 48px 0 18px;
+        padding-top: 18px;
+        border-top: 1px solid var(--line);
+        font-family: var(--display);
+        font-size: 28px;
+        line-height: 1.18;
+      }
+
+      .evidence-document-content h3 {
+        margin: 34px 0 12px;
+        font-size: 20px;
+        line-height: 1.3;
+      }
+
+      .evidence-document-content h4,
+      .evidence-document-content h5,
+      .evidence-document-content h6 {
+        margin: 28px 0 10px;
+        font-size: 16px;
+      }
+
+      .evidence-document-content p,
+      .evidence-document-content ul,
+      .evidence-document-content ol,
+      .evidence-document-content blockquote,
+      .evidence-document-content pre,
+      .evidence-document-content .table-scroll,
+      .evidence-document-content .markdown-callout {
+        margin: 0 0 20px;
+      }
+
+      .evidence-document-content ul,
+      .evidence-document-content ol {
+        padding-left: 24px;
+      }
+
+      .evidence-document-content li + li {
+        margin-top: 7px;
+      }
+
+      .evidence-document-content .task-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 9px;
+        list-style: none;
+      }
+
+      .evidence-document-content .task-item input {
+        margin-top: 6px;
+        accent-color: var(--signal);
+      }
+
+      .evidence-document-content a {
+        color: #095f74;
+        text-decoration-thickness: 1px;
+        text-underline-offset: 3px;
+      }
+
+      .evidence-document-content code {
+        padding: 0.12em 0.34em;
+        color: #6b1730;
+        background: #f2e7ea;
+        border-radius: 4px;
+        font-family: var(--mono);
+        font-size: 0.9em;
+      }
+
+      .evidence-document-content pre {
+        max-width: 100%;
+        padding: 18px 20px;
+        color: #f4f5f7;
+        background: var(--night);
+        border-radius: 12px;
+        overflow: auto;
+      }
+
+      .evidence-document-content pre code {
+        padding: 0;
+        color: inherit;
+        background: transparent;
+        white-space: pre;
+      }
+
+      .evidence-document-content blockquote,
+      .evidence-document-content .markdown-callout {
         padding: 16px 18px;
         background: var(--paper);
         border-left: 4px solid var(--cyan);
-        font-size: 14px;
-        line-height: 1.65;
       }
 
-      .evidence-modal-source {
-        color: var(--muted);
+      .evidence-document-content blockquote p,
+      .evidence-document-content .markdown-callout p {
+        margin: 0;
+      }
+
+      .evidence-document-content hr {
+        margin: 34px 0;
+        border: 0;
+        border-top: 1px solid var(--line);
+      }
+
+      .evidence-document-content img {
+        max-height: 560px;
+        margin: 22px auto;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+      }
+
+      .table-scroll {
+        max-width: 100%;
+        overflow-x: auto;
+      }
+
+      .evidence-document-content table {
+        width: max-content;
+        min-width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+
+      .evidence-document-content th,
+      .evidence-document-content td {
+        max-width: 360px;
+        padding: 11px 13px;
+        border: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .evidence-document-content th {
+        color: var(--ink);
+        background: var(--paper);
+      }
+
+      .json-section > h2 {
+        text-transform: none;
+      }
+
+      .json-tree,
+      .json-tree ul,
+      .json-tree ol {
+        margin: 0;
+        padding-left: 19px;
+        list-style: none;
+      }
+
+      .json-node,
+      .json-leaf {
+        margin: 8px 0;
+      }
+
+      .json-key {
+        margin-right: 7px;
+        color: #075967;
         font-family: var(--mono);
-        font-size: 10px;
-        letter-spacing: 0.07em;
-        text-transform: uppercase;
+        font-weight: 750;
+      }
+
+      .json-raw summary {
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        cursor: pointer;
+        color: var(--ink);
+        font-weight: 750;
+      }
+
+      html.has-evidence-modal {
+        overflow: hidden;
       }
 
       .final-cta {
@@ -1439,13 +1760,107 @@
           min-height: 142px;
         }
 
+        .evidence-modal {
+          width: calc(100vw - 16px);
+          height: calc(100dvh - 16px);
+        }
+
         .evidence-modal-card {
-          padding: 28px 24px 26px;
-          box-shadow: 7px 7px 0 var(--cyan), 0 24px 70px rgba(0, 0, 0, 0.3);
+          border-radius: 16px;
+          box-shadow: 5px 5px 0 var(--cyan), 0 24px 70px rgba(0, 0, 0, 0.3);
+        }
+
+        .evidence-reader-header {
+          min-height: 116px;
+          padding: 18px 18px 16px;
+          gap: 12px;
         }
 
         .evidence-modal h3 {
-          font-size: 34px;
+          font-size: 27px;
+        }
+
+        .evidence-reader-meta {
+          margin-top: 9px;
+          display: grid;
+          gap: 2px;
+        }
+
+        .evidence-reader-hash {
+          max-width: calc(100vw - 108px);
+        }
+
+        .evidence-reader-layout {
+          grid-template-columns: 1fr;
+          grid-template-rows: auto minmax(0, 1fr);
+        }
+
+        .evidence-reader-toc-panel {
+          max-height: min(34dvh, 270px);
+          background: var(--paper);
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .evidence-reader-toc-panel > summary {
+          min-height: 46px;
+          padding: 0 18px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          cursor: pointer;
+          font-family: var(--mono);
+          font-size: 11px;
+          font-weight: 800;
+          list-style: none;
+        }
+
+        .evidence-reader-toc-panel > summary::-webkit-details-marker {
+          display: none;
+        }
+
+        .evidence-reader-toc-panel > summary::after {
+          content: "+";
+          font-size: 18px;
+        }
+
+        .evidence-reader-toc-panel[open] > summary::after {
+          content: "−";
+        }
+
+        .evidence-reader-toc {
+          max-height: calc(min(34dvh, 270px) - 46px);
+          padding: 4px 18px 18px;
+          overflow: auto;
+        }
+
+        .evidence-reader-toc::before {
+          display: none;
+        }
+
+        .evidence-reader-body {
+          padding: 0 18px 38px;
+          scrollbar-gutter: auto;
+        }
+
+        .evidence-document-summary {
+          margin: 0 -2px 26px;
+          padding: 20px;
+          font-size: 15px;
+        }
+
+        .evidence-document-content {
+          font-size: 15px;
+        }
+
+        .evidence-document-content h1 {
+          margin-top: 36px;
+          font-size: 32px;
+        }
+
+        .evidence-document-content h2 {
+          margin-top: 38px;
+          font-size: 24px;
         }
 
         .final-cta {
@@ -1957,7 +2372,7 @@
             <div class="section-index">05 / 关键证据</div>
             <div>
               <h2>关键证据</h2>
-              <p class="section-intro">鼠标悬停时卡片会高亮，点击后会在居中的模态对话框中查看摘要。产品定义、交互规格、评测结果和交付状态分别保留，便于快速了解原型的依据与边界。</p>
+              <p class="section-intro">鼠标悬停时卡片会高亮，点击后会在居中的文档阅读器中打开完整内容。产品定义、交互规格、评测结果和交付状态分别保留，并支持在页面内继续查阅目录与原始文件。</p>
             </div>
           </div>
 
@@ -1984,14 +2399,812 @@
 
           <dialog class="evidence-modal" id="evidence-modal" aria-labelledby="evidence-modal-title">
             <article class="evidence-modal-card">
-              <button class="evidence-modal-close" type="button" aria-label="关闭关键证据弹窗">×</button>
-              <span class="evidence-modal-kicker" id="evidence-modal-kicker"></span>
-              <h3 id="evidence-modal-title"></h3>
-              <p class="evidence-modal-copy" id="evidence-modal-copy"></p>
-              <div class="evidence-modal-detail" id="evidence-modal-detail"></div>
-              <span class="evidence-modal-source" id="evidence-modal-source"></span>
+              <header class="evidence-reader-header">
+                <div class="evidence-reader-heading">
+                  <span class="evidence-modal-kicker" id="evidence-modal-kicker">Key evidence</span>
+                  <h3 id="evidence-modal-title">关键证据</h3>
+                  <div class="evidence-reader-meta">
+                    <a id="evidence-reader-source" href="#">查看原始文件</a>
+                    <span class="evidence-reader-hash" id="evidence-reader-hash"></span>
+                  </div>
+                </div>
+                <button class="evidence-modal-close" type="button" aria-label="关闭关键证据弹窗">×</button>
+              </header>
+              <div class="evidence-reader-layout">
+                <details class="evidence-reader-toc-panel" open>
+                  <summary>本页目录</summary>
+                  <nav class="evidence-reader-toc" id="evidence-reader-toc" aria-label="当前证据目录"></nav>
+                </details>
+                <div class="evidence-reader-body" id="evidence-reader-body" tabindex="0">
+                  <div class="evidence-reader-state" data-reader-state="missing">
+                    <strong>文档尚未同步</strong>
+                    <p>当前案例页没有找到这份文档的完整阅读版。你仍可以通过顶部入口查看原始文件。</p>
+                  </div>
+                  <div class="evidence-reader-content" id="evidence-reader-content"></div>
+                </div>
+              </div>
             </article>
           </dialog>
+
+          <!-- EVIDENCE_DOCUMENTS_START -->
+    <template id="evidence-document-overview">
+      <section class="embedded-evidence" data-evidence-key="overview" data-source="README.md" data-sha256="b3e53a53874cbb917f508898ed7013eebe34a10811b3e45fede061d366acd7a5" data-title="产品概览与边界" data-kicker="Project overview">
+        <p class="evidence-document-summary">产品面向谁、从哪里进入、完成什么任务，以及 AI 建议如何衔接到模拟交易。</p>
+        <nav class="evidence-document-toc" aria-label="产品概览与边界目录"><ol><li data-level="2"><a href="#overview-为什么做这个产品">为什么做这个产品</a></li><li data-level="2"><a href="#overview-mvp-定义">MVP 定义</a></li><li data-level="2"><a href="#overview-体验主路径">体验主路径</a></li><li data-level="2"><a href="#overview-产品架构与真实能力边界">产品架构与真实能力边界</a></li><li data-level="2"><a href="#overview-数据与评测承诺">数据与评测承诺</a></li><li data-level="2"><a href="#overview-foundation-证据快照">Foundation 证据快照</a></li><li data-level="2"><a href="#overview-tiktok-重设计证据快照">TikTok 重设计证据快照</a></li><li data-level="2"><a href="#overview-chat-first-轻量导购证据快照">Chat-first 轻量导购证据快照</a></li><li data-level="2"><a href="#overview-本地安装-启动与验证">本地安装、启动与验证</a></li><li data-level="2"><a href="#overview-当前状态">当前状态</a></li><li data-level="2"><a href="#overview-双层项目索引">双层项目索引</a></li><li data-level="2"><a href="#overview-文档入口">文档入口</a></li></ol></nav>
+        <article class="evidence-document-content"><h1 id="overview-ai-shopping-agent-us-k-beauty-sunscreen-guide">AI Shopping Agent — US K-Beauty Sunscreen Guide</h1>
+<p>一个面向美国市场的跨境 K-Beauty 防晒 AI 导购概念原型：用户在 TikTok 风格的可购物短视频中被商品种草后，通过“问问这款”（Ask AI）进入对话，由系统核实内容主张、识别购买约束、解释适配性，并完成商品比较、SKU 选择与模拟加购。</p>
+<aside class="markdown-callout" data-kind="important"><strong>IMPORTANT</strong><p>当前仓库已交付一个可运行的 <strong>Chat-first 轻量导购 Demo</strong>：可购物 Feed 的“问问这款”先打开保留视频上下文的约 40% 高度会话层，以一条商品相关开场、3 个具体问题和自由输入承接；短答、单一澄清、首选商品、比较、依据和交易动作按需渐进出现。会话恢复、双 revision、消息/比较幂等、安全退出、独立 PDP、事实复核、显式确认和模拟加购均已在本地生产构建的 Chromium 中验证。它仍是小型合成 fixture 上的确定性原型，不是 TikTok 官方产品，也没有接入真实 LLM、Hybrid RAG、真实用户、支付或业务流量。</p></aside>
+<aside class="markdown-callout" data-kind="tip"><strong>TIP</strong><p>产品概览优先从 <a href="./vibe-coding-case-study.html">AI 导购产品案例页</a> 开始。它从用户问题出发，串起产品定义、PRD、Chat-first 设计、原型评测与 Vibe Coding 构建方式，并提供本地 Demo 一键入口；工程事实与边界仍以本 README 和验证报告为准。</p></aside>
+<aside class="markdown-callout" data-kind="note"><strong>Foundation 历史基线不被重设计覆盖</strong><p>2026-08-05 的冻结基线仍独立保留：source commit <code>cd18147f7eb1e309aa6043a1262a28f0c4349b4d</code>，3 SPU / 6 SKU、1 个 <code>ContentContext</code>、3 份证据、6 个规则案例 6/6、119 个 API 测试、68 个 Web 测试、2 条旅程 × 2 个 Chromium viewport = 4/4、1 条 Trace / 11 条脱敏事件。其固定 SKU 价格为 <code>$14/$19</code>、<code>$17/$24</code>、<code>$16/$22</code>，历史截图与 manifest 均未被当前正式截图替换。该基线是 deterministic workflow + lexical retrieval，不含真实 LLM、Hybrid RAG、用户研究或业务结果。</p></aside>
+<h2 id="overview-为什么做这个产品">为什么做这个产品</h2>
+<p>内容电商擅长激发兴趣，但用户从“看起来不错”到“敢于购买”之间仍有一段决策缺口：</p>
+<ul><li>创作者的功效或体验主张是否有可信依据；</li><li>防晒是否适合自己的肤质、肤色、敏感情况、妆前需求与使用场景；</li><li>同类商品很多，应该继续买当前商品，还是换一个更匹配的；</li><li>价格、库存、规格等交易事实能否被准确确认，而不是被模型编造。</li></ul>
+<p>本项目的核心价值不是让模型“多聊几轮”，而是用尽可能少的追问，把内容兴趣转化成一个<strong>有证据、满足硬约束、可继续交易的购买决定</strong>。</p>
+<h2 id="overview-mvp-定义">MVP 定义</h2>
+<div class="table-scroll"><table><thead><tr><th>维度</th><th>当前定义</th></tr></thead><tbody><tr><td>市场</td><td>美国</td></tr><tr><td>首个品类</td><td>跨境 K-Beauty 防晒</td></tr><tr><td>主入口</td><td>TikTok 风格可购物短视频内的 <code>Ask AI</code></td></tr><tr><td>目标用户</td><td>已被内容种草、但不确定商品是否适合自己的消费者</td></tr><tr><td>核心任务</td><td>主张核实 → 约束澄清 → 适配判断 → 替代推荐 → 比较 → SKU 确认</td></tr><tr><td>交易终点</td><td>模拟加购成功，不接真实支付与履约</td></tr><tr><td>数据策略</td><td>合成商品、内容与评论数据；真实公开的美国规则与安全边界</td></tr><tr><td>形态</td><td>移动端优先的响应式 Web，同时支持桌面面试演示</td></tr><tr><td>北极星指标</td><td>质量门槛通过后的有效导购完成率</td></tr></tbody></table></div>
+<p>MVP 不包含真实 TikTok 接入、真实支付履约、实时直播理解、全美妆品类、医疗诊断、商家后台或为了展示复杂度而搭建的多 Agent 系统。</p>
+<p>搜索是已确认的第二入口，但不属于首个可运行版本。首个纵向切片必须先锁定并测试 <code>entry_point = content | search</code> 与 <code>search_query</code> 契约；进入 <code>UNDERSTAND</code> 后再派生 <code>query_intent = exploratory | exact</code>，但不实现搜索 UI 或搜索排序。Phase 2 之后才增加自然语言探索式搜索；精确 SKU 搜索仍优先走传统搜索，只在用户需要解释或比较时进入 AI 导购。</p>
+<h2 id="overview-体验主路径">体验主路径</h2>
+<pre><code class="language-mermaid">flowchart LR
+    A[&quot;中文短视频 Feed&quot;] --&gt; B{&quot;是否有可信商品上下文&quot;}
+    B --&gt;|&quot;否&quot;| C[&quot;普通内容：只保留内容互动&quot;]
+    B --&gt;|&quot;是&quot;| D[&quot;轻量双入口商品锚点&quot;]
+    D --&gt;|&quot;商品主体&quot;| E[&quot;PDP：SKU / 当前价格 / 库存&quot;]
+    D --&gt;|&quot;问 AI&quot;| F[&quot;AI Commerce Sheet&quot;]
+    F --&gt; G[&quot;澄清 / 核验 / 推荐 / 比较&quot;]
+    G --&gt; E
+    E --&gt; H[&quot;重查交易事实&quot;]
+    H --&gt; I[&quot;用户显式确认&quot;]
+    I --&gt; J[&quot;模拟加购回执&quot;]</code></pre>
+<p>当前实现有两条等价交易入口：用户可以从 Feed 直接进入 PDP，不依赖 AI；也可以先在 Sheet 中形成决策，再查看当前或替代商品并返回原 AI 状态。普通 Feed 不显示商品锚点或 AI。界面使用自有图标、合成商品与有许可的竖屏视频，清楚标注为求职作品集概念原型，不冒充 TikTok 官方产品。</p>
+<h2 id="overview-产品架构与真实能力边界">产品架构与真实能力边界</h2>
+<p>产品理想态属于 Agent 产品，但当前可运行 Foundation 刻意先实现确定性基线：</p>
+<ul><li><strong>当前 Deterministic Workflow</strong> 用显式规则解析已冻结的预算、香型、防水和妆效表达，推进状态，执行必做检查、硬约束、安全边界与加购确认，并调用固定白名单 Tool；当前没有真实模型推理或自由工具选择；</li><li><strong>Foundation Tools</strong> 从版本化 JSON fixtures 读取内容、商品和证据，以词法匹配检索证据，先做结构化硬过滤再做确定性软偏好排序，并生成比较/模拟购物车事实；</li><li><strong>Schema 与测试充当当前 verifier 边界</strong>，校验 API、比较和购物车响应；完整生成式输出 Verifier 随真实 LLM 一起进入后续阶段。</li></ul>
+<p>重设计把“用户现在看到什么”“AI 决策到哪一步”“交易是否有权写入”拆成三个控制面，避免一个聊天 session 同时承担导航、推荐和购物车权限：</p>
+<div class="table-scroll"><table><thead><tr><th>控制面</th><th>唯一职责</th><th>关键边界</th></tr></thead><tbody><tr><td><code>NavigationState</code></td><td>前端维护 Feed / PDP、Overlay、入口来源与返回栈</td><td>只控制呈现，不授权任何业务动作</td></tr><tr><td><code>GuideSession</code>（可选）</td><td>点击“问 AI”后维护约束、决策、比较和 <code>guide_revision</code></td><td>Feed 直达 PDP 时不存在；AI 只能提出决策建议</td></tr><tr><td><code>CommerceOperation</code></td><td>维护 SKU、交易事实、<code>transaction_revision</code>、确认和幂等对账</td><td>独立于 Guide；只有用户动作 + Commerce Workflow 可以写模拟购物车</td></tr></tbody></table></div>
+<p>因此 AI 推荐不会直接加购：AI 只把经验证的商品与来源带入 PDP，Commerce Workflow 再校验商品/SKU 授权、事实指纹、revision、单次 confirmation token 和幂等键。价格变化必须展示 diff 并重新确认；网络结果未知必须用同一幂等键查询，而不是盲目重试写入。</p>
+<pre><code class="language-mermaid">flowchart TB
+    UI[&quot;NavigationState&lt;br/&gt;Feed / Sheet / PDP&quot;] --&gt; GW[&quot;Optional GuideSession&quot;]
+    UI --&gt; CW[&quot;CommerceOperation&quot;]
+    GW --&gt; WF[&quot;Deterministic Guide Workflow&quot;]
+    CW --&gt; CF[&quot;Commerce Workflow&quot;]
+    WF --&gt; TL[&quot;Whitelisted Tools&quot;]
+    CF --&gt; TL
+    TL --&gt; DB[&quot;Versioned JSON fixtures&quot;]
+    TL --&gt; RET[&quot;Lexical evidence retrieval&quot;]
+    TL --&gt; FIL[&quot;Hard filter before deterministic rank&quot;]
+    GW --&gt; UI
+    CW --&gt; UI
+    WF --&gt; OBS[&quot;Redacted Trace + rule-scored eval&quot;]</code></pre>
+<div class="table-scroll"><table><thead><tr><th>当前已验证</th><th>后续仍待实现</th></tr></thead><tbody><tr><td>Next.js + TypeScript、FastAPI、进程内 session、JSON fixtures、词法检索、硬过滤/确定性排序、白名单 Tool、1 条黄金 Trace（11 条脱敏事件记录）、显式模拟加购确认</td><td>真实 LLM Shopping Agent、可替换模型适配层、PostgreSQL + pgvector、BM25 + Vector + RRF/Reranker、授权长期偏好、实时多模态、搜索 UI、生产可观测与部署</td></tr></tbody></table></div>
+<p>先不接 LLM 是一个产品基线决策：先证明交易事实、硬约束、证据、状态与确认边界能被确定性测试锁住；后续模型接入必须在同一套回归上证明新增价值，而不能把“会生成语言”误写成推荐质量。</p>
+<h2 id="overview-数据与评测承诺">数据与评测承诺</h2>
+<p>结构化、版本化的商品事实是价格、库存、SKU、促销与配送信息的唯一来源：当前 Foundation 使用仓库内 JSON fixtures，后续再迁移到数据库。创作者内容、OCR、评论和用户输入都视为不可信输入；没有证据时必须说明信息不足或拒绝给出确定性判断。</p>
+<p>当前已提交一个六案例的确定性 Foundation 回归集，而不是在演示后手写结果：</p>
+<ul><li><code>golden-daily</code>、<code>water-40</code>、<code>zero-match</code>、<code>medical-boundary</code>、<code>injection-shaped-text</code>、<code>search-contract</code>；</li><li>规则评分器实测为 6/6、fixture-suite pass rate 1.0；它只证明这 6 个冻结案例在来源 commit 上通过，不代表真实用户、真实模型或广泛商品质量；</li><li>真实浏览器覆盖 golden 与 zero-match 两条旅程，分别在 390×844 移动 Chromium 和 1440×1000 桌面 Chromium 运行，共 4 个用例；</li><li>clean-source release gate 实测 119 个 API 测试与 68 个 Web 单元测试通过；这些是工程回归计数，不是产品质量分数；</li><li>仓库只提交 1 条代表性黄金 Trace，共 11 条允许的状态、Tool 和模拟购物车脱敏事件记录，不含原始用户消息、确认 token 或隐藏推理。</li></ul>
+<p>在这条历史基线之上，2026-08-07 又新增了一个<strong>浏览器产品回归层</strong>：</p>
+<ul><li>8/8 必需旅程实跑：Feed 直达 PDP、AI 替代品往返、AI 推荐加购、普通 Feed、零候选单项放宽、安全边界、价格变化重确认、未知提交结果幂等对账；</li><li>普通 E2E 共收集 38 项，26 passed、12 intentional skips、0 failed；production capture 运行是 28 passed、10 intentional skips、0 failed。8 条重设计旅程只在一个 fresh mobile API 进程中执行，避免桌面项目重复完整交易矩阵；既有 PDP focus 三条回归仍在 mobile/desktop 双 project 运行，共 6/6；桌面同时使用同一页面/API 完成响应式回归与正式 AI Sheet 截图；</li><li>当前 release gate 为 234 个 API 测试、193 个 Web 测试、Foundation eval pytest 14/14、规则 runner 6/6，并通过 contracts、layout、ESLint、Ruff 和 production build；这些数字是工程回归，不是用户或模型质量得分；</li><li>Playwright trace 与本地证据进程 access log 明确关闭；本次 production E2E 运行时生成的 confirmation token / idempotency key 未进入 retained trace、matcher failure、截图、access log 或提交。这个窄结论不表示仓库没有显式合成测试常量；幂等键当前位于 reconciliation URL，生产化前仍需避免被 proxy/access log 持久化。</li></ul>
+<p>完整命令、逐旅程网络状态、正式截图 checksum、fixture/media inventory 和局限见 <a href="./artifacts/evidence/tiktok-redesign-verification.md">TikTok 重设计验证记录</a>。</p>
+<p>2026-08-10 的 <strong>Chat-first 轻量导购层</strong>继续保留上述历史证据，并新增：</p>
+<ul><li>首屏只显示一条商品相关开场、恰好 3 个具体问题和自由输入；普通短答与单一澄清保持 compact，不提前展示推荐矩阵；</li><li>条件充分后先显示一句权威结论，再显示 1 款首选；中文适合点与取舍来自结构化事实且不重复，比较只在用户明确触发后展开；</li><li><code>conversation_revision</code> 管消息顺序与恢复，<code>guide_revision</code> 在偏好、约束或商品级 SKU 推荐授权语义变化时恰好前进一次；历史 transcript、旧 snapshot 与旧 token 都不授权交易；</li><li>Safety 只保留返回路径，不显示输入框、快捷问题或商业动作；全页只保留 Guide 内一个可展开的 <code>AI 生成 · 合成原型</code> 边界说明；</li><li>source <code>659596537efe7bd7a879aeb3b49bee17b01f5e73</code> 的最终 release gate 实测 324 个 API 测试、281 个 Web 测试、Foundation eval pytest 15/15、规则 runner 6/6；普通 E2E 为 39 passed / 31 intentional routed skips / 0 failed，正式 production capture 为 42 passed / 28 intentional routed skips / 0 failed；</li><li>Task 9 的两轮 finishing gate 先后暴露 1 条与 2 条 loading → final UI 同步竞态；修复后相关三场景交错重复 150/150、最终完整 E2E 39/31/0，并经独立复审 CLEAN。验证记录保留失败与修复历史，不用一次碰绿冒充稳定性；</li><li>Task 11 首轮全量 API 在 <code>0228819…</code> 停于 323/1：旧 trace 测试绕过 <code>GuideService</code>，没有保存当前权威 snapshot。测试改走真实公开编排后，第二轮完整 gate 全绿；首轮失败仍保留在验证历史中；</li><li>这些数字只证明冻结合成 fixture、本地 Chromium 与当前工程契约，不证明真实 LLM 质量、真人理解、转化、成本或生产可靠性。</li></ul>
+<p>界面仍没有拖拽交互或拖拽提示，开场问题与快捷回复之间仍有明显留白；代码虽使用 safe-area 环境变量，但尚未在真实 iOS 非零刘海/底部指示条 inset 上验证。原始紧急健康文本不会进入 retained runtime artifacts；测试源码中的显式合成健康输入 fixture 会保留用于回归。</p>
+<p>逐命令耗时、13 条 Chat-first 浏览器契约、8 条保留交易旅程、截图哈希和局限见 <a href="./artifacts/evidence/chat-first-verification.md">Chat-first 验证记录</a>。</p>
+<p>后续完整评测仍按以下层次扩展：</p>
+<ul><li>组件层：意图与关键约束、澄清、检索与排序、引用、主张核实、工具参数、记忆、安全和多模态抽取；</li><li>端到端层：内容进入、约束冲突、无候选、库存过期、用户改口、比较加购、超时降级和提示注入；</li><li>产品层：任务完成质量、用户操作漏斗、延迟、成本与小规模可用性研究；</li><li>机制层：所有 P0/P1 坏例进入回归集；确定性事实优先使用规则评分，LLM-as-a-Judge 只有在人类校准后才作为辅助。</li></ul>
+<p>原始大体积 Trace 与逐次评测运行默认保存在本地或外部制品存储，不直接提交 Git；仓库必须版本化保存运行 manifest、配置/commit 指针、校验和、汇总结果和经脱敏的代表性 Trace 样本。这样既控制仓库体积，也能让结论回到可复现证据，而不是只留下一个手写分数。</p>
+<p>详细的目标、阶段出口和风险见 <a href="./PLAN.md">PLAN.md</a>。当前任务状态与证据入口见 <a href="./TASKS.md">TASKS.md</a>。</p>
+<h2 id="overview-foundation-证据快照">Foundation 证据快照</h2>
+<p><img src="./artifacts/screenshots/foundation-mobile.png" alt="Foundation mobile decision receipt" loading="lazy" /></p>
+<ul><li><a href="./artifacts/evidence/foundation-verification.md">完整验证记录</a></li><li><a href="./artifacts/evidence/foundation-run-manifest.json">可复现运行 manifest</a></li><li><a href="./evals/cases/foundation-cases.jsonl">六案例 fixture suite</a></li><li><a href="./artifacts/traces/samples/foundation-golden.jsonl">1 条黄金 Trace（11 条脱敏事件记录）</a></li><li><a href="./artifacts/screenshots/foundation-mobile.png">移动端终态截图</a></li></ul>
+<h2 id="overview-tiktok-重设计证据快照">TikTok 重设计证据快照</h2>
+<div class="table-scroll"><table><thead><tr><th>证据</th><th>能证明什么</th><th>不能证明什么</th></tr></thead><tbody><tr><td><a href="./artifacts/evidence/tiktok-redesign-verification.md">重设计验证记录</a></td><td>生产构建、8 条产品旅程、当前测试门和媒体来源可复跑</td><td>真实 LLM、真实用户、业务增量或生产可靠性</td></tr><tr><td><a href="./artifacts/screenshots/tiktok-redesign-mobile.png">可购物 Feed · 390×844</a></td><td>商品锚点、右侧轨、中文平台壳和安全区布局</td><td>“问 AI”发现率或用户理解</td></tr><tr><td><a href="./artifacts/screenshots/tiktok-redesign-desktop.png">桌面面试态 · 1440×1000</a></td><td>同一 390×844 手机路径与 AI 决策 Sheet，没有第二套假页面</td><td>桌面交易旅程重复跑了 8 次</td></tr><tr><td><a href="./artifacts/screenshots/tiktok-redesign-normal-feed.png">普通 Feed · 390×844</a></td><td>没有商品上下文时不展示商业/AI 能力</td><td>TikTok 全量内容分布</td></tr></tbody></table></div>
+<p><img src="./artifacts/screenshots/tiktok-redesign-mobile.png" alt="TikTok-inspired mobile shoppable feed" loading="lazy" /></p>
+<h2 id="overview-chat-first-轻量导购证据快照">Chat-first 轻量导购证据快照</h2>
+<div class="table-scroll"><table><thead><tr><th>证据</th><th>能证明什么</th><th>不能证明什么</th></tr></thead><tbody><tr><td><a href="./artifacts/evidence/chat-first-verification.md">Chat-first 验证记录</a></td><td>双 revision 会话、渐进披露、恢复、安全与原交易边界在冻结 fixture 上可复跑</td><td>真实 LLM、真人理解、转化或生产可靠性</td></tr><tr><td><a href="./artifacts/screenshots/chat-first-opening-mobile.png">轻量开场 · 390×844</a></td><td>视频上下文、compact 高度、3 个问题与 composer 同屏</td><td>入口发现率或问题是否最优</td></tr><tr><td><a href="./artifacts/screenshots/chat-first-decision-mobile.png">渐进结论 · 390×844</a></td><td>默认仅一款首选，未回到重型决策面板</td><td>推荐质量或用户信任</td></tr><tr><td><a href="./artifacts/screenshots/chat-first-desktop.png">桌面面试态 · 1440×1000</a></td><td>同一手机路径为主、说明面板为辅</td><td>跨浏览器与真实桌面用户行为</td></tr></tbody></table></div>
+<p><img src="./artifacts/screenshots/chat-first-opening-mobile.png" alt="Chat-first lightweight opening" loading="lazy" /></p>
+<h2 id="overview-本地安装-启动与验证">本地安装、启动与验证</h2>
+<p>要求：Node.js、pnpm 11、Python 3.12+、uv，以及 Playwright Chromium。以下命令已在 Node.js 24.14.0、pnpm 11.20.0、Python 3.14.5、uv 0.11.14、Playwright 1.62.1 与 Chromium 151.0.7922.34 的本地 Chat-first release gate 实际运行；这些是本次验证环境，不代表全部可兼容版本。</p>
+<pre><code class="language-bash">pnpm install --frozen-lockfile
+uv --directory apps/api sync --frozen
+pnpm --dir apps/web exec playwright install chromium</code></pre>
+<p>分别在两个终端启动 API 与 Web：</p>
+<pre><code class="language-bash">uv --directory apps/api run uvicorn app.main:app --host 127.0.0.1 --port 8000</code></pre>
+<pre><code class="language-bash">NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api/v1 pnpm --dir apps/web dev --hostname 127.0.0.1 --port 3000</code></pre>
+<p>打开 <code>http://127.0.0.1:3000</code>。点击商品锚点主体可直接进入 PDP；点击“问 AI”进入决策 Sheet；滑到第二条内容可查看无商业入口的普通 Feed。可复现的演示场景仅允许：<code>?scenario=normal</code>、<code>?scenario=price-changed</code>、<code>?scenario=out-of-stock</code>、<code>?scenario=commit-status-unknown</code>。常用验证命令：</p>
+<pre><code class="language-bash">pnpm check:layout
+uv --directory apps/api run ruff check app tests ../../evals
+uv --directory apps/api run pytest tests -q
+uv --directory apps/api run python -m scripts.export_openapi
+pnpm --dir packages/contracts generate
+git diff --exit-code -- packages/contracts/openapi.json packages/contracts/src/api.ts
+pnpm test:web
+pnpm lint:web
+pnpm --dir apps/web build
+uv --directory apps/api run python ../../evals/run_foundation.py
+pnpm test:e2e</code></pre>
+<p>正式 Chat-first 截图使用单独的 production capture gate：</p>
+<pre><code class="language-bash">CAPTURE_CHAT_FIRST_EVIDENCE=1 pnpm test:e2e</code></pre>
+<p>Foundation 历史 release gate 见 <a href="./artifacts/evidence/foundation-verification.md">Foundation 验证记录</a>；TikTok 重设计历史证据见 <a href="./artifacts/evidence/tiktok-redesign-verification.md">TikTok 重设计验证记录</a>；当前 Chat-first 命令、真实计数、隐私扫描与制品校验见 <a href="./artifacts/evidence/chat-first-verification.md">Chat-first 验证记录</a> 和 <a href="./artifacts/evidence/chat-first-run-manifest.json">machine manifest</a>。</p>
+<h2 id="overview-当前状态">当前状态</h2>
+<div class="table-scroll"><table><thead><tr><th>能力</th><th>状态</th></tr></thead><tbody><tr><td>产品范围与关键原则</td><td>已确认</td></tr><tr><td>可运行前后端</td><td>Chat-first 轻量导购本地链路已实现并在 production Chromium 验证</td></tr><tr><td>合成商品与场景数据</td><td>3 SPU / 6 SKU、1 ContentContext、3 evidence documents</td></tr><tr><td>Workflow / Tools</td><td>确定性基线已实现并评测；真实 LLM Agent 未实现</td></tr><tr><td>RAG</td><td>词法证据检索基线已评测；向量/Hybrid/Reranker 未实现</td></tr><tr><td>自动评测</td><td>6 个冻结案例规则评分 6/6；不代表广泛模型/产品质量</td></tr><tr><td>Foundation 历史浏览器基线</td><td>2 条旅程 × 2 个 Chromium viewport = 4/4；source commit <code>cd18147…</code></td></tr><tr><td>重设计浏览器旅程</td><td>8/8 必需旅程；production E2E 28 passed / 10 intentional skips / 0 failed；PDP focus 双 project 6/6</td></tr><tr><td>Chat-first 浏览器旅程</td><td>普通 E2E 39 passed / 31 intentional routed skips / 0 failed；production capture 42 passed / 28 routed skips / 0 failed；其中 13 条 Chat-first、8 条原交易旅程均通过</td></tr><tr><td>Chat-first 会话可靠性</td><td>服务端有界 transcript、<code>conversation_revision</code> / <code>guide_revision</code> 分离、message/compare 幂等、关闭/PDP 往返恢复已在 API/Web/Chromium 回归</td></tr><tr><td>三控制面</td><td><code>NavigationState</code> / 可选 <code>GuideSession</code> / <code>CommerceOperation</code> 已实现并回归；AI 无购物车写权限</td></tr><tr><td>用户/业务结果</td><td>未研究、未上线、未测转化</td></tr><tr><td>部署地址</td><td>无</td></tr></tbody></table></div>
+<h2 id="overview-双层项目索引">双层项目索引</h2>
+<ul><li>工程实现与原始证据：本仓库（代码、schema、合成数据、prompt、trace、评测脚本与原始报告）</li><li>产品知识与面试叙事：本地知识控制室 <a href="./../../AI产品经理/项目实战/AI导购Agent/00-项目总控.md">AI 导购 Agent — 项目总控</a></li></ul>
+<p>知识层记录“为什么这样做、产品取舍是什么、证据能回答哪些面试问题”；本仓库保存“系统实际做了什么以及如何验证”。两层通过链接互相索引，但不重复维护同一份事实。</p>
+<h2 id="overview-文档入口">文档入口</h2>
+<ul><li><a href="./PLAN.md">PLAN.md</a>：阶段路线、里程碑、出口条件、风险与依赖</li><li><a href="./TASKS.md">TASKS.md</a>：当前任务台、真实状态和证据路径</li><li><a href="./AGENTS.md">AGENTS.md</a>：后续 AI Agent 的项目操作契约</li><li><a href="./../../AI产品经理/项目实战/AI导购Agent/00-项目总控.md">知识控制室</a>：产品判断、概念覆盖、评测设计与面试索引</li></ul></article>
+      </section>
+    </template>
+    <template id="evidence-document-interaction">
+      <section class="embedded-evidence" data-evidence-key="interaction" data-source="docs/superpowers/specs/2026-08-10-chat-first-lightweight-guide-design.md" data-sha256="9de99aa1da8fb18b04d4cd754793689f8704c58c03214c50e89d4e46ead53e57" data-title="Chat-first 交互规格" data-kicker="Interaction spec">
+        <p class="evidence-document-summary">轻量开场、单问题澄清、先结论后商品，以及比较与依据按需展开的完整设计。</p>
+        <nav class="evidence-document-toc" aria-label="Chat-first 交互规格目录"><ol><li data-level="2"><a href="#interaction-1-问题与目标">1. 问题与目标</a></li><li data-level="2"><a href="#interaction-2-已比较的三个方案">2. 已比较的三个方案</a></li><li data-level="3"><a href="#interaction-方案-a-自适应-bottom-sheet-真实短会话-采用">方案 A：自适应 Bottom Sheet + 真实短会话（采用）</a></li><li data-level="3"><a href="#interaction-方案-b-只改前端-把最新状态快照投影成聊天-拒绝">方案 B：只改前端，把最新状态快照投影成聊天（拒绝）</a></li><li data-level="3"><a href="#interaction-方案-c-点击后进入全屏-长期持久化的通用购物-assistant-延期">方案 C：点击后进入全屏、长期持久化的通用购物 Assistant（延期）</a></li><li data-level="2"><a href="#interaction-3-核心体验">3. 核心体验</a></li><li data-level="3"><a href="#interaction-3-1-入口">3.1 入口</a></li><li data-level="3"><a href="#interaction-3-2-首屏">3.2 首屏</a></li><li data-level="3"><a href="#interaction-3-3-逐轮规则">3.3 逐轮规则</a></li><li data-level="3"><a href="#interaction-3-4-决策消息">3.4 决策消息</a></li><li data-level="3"><a href="#interaction-3-5-比较">3.5 比较</a></li><li data-level="3"><a href="#interaction-3-6-关闭-返回与恢复">3.6 关闭、返回与恢复</a></li><li data-level="2"><a href="#interaction-4-信息架构与视觉规则">4. 信息架构与视觉规则</a></li><li data-level="3"><a href="#interaction-4-1-sheet-模式">4.1 Sheet 模式</a></li><li data-level="3"><a href="#interaction-4-2-视觉调性">4.2 视觉调性</a></li><li data-level="2"><a href="#interaction-5-系统设计">5. 系统设计</a></li><li data-level="3"><a href="#interaction-5-1-控制面保持不变">5.1 控制面保持不变</a></li><li data-level="3"><a href="#interaction-5-2-两类-revision-分离">5.2 两类 revision 分离</a></li><li data-level="3"><a href="#interaction-5-3-conversation-contract">5.3 Conversation contract</a></li><li data-level="3"><a href="#interaction-5-4-消息可靠性">5.4 消息可靠性</a></li><li data-level="3"><a href="#interaction-5-5-隐私与-trace">5.5 隐私与 Trace</a></li><li data-level="2"><a href="#interaction-6-前端组件边界">6. 前端组件边界</a></li><li data-level="3"><a href="#interaction-guidesheet">GuideSheet</a></li><li data-level="3"><a href="#interaction-guidechatview-新增">GuideChatView（新增）</a></li><li data-level="3"><a href="#interaction-recommendationcard">RecommendationCard</a></li><li data-level="3"><a href="#interaction-comparisontable">ComparisonTable</a></li><li data-level="3"><a href="#interaction-demoshell">DemoShell</a></li><li data-level="2"><a href="#interaction-7-无障碍与移动端行为">7. 无障碍与移动端行为</a></li><li data-level="2"><a href="#interaction-8-错误与降级呈现">8. 错误与降级呈现</a></li><li data-level="2"><a href="#interaction-9-测试与证据">9. 测试与证据</a></li><li data-level="3"><a href="#interaction-9-1-tdd-门">9.1 TDD 门</a></li><li data-level="3"><a href="#interaction-9-2-e2e-门">9.2 E2E 门</a></li><li data-level="3"><a href="#interaction-9-3-正式证据">9.3 正式证据</a></li><li data-level="2"><a href="#interaction-10-非目标">10. 非目标</a></li><li data-level="2"><a href="#interaction-11-完成定义">11. 完成定义</a></li></ol></nav>
+        <article class="evidence-document-content"><h1 id="interaction-chat-first-轻量-ai-导购设计规格">Chat-first 轻量 AI 导购设计规格</h1>
+<blockquote><p>日期：2026-08-10  <br />状态：用户已批准进入实施  <br />范围：TikTok Shop-inspired 可购物短视频中的“问问这款”体验  <br />不改变：美国市场、K-Beauty 防晒、合成商品数据、模拟加购终点、三控制面与安全/交易边界</p></blockquote>
+<h2 id="interaction-1-问题与目标">1. 问题与目标</h2>
+<p>当前 AI Commerce Sheet 虽然链路完整，但把上下文、能力披露、决策结论、三张推荐卡、证据台账、比较工具和作品集说明同时摆在用户面前。它更像一张“AI 产品能力说明板”，而不是用户在刷短视频时会自然使用的导购。</p>
+<p>本轮目标不是继续美化旧面板，而是把前台范式改为：</p>
+<blockquote><p>用户从当前商品发起一个轻量问题，AI 每轮只处理一个任务；只有当用户明确需要推荐、比较或依据时，才逐步展开对应内容。</p></blockquote>
+<p>成功标准：</p>
+<ol><li>首次打开时仍能看到视频上下文，Sheet 目标高度约为移动 viewport 的 40%–44%。</li><li>首屏只有一条商品相关开场、恰好三个具体问题和自由输入框；没有完整推荐、比较表或证据台账。</li><li>简单事实问题直接短答；只有确实会改变结果时才追问，且每轮最多一个问题。</li><li>默认只显示一个主结论和一款首选；替代商品、比较和依据按用户动作渐进披露。</li><li>关闭重开、从 PDP 返回以及同一次页面刷新后，可以通过服务端权威 session 恢复会话；API 进程重启后的持久化不在本轮承诺内。</li><li>安全、无匹配、证据不足、价格变化、显式确认和未知提交对账不能因界面减重而弱化。</li></ol>
+<h2 id="interaction-2-已比较的三个方案">2. 已比较的三个方案</h2>
+<h3 id="interaction-方案-a-自适应-bottom-sheet-真实短会话-采用">方案 A：自适应 Bottom Sheet + 真实短会话（采用）</h3>
+<ul><li>首次打开为约 40%–44% 高度的轻量 Sheet。</li><li>普通问答和澄清保持紧凑；只有显式比较才展开到约 72%–74%。</li><li>服务端保存有上限的 session transcript，前端只渲染权威消息。</li><li>Feed、PDP、Guide 和 Commerce 继续使用同一条真实链路。</li></ul>
+<p>采用理由：最符合短视频注意力分配，也避免只把状态快照“画成聊天气泡”的伪会话。</p>
+<h3 id="interaction-方案-b-只改前端-把最新状态快照投影成聊天-拒绝">方案 B：只改前端，把最新状态快照投影成聊天（拒绝）</h3>
+<ul><li>工程代价最低，API 不变。</li><li>但 GET 只能恢复最新结果，用户与 AI 的历史消息会丢失；网络重试也不能利用现有 <code>message_id</code> 去重。</li></ul>
+<p>拒绝理由：界面看起来像聊天，实际仍是结果面板，会在演示追问和面试追问中暴露产品逻辑不完整。</p>
+<h3 id="interaction-方案-c-点击后进入全屏-长期持久化的通用购物-assistant-延期">方案 C：点击后进入全屏、长期持久化的通用购物 Assistant（延期）</h3>
+<ul><li>适合未来真实 LLM、跨内容搜索和长期偏好。</li><li>需要认证、数据库、TTL、删除、跨进程恢复和更完整隐私治理。</li></ul>
+<p>延期理由：当前用户是在一条可购物内容里判断“这款是否适合我”，全屏长期助手会丢失内容现场并扩大 MVP。</p>
+<h2 id="interaction-3-核心体验">3. 核心体验</h2>
+<h3 id="interaction-3-1-入口">3.1 入口</h3>
+<p>可购物 Feed 的次级入口文案由“问 AI”改为“问问这款”。商品主体仍直达 PDP；普通 Feed 仍不显示商品或 AI 能力。</p>
+<h3 id="interaction-3-2-首屏">3.2 首屏</h3>
+<p>打开 Sheet 后显示：</p>
+<ol><li>顶部拖拽提示条、紧凑商品上下文 chip 和关闭按钮；</li><li>一条 AI 消息：“我看到你在看 Seoul Shade。你最想确认什么？”；</li><li>三个具体问题：</li></ol>
+<ul><li>“适合油皮吗？”</li><li>“会不会泛白？”</li><li>“和防水款比比”</li></ul>
+<ol><li>固定在底部的自由输入框，placeholder 为“问问这款商品…”；</li><li>一处低权重披露：“AI 生成 · 合成原型”。详细能力边界通过可访问说明展开，不再在正文、页脚和桌面面板重复。</li></ol>
+<p>首屏不得出现“AI 决策”“已继承上下文”“基于已验证资料”“Guide revision”、推荐矩阵、claim ledger 或交易 CTA。</p>
+<h3 id="interaction-3-3-逐轮规则">3.3 逐轮规则</h3>
+<p>系统先识别当前任务，再选择最轻的回答形式：</p>
+<div class="table-scroll"><table><thead><tr><th>用户任务</th><th>默认行为</th><th>是否展示商品</th></tr></thead><tbody><tr><td>具体事实，如“会不会泛白”</td><td>一句结论 + 一句证据边界；可继续追问</td><td>否</td></tr><tr><td>适配问题，如“适合油皮吗”</td><td>记录软偏好；若使用场景会改变推荐，只追问“日常通勤还是户外出汗/玩水？”</td><td>否</td></tr><tr><td>完整推荐，如“帮我选一款”</td><td>必要时问一个高信息量问题；条件足够后给一款首选</td><td>是，默认一款</td></tr><tr><td>明确比较，如“和防水款比比”</td><td>先形成合法候选，再以当前商品和最佳防水替代品生成两款比较</td><td>是，两款比较</td></tr><tr><td>依据/为什么</td><td>解释当前结论的 1–2 个关键事实；来源默认折叠</td><td>不新增商品</td></tr><tr><td>医疗、严重过敏或药物问题</td><td>进入安全边界；隐藏商品、比较和交易动作</td><td>否</td></tr></tbody></table></div>
+<p>任何一轮不得用多个问题同时审问用户。简单问题不为了展示 Agent 能力而强制澄清。</p>
+<h3 id="interaction-3-4-决策消息">3.4 决策消息</h3>
+<p>条件足够时，主消息只包含：</p>
+<ul><li>一句结论，例如“日常通勤更适合这款；如果会出汗或玩水，换防水款更稳妥。”</li><li>最多两条适配理由；</li><li>一条关键取舍；</li><li>一款紧凑首选卡：图片、名称、当前 fixture 起价、一条匹配理由、一条取舍；</li><li>轻操作：“为什么”“和另一款比比”“看商品”。</li></ul>
+<p>其他候选通过“看看其他选择”进入单一子视图，不与主结论同时展开。历史推荐卡只读，只有最新权威状态及 <code>allowed_actions</code> 可以打开商品。</p>
+<h3 id="interaction-3-5-比较">3.5 比较</h3>
+<p>只有用户主动提出比较或点击比较动作时，Sheet 才进入 expanded 模式：</p>
+<ul><li>高度约 72%–74%，视频仍保留少量可见上下文；</li><li>默认比较两款，不让用户先勾选三张大卡；</li><li>维度只保留对当前决策有用的 3–5 项：使用场景、防水、妆效、泛白风险、起价；</li><li>先给一句胜负条件，再给紧凑语义化表格；</li><li>比较后仍可继续提问或打开商品，不把比较当不可继续的终态。</li></ul>
+<h3 id="interaction-3-6-关闭-返回与恢复">3.6 关闭、返回与恢复</h3>
+<ul><li>关闭 Sheet：回到原视频、原滚动位置，焦点返回“问问这款”。</li><li>AI → PDP → AI：保留同一 Guide session、transcript、Sheet 模式和滚动位置。</li><li>页面刷新：浏览器仅在 <code>sessionStorage</code> 保存不透明 session id，随后 GET 服务端恢复 transcript；不在浏览器持久化完整对话。</li><li>API 进程重启：当前内存仓库会丢失 session，前端清除失效 id 并建立新会话，同时如实提示。这不是跨服务持久化。</li></ul>
+<h2 id="interaction-4-信息架构与视觉规则">4. 信息架构与视觉规则</h2>
+<h3 id="interaction-4-1-sheet-模式">4.1 Sheet 模式</h3>
+<div class="table-scroll"><table><thead><tr><th>模式</th><th>触发</th><th>高度目标</th></tr></thead><tbody><tr><td><code>compact</code></td><td>opening、普通问答、单轮澄清、短结论、no-match、evidence insufficient、safety</td><td>40%–44% viewport；内容可内部滚动</td></tr><tr><td><code>expanded</code></td><td>comparison pending、comparison ready、用户主动展开其他选择</td><td>72%–74% viewport</td></tr></tbody></table></div>
+<p>消息数量增加不能自动把 Sheet 变成全屏。320×700 或 200% 字号等可访问性场景允许提高容器高度或内部滚动，优先保证关闭、最后一条消息和 composer 可达。</p>
+<h3 id="interaction-4-2-视觉调性">4.2 视觉调性</h3>
+<ul><li>使用白色/浅灰内容层、黑色正文和低饱和分隔；TikTok 粉只用于发送和主要动作。</li><li>不使用大面积渐变、发光“AI 大脑”、仪表盘、分数、能力标签墙或多层卡框。</li><li>AI 与用户消息采用轻量对话排版，不为每条消息增加头像和厚重气泡。</li><li>source chip 是一行上下文，不重复展示达人 caption 和大图。</li><li>loading 使用短状态，如“正在核对商品信息…”，不显示内部 Workflow 步骤。</li><li>消费者文案不出现“确定性降级”“状态对账”“硬约束”“revision”等工程语言。</li></ul>
+<h2 id="interaction-5-系统设计">5. 系统设计</h2>
+<h3 id="interaction-5-1-控制面保持不变">5.1 控制面保持不变</h3>
+<ul><li><code>NavigationState</code>：只管理 Feed / Sheet / PDP、入口来源、返回栈与焦点。</li><li><code>GuideSession</code>：管理会话、偏好、决策、比较、<code>guide_revision</code> 和新的 conversation transcript。</li><li><code>CommerceOperation</code>：管理 SKU、动态事实、<code>transaction_revision</code>、确认 token、幂等和模拟加购。</li></ul>
+<p>AI 仍然不能直接写购物车。任何“看商品”都进入 PDP，Commerce Workflow 重新读取价格、库存和 SKU，并要求用户显式确认。</p>
+<h3 id="interaction-5-2-两类-revision-分离">5.2 两类 revision 分离</h3>
+<div class="table-scroll"><table><thead><tr><th>字段</th><th>增加时机</th><th>用途</th></tr></thead><tbody><tr><td><code>conversation_revision</code></td><td>成功接受一条用户消息或比较动作</td><td>消息顺序、并发、网络恢复</td></tr><tr><td><code>guide_revision</code></td><td>约束、偏好或推荐授权发生语义变化</td><td>推荐来源与 Commerce provenance</td></tr></tbody></table></div>
+<p>普通“为什么”追问只增加 conversation revision，不应让 PDP 交易来源失效。</p>
+<h3 id="interaction-5-3-conversation-contract">5.3 Conversation contract</h3>
+<p>新增有上限的服务端 transcript：</p>
+<ul><li><code>role</code>: <code>USER | ASSISTANT</code></li><li><code>kind</code>: <code>OPENING | USER_TEXT | QUESTION | ANSWER | RECOMMENDATION | COMPARISON | NO_MATCH | SAFETY | RECOVERY</code></li><li><code>sequence</code>: 服务端单调递增序号</li><li><code>text</code>: 纯文本</li><li>可选附件：quick replies、当前只读推荐、证据或比较</li><li><code>redacted</code>: 安全相关原文是否被固定占位文本替代</li></ul>
+<p>每个 session 最多接受 12 个用户轮次。达到上限后明确提示建立新会话，不静默截断。Transcript 只用于呈现，不授权交易；顶层当前 <code>allowed_actions</code>、<code>guide_revision</code> 和当前决策快照仍是唯一业务权限。</p>
+<h3 id="interaction-5-4-消息可靠性">5.4 消息可靠性</h3>
+<p>现有客户端 <code>message_id</code> 正式用于幂等：</p>
+<ol><li>新请求携带 <code>expected_conversation_revision</code>。</li><li>同 message id、同 payload 重试：不重复执行 Workflow，返回当前权威快照。</li><li>同 message id、不同 payload：返回 <code>409 MESSAGE_ID_REUSED</code>。</li><li>conversation revision 过期：返回 <code>409 STALE_CONVERSATION</code>，不改变状态。</li><li>user message、assistant message、processed request、conversation revision、latest snapshot 和 trace 摘要在同一个 repository transaction 中提交或回滚。</li></ol>
+<p>比较请求同样增加 request id 与 expected conversation revision，避免响应丢失后重复追加比较。</p>
+<h3 id="interaction-5-5-隐私与-trace">5.5 隐私与 Trace</h3>
+<ul><li>Transcript 只存在 session repository，不写入 Git、trace、access log 或评测制品。</li><li>Trace 继续只记录状态、工具摘要、结果 ID 和安全分类码，不记录用户原文、client message id、健康描述或隐藏思维链。</li><li>医疗/高风险输入在 transcript 中保存固定占位语句并标记 <code>redacted=true</code>。</li><li>前端只按纯文本渲染，不使用 <code>dangerouslySetInnerHTML</code>。</li><li>本地 Demo 无认证，不把不可猜 session id 描述为生产权限模型。</li></ul>
+<h2 id="interaction-6-前端组件边界">6. 前端组件边界</h2>
+<h3 id="interaction-guidesheet"><code>GuideSheet</code></h3>
+<p>保留创建/恢复 session、revision 校验、过期响应失效、comparison 对账、动作冻结、modal/focus/scroll 管理和 PDP provenance；不再负责全部视觉结构。</p>
+<h3 id="interaction-guidechatview-新增"><code>GuideChatView</code>（新增）</h3>
+<p>纯展示组件：上下文 chip、message log、快捷问题、inline result、compact/expanded mode 和 sticky composer。它不发 API、不推导业务权限、不保存 session。</p>
+<h3 id="interaction-recommendationcard"><code>RecommendationCard</code></h3>
+<p>增加 compact/inline 形态，只显示图片、名称、一条理由、一条取舍、依据入口和“看商品”。旧的三张完整报告卡不再进入默认主流。</p>
+<h3 id="interaction-comparisontable"><code>ComparisonTable</code></h3>
+<p>保留语义化 table 与结构化事实，但改成两款紧凑比较卡，只在 expanded mode 出现。</p>
+<h3 id="interaction-demoshell"><code>DemoShell</code></h3>
+<p>继续负责 Feed/PDP/Overlay 和视频暂停恢复。桌面作品集说明降为次级，不与手机中的对话争夺主视觉。</p>
+<h2 id="interaction-7-无障碍与移动端行为">7. 无障碍与移动端行为</h2>
+<ul><li>继续使用 <code>role=&quot;dialog&quot;</code>、<code>aria-modal=&quot;true&quot;</code>、body scroll lock、Tab focus trap、Escape 关闭、关闭后焦点恢复和底层 <code>inert</code>。</li><li>消息列表使用 <code>role=&quot;log&quot; aria-live=&quot;polite&quot;</code>；loading 使用 <code>role=&quot;status&quot;</code>；错误使用 <code>role=&quot;alert&quot;</code>。</li><li>首次打开不自动聚焦输入框，避免移动键盘立刻遮住视频。</li><li>composer 使用 1–3 行自增高 textarea；中文输入法 composition 期间 Enter 不发送。</li><li>新消息只有在用户已接近底部时才自动滚动；用户回看旧消息时不抢滚动。</li><li>使用 <code>100dvh</code> 与安全区 padding 处理移动键盘和底部 Home indicator。</li><li>快捷操作最小触控尺寸 44×44 CSS px；<code>prefers-reduced-motion</code> 下关闭位移动画。</li></ul>
+<h2 id="interaction-8-错误与降级呈现">8. 错误与降级呈现</h2>
+<div class="table-scroll"><table><thead><tr><th>系统状态</th><th>用户界面</th></tr></thead><tbody><tr><td>Tool/网络进行中</td><td>一条“正在核对商品信息…”状态，不复制旧决策</td></tr><tr><td>响应未知</td><td>冻结旧业务动作，使用同 message id 重试或 GET 对账；显示“正在恢复回答…”</td></tr><tr><td><code>NO_MATCH</code></td><td>一条冲突说明 + 最多一个可放宽条件，不展示空商品卡</td></tr><tr><td><code>INSUFFICIENT_EVIDENCE</code></td><td>明确“已知/暂时无法确认”，依据折叠，不伪造首选</td></tr><tr><td><code>SAFE_BOUNDARY</code></td><td>安全提示；清空当前商品、比较和交易动作，历史卡只读</td></tr><tr><td>session 失效</td><td>清除 sessionStorage id，提示会话已结束，并允许重新开始</td></tr><tr><td>fatal contract/state error</td><td>关闭业务动作，提供返回 Feed；不让前端自行修补权限</td></tr></tbody></table></div>
+<h2 id="interaction-9-测试与证据">9. 测试与证据</h2>
+<h3 id="interaction-9-1-tdd-门">9.1 TDD 门</h3>
+<p>先写失败测试，再实现：</p>
+<ul><li>API contract：transcript schema、两类 revision、message/compare 幂等、stale conflict、事务回滚、隐私和安全脱敏。</li><li>Web component：轻量首屏、恰好三个商品问题、消息顺序、渐进披露、compact/expanded、composer、无障碍和恢复。</li><li>Commerce regression：普通追问不改变 <code>guide_revision</code>；改约束会使旧 provenance 失效；安全边界后历史推荐不能授权交易。</li></ul>
+<h3 id="interaction-9-2-e2e-门">9.2 E2E 门</h3>
+<p>保留现有 8 条产品/交易旅程的网络和业务断言，只更新 UI selector。新增独立 <code>chat-first.spec.ts</code>：</p>
+<ol><li>轻量 opening 保留视频上下文；</li><li>每轮最多一个澄清问题；</li><li>普通答案不出现推荐矩阵；</li><li>决策默认只展开一款首选；</li><li>用户主动比较后才展开 Sheet；</li><li>关闭重开恢复同一 transcript；</li><li>AI → PDP → AI 恢复同一 transcript；</li><li>safety 隐藏所有商业动作；</li><li>390×844、320×700、200% 字号、桌面面试态均可操作；</li><li>Tab、Escape、焦点返回、reduced motion 不回归。</li></ol>
+<h3 id="interaction-9-3-正式证据">9.3 正式证据</h3>
+<p>历史 <code>tiktok-redesign-*</code> 截图不覆盖。新增：</p>
+<ul><li><code>artifacts/screenshots/chat-first-opening-mobile.png</code></li><li><code>artifacts/screenshots/chat-first-decision-mobile.png</code></li><li><code>artifacts/screenshots/chat-first-desktop.png</code></li><li><code>artifacts/evidence/chat-first-verification.md</code></li><li><code>artifacts/evidence/chat-first-run-manifest.json</code></li></ul>
+<p>正式截图必须来自 fresh API + production Next build、固定浏览器时间、字体 ready、视频固定帧、禁动画和真实 Chromium。结构/几何自动断言与人工视觉检查共同作为首版基线；checksum 只证明文件身份，不证明视觉正确。</p>
+<h2 id="interaction-10-非目标">10. 非目标</h2>
+<ul><li>不接真实 LLM、向量数据库、Hybrid RAG、TikTok API、支付或真实用户数据。</li><li>不实现搜索 UI、长期跨内容记忆、跨 API 进程持久化或多 Agent。</li><li>不宣称入口发现率、信任、转化、业务增量或真实推荐质量得到验证。</li><li>不复刻 TikTok 官方 logo、素材或未确认的灰测功能。</li></ul>
+<h2 id="interaction-11-完成定义">11. 完成定义</h2>
+<p>本轮只有同时满足以下条件才可结束：</p>
+<ol><li>首屏、短答、澄清、推荐、比较、安全、恢复均通过自动化路径；</li><li>conversation transcript 和 message/compare 幂等可由 API 测试复现；</li><li>现有 8 条交易旅程语义未弱化；</li><li>production build 的三张新截图人工检查通过；</li><li>README、PLAN、TASKS、工程验证记录、知识层 ADR、产品日志和面试索引同步；</li><li>所有“已实现/已评测”都只指向合成 fixture 与本地 Chromium 证据。</li></ol></article>
+      </section>
+    </template>
+    <template id="evidence-document-evaluation">
+      <section class="embedded-evidence" data-evidence-key="evaluation" data-source="artifacts/evidence/chat-first-verification.md" data-sha256="a8fc9fcda4a21c3997dd82c6e86378948b47827ec4737dfdb4080cfcb2ad60ec" data-title="原型评测" data-kicker="Evaluation">
+        <p class="evidence-document-summary">任务完整性、体验契约、系统边界和仍待真人验证的产品假设。</p>
+        <nav class="evidence-document-toc" aria-label="原型评测目录"><ol><li data-level="2"><a href="#evaluation-release-result">Release result</a></li><li data-level="2"><a href="#evaluation-source-and-environment">Source and environment</a></li><li data-level="2"><a href="#evaluation-verification-history-and-readiness-stabilization">Verification history and readiness stabilization</a></li><li data-level="2"><a href="#evaluation-exact-release-gates">Exact release gates</a></li><li data-level="2"><a href="#evaluation-chat-first-browser-journeys">Chat-first browser journeys</a></li><li data-level="2"><a href="#evaluation-existing-commerce-journeys-preserved">Existing commerce journeys preserved</a></li><li data-level="2"><a href="#evaluation-formal-screenshots">Formal screenshots</a></li><li data-level="2"><a href="#evaluation-artifact-credential-and-privacy-checks">Artifact, credential, and privacy checks</a></li><li data-level="2"><a href="#evaluation-evidence-limits">Evidence limits</a></li></ol></nav>
+        <article class="evidence-document-content"><h1 id="evaluation-chat-first-lightweight-guide-verification">Chat-first Lightweight Guide Verification</h1>
+<blockquote><p>Verification refreshed 2026-08-10 UTC from clean source commit <code>659596537efe7bd7a879aeb3b49bee17b01f5e73</code>. This is local deterministic evidence over frozen synthetic fixtures. It is not evidence of a real LLM, real users, conversion, business impact, or production reliability.</p></blockquote>
+<h2 id="evaluation-release-result">Release result</h2>
+<p>The chat-first slice passed the contract, static, production-build, API, Web, browser, Foundation-eval, artifact, and privacy gates below. The accepted Task 11 refresh collected 70 browser tests: 39 passed, 31 were intentional project/capture routing skips, and 0 failed. Its one production-capture run collected the same 70 tests: 42 passed, 28 routed skips, and 0 failed in 33.13 seconds wall time; the three-test delta is exactly the opted-in screenshot set.</p>
+<p>This evidence upgrades only the narrow engineering maturity to <strong>implemented and evaluated on frozen synthetic fixtures in local Chromium</strong>. It does not close Phase 1&#39;s real LLM, Hybrid Retrieval, data-expansion, durable persistence, user-research, deployment, or business-result work.</p>
+<h2 id="evaluation-source-and-environment">Source and environment</h2>
+<p>The worktree was clean before the gates. The evidence documents and README/PLAN/TASKS updates were written after the run, so the source under test remains the pre-evidence commit shown above.</p>
+<div class="table-scroll"><table><thead><tr><th>Item</th><th>Observed</th></tr></thead><tbody><tr><td>Host</td><td>Darwin 25.5.0 arm64</td></tr><tr><td>Node / pnpm</td><td>Node 24.14.0 / pnpm 11.20.0</td></tr><tr><td>uv / Python</td><td>uv 0.11.14 / Python 3.14.5</td></tr><tr><td>Browser runner</td><td>Playwright 1.62.1; Chromium 151.0.7922.34</td></tr><tr><td>Formal capture</td><td>Fresh uvicorn with <code>--no-access-log --workers 1</code>; <code>next build &amp;&amp; next start</code>; no server reuse; Playwright trace off</td></tr><tr><td>Browser determinism</td><td>Fixed browser time <code>2026-08-10T12:00:00Z</code>; fonts ready; video paused/seeked; motion and caret disabled</td></tr><tr><td>Viewports</td><td>Mobile 390×844; desktop interview 1440×1000; additional 320×700 at 200% text browser contract</td></tr></tbody></table></div>
+<h2 id="evaluation-verification-history-and-readiness-stabilization">Verification history and readiness stabilization</h2>
+<p>The release history is intentionally retained because a single green browser run did not prove the original keyboard/readiness paths were stable:</p>
+<ol><li>The first Task 9 full run on <code>add3f885…</code> was green at 39 passed / 31 routed skips / 0 failed. A finishing rerun then failed the reduced-motion focus path: 38 passed / 31 skips / 1 failed. An immediate focused rerun failed again. Task 9 stopped instead of retrying for a green sample.</li><li>Task 8 traced the failure to a test-side loading-to-final DOM replacement race. A 50-repeat RED sample was 46 passed / 4 failed; after waiting for authoritative HTTP 201 <code>OPENING_CONTEXT</code> and final opening UI, the same sample was 50/50. Independent review of Fix Round 2 was CLEAN.</li><li>The next Task 9 full refresh on <code>c5d28ae…</code> stopped at 37 passed / 31 skips / 2 failed. The 320×700 composer check sampled during loading-to-final replacement, and the responsive desktop-frame path dispatched Escape before the final Guide dialog was authoritative. Task 9 again stopped without rerunning for green.</li><li>Task 8 Fix Round 3 moved the shared browser helpers onto authoritative session readiness and final UI/focus commit. The two new failures plus reduced-motion focus passed an interleaved 150/150 stability run; focused Guide/PDP suites were 10/10; full E2E was 39/31/0 and production capture 42/28/0. Independent review was CLEAN.</li><li>Task 9 then ran the complete gate exactly once from clean <code>46606d3…</code>. Every gate exited 0, including full E2E 39/31/0. That was the accepted pre-review release evidence.</li><li>Task 11 independently reproduced seven accepted code/product findings with real failing tests, then committed the source/test fixes as <code>0228819…</code>. From that clean commit, contracts, lint, layout-foundation, build, and generated integrity passed, but the first full API gate stopped at 323 passed / 1 failed. The failing golden-trace test invoked raw <code>WorkflowEngine.open_session/handle_message</code>, bypassed the public <code>GuideService</code> orchestration, and therefore never committed the authoritative <code>latest_response</code> now required by legacy cart authorization. No later gate or screenshot capture ran in that attempt.</li><li>The trace test alone was migrated to real <code>GuideService.create/message</code> orchestration—same engine, repository, cart, and trace events; no mock or manual snapshot assignment—and committed as <code>6595965…</code>. The affected focus was 61/61. A transparently labeled second full gate then passed every command below, followed by exactly one production capture. This second run is the accepted final evidence; the 323/1 harness failure remains part of the record.</li></ol>
+<p>Task 11 intentionally changed product authority, decision hierarchy, localization, disclosure density, and Guide typography. Its three regenerated PNGs were inspected at original resolution: the latest conclusion precedes the card, localized fit/tradeoff copy is distinct, the single Guide disclosure remains low weight, the composer is not clipped, and the desktop phone remains primary. The opening whitespace and missing drag interaction remain limitations below.</p>
+<h2 id="evaluation-exact-release-gates">Exact release gates</h2>
+<div class="table-scroll"><table><thead><tr><th>Gate</th><th>Exact command</th><th>Observed result</th><th>Duration</th></tr></thead><tbody><tr><td>Contracts</td><td><code>pnpm --dir packages/contracts check</code></td><td>Exit 0; OpenAPI export and TypeScript generation completed; generated diff empty</td><td>0.95 s</td></tr><tr><td>API lint</td><td><code>uv --directory apps/api run ruff check app tests ../../evals</code></td><td>Exit 0; <code>All checks passed!</code></td><td>0.02 s</td></tr><tr><td>Web lint</td><td><code>pnpm lint:web</code></td><td>Exit 0; 0 errors / 0 warnings</td><td>2.84 s</td></tr><tr><td>Layout foundation</td><td><code>pnpm check:layout</code></td><td>Exit 0; <code>Foundation layout is valid</code></td><td>0.20 s</td></tr><tr><td>Web production build</td><td><code>pnpm --dir apps/web build</code></td><td>Exit 0; compile, TypeScript, and 2 static routes completed</td><td>4.04 s</td></tr><tr><td>Generated integrity</td><td><code>git diff --exit-code -- packages/contracts/openapi.json packages/contracts/src/api.ts</code></td><td>Exit 0; 0 changed generated files</td><td>0.01 s</td></tr><tr><td>API full</td><td><code>uv --directory apps/api run pytest tests -q</code></td><td>324 passed; 0 failed; 0 skipped; 1 upstream warning</td><td>3.19 s</td></tr><tr><td>Web full</td><td><code>pnpm test:web</code></td><td>11 files; 281 passed; 0 failed; 0 skipped</td><td>5.34 s</td></tr><tr><td>Browser full</td><td><code>pnpm test:e2e</code></td><td>70 collected; 39 passed; 31 routed skips; 0 failed</td><td>31.41 s</td></tr><tr><td>Foundation eval tests</td><td><code>uv --directory apps/api run pytest tests/eval/test_foundation_eval.py -q</code></td><td>15 passed; 0 failed; 0 skipped; 1 upstream warning</td><td>0.46 s</td></tr><tr><td>Foundation runner</td><td><code>uv --directory apps/api run python ../../evals/run_foundation.py</code></td><td>Deterministic rule scorer 6/6; pass rate 1.0; exit 0</td><td>0.23 s</td></tr></tbody></table></div>
+<p><code>pnpm check:layout</code> is an asset/layout-foundation gate only. It does not prove visual correctness. The visual claim is bounded to browser geometry assertions plus original-detail inspection of the three production screenshots.</p>
+<p>The two warnings retained as limitations are the existing Next.js multiple-lockfile workspace-root inference warning and the development E2E one-dimension product-image warning. The build and all assertions still exited 0. API/eval runs emit one existing Starlette/httpx deprecation warning.</p>
+<h2 id="evaluation-chat-first-browser-journeys">Chat-first browser journeys</h2>
+<p>All chat-first message writes carry a <code>message_id</code> and the current <code>expected_conversation_revision</code>; the browser assertions check those values without retaining the runtime IDs. The UI renders the service response or subsequent authoritative GET snapshot rather than appending a client-invented assistant state.</p>
+<div class="table-scroll"><table><thead><tr><th>#</th><th>Observable UI</th><th>Authoritative HTTP / revision evidence</th><th>Result</th></tr></thead><tbody><tr><td>1</td><td>Compact opening preserves visible video, shows the Seoul Shade context, approved opening, exactly three questions, one composer, and exactly one low-weight expandable disclosure</td><td><code>POST /guide/sessions</code> returns 201, <code>OPENING_CONTEXT</code>, <code>guide_revision=1</code>, <code>conversation_revision=1</code>, and <code>SEND_MESSAGE</code> / <code>RETURN_TO_FEED</code>; disclosure details centralize the synthetic/no-integration/no-real-validation/PDP-recheck boundaries</td><td>Pass</td></tr><tr><td>2</td><td>Light scrim leaves the source video legible</td><td>Computed backdrop alpha is at most 0.30 and <code>backdrop-filter</code> is <code>none</code>; this is a browser style oracle, not an API claim</td><td>Pass</td></tr><tr><td>3</td><td>“适合油皮吗？” produces one clarification question, no product result, and stays compact</td><td>Authoritative message response is <code>WAITING_CLARIFICATION</code>; <code>conversation_revision</code> advances exactly +1</td><td>Pass</td></tr><tr><td>4</td><td>“会不会泛白？” returns a short answer with no recommendation matrix or comparison</td><td>Authoritative response is <code>ANSWER_READY</code>; <code>conversation_revision</code> advances +1 while <code>guide_revision</code> stays unchanged</td><td>Pass</td></tr><tr><td>5</td><td>A complete constraint message initially shows the authoritative conclusion before one primary card; Chinese fit/tradeoff copy is localized, distinct, and decision-relevant</td><td><code>POST .../messages</code> returns 200 <code>DECISION_READY</code>; conversation revision advances +1, first recommendation authority advances <code>guide_revision</code> exactly once, and evidence/SKU authority remains unchanged</td><td>Pass</td></tr><tr><td>6</td><td>Comparison appears only after explicit intent and expands the Sheet</td><td>Compare POST carries <code>cmp_*</code>, the current expected conversation revision, and the two authorized product IDs; canonical GET is <code>COMPARISON_READY</code> with conversation revision +1</td><td>Pass</td></tr><tr><td>7</td><td>Close/reopen returns focus to the entry and restores the same transcript</td><td><code>GET /guide/sessions/{id}</code> returns the same session ID, conversation revision, and transcript as the prior decision</td><td>Pass</td></tr><tr><td>8</td><td>AI → PDP → AI restores the current recommendation and full transcript</td><td>PDP carries current AI attribution; authoritative session GET returns the same session ID and transcript</td><td>Pass</td></tr><tr><td>9</td><td>Safety hides the composer, quick replies, recommendation, comparison, PDP, and cart actions while keeping a compact return path</td><td><code>POST .../messages</code> returns 200 <code>SAFE_BOUNDARY</code>, only <code>RETURN_TO_FEED</code>; the stored user transcript entry is the fixed redacted placeholder; legacy preview/add also reject stale current-snapshot/revision authority atomically</td><td>Pass</td></tr><tr><td>10</td><td>390×844 compact Sheet occupies 40%–44.5% of the viewport with no horizontal overflow</td><td>Browser geometry bounds and viewport containment assertions pass</td><td>Pass</td></tr><tr><td>11</td><td>320×700 at 200% root text scales actual Guide message, card, action, disclosure, and composer copy to at least 1.9× while keeping controls reachable</td><td>Computed-font ratios, internal scrolling, close/card/composer reachability, and horizontal-overflow assertions pass; 44 px minimum touch targets remain fixed</td><td>Pass</td></tr><tr><td>12</td><td>Reduced motion keeps focus trapped; Escape closes and restores entry focus</td><td>Browser focus, <code>inert</code>, media-query, and Escape assertions pass</td><td>Pass</td></tr><tr><td>13</td><td>Desktop interview state keeps one 390×844 live phone primary and the explanation secondary</td><td>1440×1000 geometry, panel-width, title-size, contrast, and compact-mode assertions pass</td><td>Pass</td></tr></tbody></table></div>
+<p>The non-capture browser total decomposes to 13 chat-first, 4 Foundation guide, 6 PDP-focus, 8 existing commerce, and 8 responsive tests = 39 passes. The 31 skips are explicit cross-project or opt-in-capture routing.</p>
+<h2 id="evaluation-existing-commerce-journeys-preserved">Existing commerce journeys preserved</h2>
+<p>The chat-first UI did not replace the transaction authority. Direct PDP and AI-assisted paths still enter the separate Commerce Workflow, which re-reads current SKU/price/stock facts and requires explicit confirmation.</p>
+<div class="table-scroll"><table><thead><tr><th>#</th><th>Journey</th><th>Authoritative evidence</th><th>Result</th></tr></thead><tbody><tr><td>1</td><td>Feed → direct PDP → 50 mL → confirm</td><td>Preview POST 201 <code>AWAITING_CONFIRMATION</code>, transaction revision 1; item POST 201 <code>SUCCEEDED</code> with the same operation/revision; one receipt</td><td>Pass</td></tr><tr><td>2</td><td>Feed → AI decision → alternative PDP → restored AI → Feed</td><td>Session POST 201 opening; message responses reach clarification then decision; alternative PDP shows AI attribution and return restores the decision</td><td>Pass</td></tr><tr><td>3</td><td>AI recommendation → PDP → simulated cart</td><td>Decision provenance reaches PDP; preview/item POSTs return 201; operation and transaction revision remain consistent; one receipt</td><td>Pass</td></tr><tr><td>4</td><td>Normal Feed</td><td>No shoppable group, product action, or “问问这款” control</td><td>Pass</td></tr><tr><td>5</td><td>Zero match → one relaxation</td><td><code>NO_MATCH</code> exposes only send/relax/return and no product action; one “防水不限” message returns <code>DECISION_READY</code> with <code>guide_revision +1</code></td><td>Pass</td></tr><tr><td>6</td><td>Safety boundary</td><td>Message response 200 <code>SAFE_BOUNDARY</code>, only <code>RETURN_TO_FEED</code>, and no product/compare/cart action</td><td>Pass</td></tr><tr><td>7</td><td>Price change → accept → reconfirm</td><td>Preview 201 <code>FACTS_CHANGED</code> revision 1; accept-facts POST 200 returns <code>AWAITING_CONFIRMATION</code> revision 2 and a runtime token checked by type only; item POST 201 succeeds at revision 2</td><td>Pass</td></tr><tr><td>8</td><td>Unknown commit → idempotent reconciliation</td><td>Exactly one item POST returns <code>COMMIT_STATUS_UNKNOWN</code> / <code>RECONCILIATION_REQUIRED</code>; exactly one GET by the same idempotency key returns <code>SUCCEEDED</code>; one receipt and one cart item</td><td>Pass</td></tr></tbody></table></div>
+<h2 id="evaluation-formal-screenshots">Formal screenshots</h2>
+<p>The three files are nonempty and match their declared PNG dimensions. SHA-256 proves file identity only; it does not prove visual quality. They were regenerated once by the Task 11 production gate and then inspected at original detail.</p>
+<div class="table-scroll"><table><thead><tr><th>Artifact</th><th>Dimensions</th><th>Bytes</th><th>SHA-256</th><th>Bounded visual observation</th></tr></thead><tbody><tr><td><a href="./artifacts/screenshots/chat-first-opening-mobile.png"> 0 </a></td><td>390×844</td><td>223,333</td><td><code>670297d95460415b75c60761b437934f179cc5b5b383f26e1936b4a3fbabc17a</code></td><td>Partial-height opening, visible creator/video context, three approved prompts, composer not clipped; versus the prior canonical, 1,022 / 329,160 pixels (0.31%) changed within status-clock bounds <code>(10,26)–(62,47)</code></td></tr><tr><td><a href="./artifacts/screenshots/chat-first-decision-mobile.png"> 0 </a></td><td>390×844</td><td>242,594</td><td><code>bcfd411c0e3d47629f02eb975d1d701b6aeed7f4247af9c01b11371977cd97ae</code></td><td>Conclusion is fully visible before the localized single card; the expected hierarchy/copy/disclosure changes affect 52,999 / 329,160 pixels (16.10%), bounded to <code>(2,26)–(388,734)</code></td></tr><tr><td><a href="./artifacts/screenshots/chat-first-desktop.png"> 0 </a></td><td>1440×1000</td><td>719,968</td><td><code>1dec9a3819a408c1c89bf26cfac146d8e062f52bb1d13ae786faa65e13902abd</code></td><td>One live phone remains primary and the renamed walkthrough panel stays secondary; expected phone/panel changes affect 316,540 / 1,440,000 pixels (21.98%), bounded to <code>(311,105)–(1189,937)</code></td></tr></tbody></table></div>
+<p>Historical <code>foundation-*</code> and <code>tiktok-redesign-*</code> screenshots and counts were not overwritten.</p>
+<h2 id="evaluation-artifact-credential-and-privacy-checks">Artifact, credential, and privacy checks</h2>
+<ul><li>No unlabeled credential-shaped assignment was found after excluding dependency lockfiles. Two explicit <code>secret=...</code> strings in trace-coverage tests are synthetic rejection fixtures used to prove exception/caller-controlled text is not persisted; they are not credentials.</li><li>No unlabeled runtime-generated <code>cft_*</code>, <code>idem_*</code>, <code>msg_*</code>, or <code>gmsg_*</code> value was retained; retained runtime artifacts contain no raw urgent-health text, client message ID value, or <code>chain_of_thought</code> value. The runtime-shaped strings named below are documentation labels for fixed synthetic test constants, not captured runtime values.</li><li>Schema field names and explicit synthetic urgent-health/privacy-rejection fixtures intentionally remain in test source. The no-raw-health-text claim applies only to retained runtime artifacts, not those source fixtures.</li><li><code>cft_e2e_text_resize</code>, <code>idem_*</code> values under API tests, and <code>syntheticConfirmation</code> are <strong>synthetic test constants</strong>, not runtime credentials. This report labels them explicitly instead of claiming the repository contains no token/idempotency strings.</li><li>Playwright trace is off and the evidence API uses <code>--no-access-log</code>. The E2E assertions compare runtime token/key type or equality without printing their values.</li><li>The idempotency key still appears in the reconciliation URL. It is an operation identifier rather than an authentication credential, but productionization must prevent proxy/access-log retention.</li></ul>
+<h2 id="evaluation-evidence-limits">Evidence limits</h2>
+<ul><li>Product, brand, creator, content, comment, price, stock, and cart data are frozen synthetic fixtures: 3 SPUs / 6 SKUs, 1 content context, 3 evidence documents, and 6 Foundation cases.</li><li>No real LLM, embedding, Vector/Hybrid retrieval, reranker, TikTok API, payment, order, fulfillment, or production inventory is used.</li><li>The deterministic 6/6 result describes only six frozen cases. It is not a claim about real recommendation quality.</li><li>Browser coverage is local Chromium. It is not cross-browser certification, a real-user usability study, or evidence of production reliability.</li><li>CSS uses <code>env(safe-area-inset-*)</code> and nominal Chromium containment is covered, but real iOS devices with nonzero notch/home-indicator insets were not exercised.</li><li>The Sheet has no drag interaction or drag affordance. The opening retains a noticeable whitespace gap between its prompt and quick replies; both remain disclosed polish limitations rather than simulated capability.</li><li>In-memory Guide sessions survive same-page refresh only while the API process lives. API restart persistence, authentication, deletion governance, and multi-process consistency remain out of scope.</li><li>No conversion, trust, task-completion, latency, cost, uptime, or business-impact result has been measured.</li></ul>
+<p>Machine-readable commands, hashes, flags, and limitations are frozen in <a href="./artifacts/evidence/chat-first-run-manifest.json"> 0 </a>.</p></article>
+      </section>
+    </template>
+    <template id="evidence-document-machine">
+      <section class="embedded-evidence" data-evidence-key="machine" data-source="artifacts/evidence/chat-first-run-manifest.json" data-sha256="f0e101f13339b42cf107fe1c7619f869b61c52cf6f8247d90852a1ae5b8eb567" data-title="运行证据" data-kicker="Machine evidence">
+        <p class="evidence-document-summary">被测提交、测试数量、浏览器环境、输入数据哈希与正式截图哈希。</p>
+        <nav class="evidence-document-toc" aria-label="运行证据目录"><ol><li data-level="2"><a href="#machine-schemaversion">schema_version</a></li><li data-level="2"><a href="#machine-evidenceid">evidence_id</a></li><li data-level="2"><a href="#machine-capturedatutc">captured_at_utc</a></li><li data-level="2"><a href="#machine-source">source</a></li><li data-level="2"><a href="#machine-environment">environment</a></li><li data-level="2"><a href="#machine-releasegates">release_gates</a></li><li data-level="2"><a href="#machine-formalbrowserevidence">formal_browser_evidence</a></li><li data-level="2"><a href="#machine-inputsha256">input_sha256</a></li><li data-level="2"><a href="#machine-fixturesummary">fixture_summary</a></li><li data-level="2"><a href="#machine-screenshots">screenshots</a></li><li data-level="2"><a href="#machine-screenshotdeltafromprereviewcanonical">screenshot_delta_from_pre_review_canonical</a></li><li data-level="2"><a href="#machine-artifactandprivacychecks">artifact_and_privacy_checks</a></li><li data-level="2"><a href="#machine-evidenceartifacts">evidence_artifacts</a></li><li data-level="2"><a href="#machine-verificationhistory">verification_history</a></li><li data-level="2"><a href="#machine-knownlimitations">known_limitations</a></li></ol></nav>
+        <article class="evidence-document-content"><section class="json-section" aria-labelledby="machine-schemaversion"><h2 id="machine-schemaversion">schema_version</h2><ul class="json-tree"><li class="json-leaf" data-depth="0"><code>1</code></li></ul></section>
+<section class="json-section" aria-labelledby="machine-evidenceid"><h2 id="machine-evidenceid">evidence_id</h2><ul class="json-tree"><li class="json-leaf" data-depth="0"><code>&quot;chat-first-lightweight-guide-local-release-2026-08-10&quot;</code></li></ul></section>
+<section class="json-section" aria-labelledby="machine-capturedatutc"><h2 id="machine-capturedatutc">captured_at_utc</h2><ul class="json-tree"><li class="json-leaf" data-depth="0"><code>&quot;2026-08-10T18:32:29Z&quot;</code></li></ul></section>
+<section class="json-section" aria-labelledby="machine-source"><h2 id="machine-source">source</h2><ul class="json-tree"><li class="json-node" data-depth="0"><ul><li class="json-leaf" data-depth="1"><span class="json-key">commit</span><span aria-hidden="true">: </span><code>&quot;659596537efe7bd7a879aeb3b49bee17b01f5e73&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">branch</span><span aria-hidden="true">: </span><code>&quot;codex/chat-first-lightweight-guide&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">dirty_before_release_gates</span><span aria-hidden="true">: </span><code>false</code></li><li class="json-leaf" data-depth="1"><span class="json-key">declaration</span><span aria-hidden="true">: </span><code>&quot;The accepted second Task 9 release gate and the sole production capture began from a clean worktree at this source commit. Retained-artifact scans ran after capture outputs existed and before the evidence commit. This manifest, the human report, screenshots, README/PLAN/TASKS, and Task 11 report are evidence outputs and are not part of the source commit under test.&quot;</code></li></ul></li></ul></section>
+<section class="json-section" aria-labelledby="machine-environment"><h2 id="machine-environment">environment</h2><ul class="json-tree"><li class="json-node" data-depth="0"><ul><li class="json-leaf" data-depth="1"><span class="json-key">host</span><span aria-hidden="true">: </span><code>&quot;Darwin 25.5.0 arm64&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">node</span><span aria-hidden="true">: </span><code>&quot;v24.14.0&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">pnpm</span><span aria-hidden="true">: </span><code>&quot;11.20.0&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">python</span><span aria-hidden="true">: </span><code>&quot;3.14.5&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">uv</span><span aria-hidden="true">: </span><code>&quot;0.11.14&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">playwright</span><span aria-hidden="true">: </span><code>&quot;1.62.1&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">chromium</span><span aria-hidden="true">: </span><code>&quot;151.0.7922.34&quot;</code></li></ul></li></ul></section>
+<section class="json-section" aria-labelledby="machine-releasegates"><h2 id="machine-releasegates">release_gates</h2><ul class="json-tree"><li class="json-node" data-depth="0"><ol><li class="json-node" data-depth="1"><span class="json-key">0</span><ul><li class="json-leaf" data-depth="2"><span class="json-key">command</span><span aria-hidden="true">: </span><code>&quot;pnpm --dir packages/contracts check&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">exit_code</span><span aria-hidden="true">: </span><code>0</code></li><li class="json-leaf" data-depth="2"><span class="json-key">duration_seconds</span><span aria-hidden="true">: </span><code>0.95</code></li><li class="json-node" data-depth="2"><span class="json-key">counts</span><ul><li class="json-leaf" data-depth="3"><span class="json-key">generated_diffs</span><span aria-hidden="true">: </span><code>0</code></li></ul></li></ul></li><li class="json-node" data-depth="1"><span class="json-key">1</span><ul><li class="json-leaf" data-depth="2"><span class="json-key">command</span><span aria-hidden="true">: </span><code>&quot;uv --directory apps/api run ruff check app tests ../../evals&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">exit_code</span><span aria-hidden="true">: </span><code>0</code></li><li class="json-leaf" data-depth="2"><span class="json-key">duration_seconds</span><span aria-hidden="true">: </span><code>0.02</code></li><li class="json-leaf" data-depth="2"><span class="json-key">duration_source</span><span aria-hidden="true">: </span><code>&quot;/usr/bin/time -p real&quot;</code></li><li class="json-node" data-depth="2"><span class="json-key">raw_timing</span><ul><li class="json-leaf" data-depth="3"><span class="json-key">real_seconds</span><span aria-hidden="true">: </span><code>0.02</code></li><li class="json-leaf" data-depth="3"><span class="json-key">user_seconds</span><span aria-hidden="true">: </span><code>0.01</code></li><li class="json-leaf" data-depth="3"><span class="json-key">sys_seconds</span><span aria-hidden="true">: </span><code>0.01</code></li><li class="json-leaf" data-depth="3"><span class="json-key">resolution_seconds</span><span aria-hidden="true">: </span><code>0.01</code></li></ul></li><li class="json-node" data-depth="2"><span class="json-key">counts</span><ul><li class="json-leaf" data-depth="3"><span class="json-key">errors</span><span aria-hidden="true">: </span><code>0</code></li></ul></li></ul></li><li class="json-node" data-depth="1"><span class="json-key">2</span><ul><li class="json-leaf" data-depth="2"><span class="json-key">command</span><span aria-hidden="true">: </span><code>&quot;pnpm lint:web&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">exit_code</span><span aria-hidden="true">: </span><code>0</code></li><li class="json-leaf" data-depth="2"><span class="json-key">duration_seconds</span><span aria-hidden="true">: </span><code>2.84</code></li><li class="json-node" data-depth="2"><span class="json-key">counts</span><ul><li class="json-leaf" data-depth="3"><span class="json-key">errors</span><span aria-hidden="true">: </span><code>0</code></li><li class="json-leaf" data-depth="3"><span class="json-key">warnings</span><span aria-hidden="true">: </span><code>0</code></li></ul></li></ul></li><li class="json-node" data-depth="1"><span class="json-key">3</span><ul><li class="json-leaf" data-depth="2"><span class="json-key">command</span><span aria-hidden="true">: </span><code>&quot;pnpm check:layout&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">exit_code</span><span aria-hidden="true">: </span><code>0</code></li><li class="json-leaf" data-depth="2"><span class="json-key">duration_seconds</span><span aria-hidden="true">: </span><code>0.2</code></li><li class="json-leaf" data-depth="2"><span class="json-key">result</span><span aria-hidden="true">: </span><code>&quot;Foundation layout is valid&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">claim_boundary</span><span aria-hidden="true">: </span><code>&quot;Asset and layout-foundation gate only; not visual proof.&quot;</code></li></ul></li><li class="json-node" data-depth="1"><span class="json-key">4</span><ul><li class="json-leaf" data-depth="2"><span class="json-key">command</span><span aria-hidden="true">: </span><code>&quot;pnpm --dir apps/web build&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">exit_code</span><span aria-hidden="true">: </span><code>0</code></li><li class="json-leaf" data-depth="2"><span class="json-key">duration_seconds</span><span aria-hidden="true">: </span><code>4.04</code></li><li class="json-node" data-depth="2"><span class="json-key">counts</span><ul><li class="json-leaf" data-depth="3"><span class="json-key">static_routes</span><span aria-hidden="true">: </span><code>2</code></li><li class="json-leaf" data-depth="3"><span class="json-key">build_errors</span><span aria-hidden="true">: </span><code>0</code></li></ul></li><li class="json-node" data-depth="2"><span class="json-key">warnings</span><ol><li class="json-leaf" data-depth="3"><span class="json-key">0</span><span aria-hidden="true">: </span><code>&quot;Next.js emitted the existing multiple-lockfile workspace-root inference warning.&quot;</code></li></ol></li></ul></li><li class="json-node" data-depth="1"><span class="json-key">5</span><ul><li class="json-leaf" data-depth="2"><span class="json-key">command</span><span aria-hidden="true">: </span><code>&quot;git diff --exit-code -- packages/contracts/openapi.json packages/contracts/src/api.ts&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">exit_code</span><span aria-hidden="true">: </span><code>0</code></li><li class="json-leaf" data-depth="2"><span class="json-key">duration_seconds</span><span aria-hidden="true">: </span><code>0.01</code></li><li class="json-leaf" data-depth="2"><span class="json-key">duration_source</span><span aria-hidden="true">: </span><code>&quot;/usr/bin/time -p real&quot;</code></li><li class="json-node" data-depth="2"><span class="json-key">raw_timing</span><ul><li class="json-leaf" data-depth="3"><span class="json-key">real_seconds</span><span aria-hidden="true">: </span><code>0.01</code></li><li class="json-leaf" data-depth="3"><span class="json-key">user_seconds</span><span aria-hidden="true">: </span><code>0</code></li><li class="json-leaf" data-depth="3"><span class="json-key">sys_seconds</span><span aria-hidden="true">: </span><code>0</code></li><li class="json-leaf" data-depth="3"><span class="json-key">resolution_seconds</span><span aria-hidden="true">: </span><code>0.01</code></li></ul></li><li class="json-node" data-depth="2"><span class="json-key">counts</span><ul><li class="json-leaf" data-depth="3"><span class="json-key">changed_generated_contract_files</span><span aria-hidden="true">: </span><code>0</code></li></ul></li></ul></li><li class="json-node" data-depth="1"><span class="json-key">6</span><ul><li class="json-leaf" data-depth="2"><span class="json-key">command</span><span aria-hidden="true">: </span><code>&quot;uv --directory apps/api run pytest tests -q&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">exit_code</span><span aria-hidden="true">: </span><code>0</code></li><li class="json-leaf" data-depth="2"><span class="json-key">duration_seconds</span><span aria-hidden="true">: </span><code>3.19</code></li><li class="json-node" data-depth="2"><span class="json-key">counts</span><ul><li class="json-leaf" data-depth="3"><span class="json-key">collected</span><span aria-hidden="true">: </span><code>324</code></li><li class="json-leaf" data-depth="3"><span class="json-key">passed</span><span aria-hidden="true">: </span><code>324</code></li><li class="json-leaf" data-depth="3"><span class="json-key">failed</span><span aria-hidden="true">: </span><code>0</code></li><li class="json-leaf" data-depth="3"><span class="json-key">skipped</span><span aria-hidden="true">: </span><code>0</code></li><li class="json-leaf" data-depth="3"><span class="json-key">warnings</span><span aria-hidden="true">: </span><code>1</code></li></ul></li><li class="json-leaf" data-depth="2"><span class="json-key">duration_source</span><span aria-hidden="true">: </span><code>&quot;/usr/bin/time -p real&quot;</code></li></ul></li><li class="json-node" data-depth="1"><span class="json-key">7</span><ul><li class="json-leaf" data-depth="2"><span class="json-key">command</span><span aria-hidden="true">: </span><code>&quot;pnpm test:web&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">exit_code</span><span aria-hidden="true">: </span><code>0</code></li><li class="json-leaf" data-depth="2"><span class="json-key">duration_seconds</span><span aria-hidden="true">: </span><code>5.34</code></li><li class="json-node" data-depth="2"><span class="json-key">counts</span><ul><li class="json-leaf" data-depth="3"><span class="json-key">test_files</span><span aria-hidden="true">: </span><code>11</code></li><li class="json-leaf" data-depth="3"><span class="json-key">tests</span><span aria-hidden="true">: </span><code>281</code></li><li class="json-leaf" data-depth="3"><span class="json-key">passed</span><span aria-hidden="true">: </span><code>281</code></li><li class="json-leaf" data-depth="3"><span class="json-key">failed</span><span aria-hidden="true">: </span><code>0</code></li><li class="json-leaf" data-depth="3"><span class="json-key">skipped</span><span aria-hidden="true">: </span><code>0</code></li></ul></li><li class="json-leaf" data-depth="2"><span class="json-key">duration_source</span><span aria-hidden="true">: </span><code>&quot;/usr/bin/time -p real&quot;</code></li></ul></li><li class="json-node" data-depth="1"><span class="json-key">8</span><ul><li class="json-leaf" data-depth="2"><span class="json-key">command</span><span aria-hidden="true">: </span><code>&quot;pnpm test:e2e&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">exit_code</span><span aria-hidden="true">: </span><code>0</code></li><li class="json-leaf" data-depth="2"><span class="json-key">duration_seconds</span><span aria-hidden="true">: </span><code>31.41</code></li><li class="json-node" data-depth="2"><span class="json-key">counts</span><ul><li class="json-leaf" data-depth="3"><span class="json-key">collected</span><span aria-hidden="true">: </span><code>70</code></li><li class="json-leaf" data-depth="3"><span class="json-key">passed</span><span aria-hidden="true">: </span><code>39</code></li><li class="json-leaf" data-depth="3"><span class="json-key">failed</span><span aria-hidden="true">: </span><code>0</code></li><li class="json-leaf" data-depth="3"><span class="json-key">skipped</span><span aria-hidden="true">: </span><code>31</code></li><li class="json-leaf" data-depth="3"><span class="json-key">chat_first_passed</span><span aria-hidden="true">: </span><code>13</code></li><li class="json-leaf" data-depth="3"><span class="json-key">foundation_guide_passed</span><span aria-hidden="true">: </span><code>4</code></li><li class="json-leaf" data-depth="3"><span class="json-key">pdp_focus_passed</span><span aria-hidden="true">: </span><code>6</code></li><li class="json-leaf" data-depth="3"><span class="json-key">commerce_journeys_passed</span><span aria-hidden="true">: </span><code>8</code></li><li class="json-leaf" data-depth="3"><span class="json-key">responsive_passed</span><span aria-hidden="true">: </span><code>8</code></li></ul></li><li class="json-leaf" data-depth="2"><span class="json-key">skip_policy</span><span aria-hidden="true">: </span><code>&quot;All 31 skips are explicit project or opt-in-capture routing; no failure was converted to a skip.&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">duration_source</span><span aria-hidden="true">: </span><code>&quot;/usr/bin/time -p real&quot;</code></li></ul></li><li class="json-node" data-depth="1"><span class="json-key">9</span><ul><li class="json-leaf" data-depth="2"><span class="json-key">command</span><span aria-hidden="true">: </span><code>&quot;uv --directory apps/api run pytest tests/eval/test_foundation_eval.py -q&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">exit_code</span><span aria-hidden="true">: </span><code>0</code></li><li class="json-leaf" data-depth="2"><span class="json-key">duration_seconds</span><span aria-hidden="true">: </span><code>0.46</code></li><li class="json-node" data-depth="2"><span class="json-key">counts</span><ul><li class="json-leaf" data-depth="3"><span class="json-key">collected</span><span aria-hidden="true">: </span><code>15</code></li><li class="json-leaf" data-depth="3"><span class="json-key">passed</span><span aria-hidden="true">: </span><code>15</code></li><li class="json-leaf" data-depth="3"><span class="json-key">failed</span><span aria-hidden="true">: </span><code>0</code></li><li class="json-leaf" data-depth="3"><span class="json-key">skipped</span><span aria-hidden="true">: </span><code>0</code></li><li class="json-leaf" data-depth="3"><span class="json-key">warnings</span><span aria-hidden="true">: </span><code>1</code></li></ul></li><li class="json-leaf" data-depth="2"><span class="json-key">duration_source</span><span aria-hidden="true">: </span><code>&quot;/usr/bin/time -p real&quot;</code></li></ul></li><li class="json-node" data-depth="1"><span class="json-key">10</span><ul><li class="json-leaf" data-depth="2"><span class="json-key">command</span><span aria-hidden="true">: </span><code>&quot;uv --directory apps/api run python ../../evals/run_foundation.py&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">exit_code</span><span aria-hidden="true">: </span><code>0</code></li><li class="json-leaf" data-depth="2"><span class="json-key">duration_seconds</span><span aria-hidden="true">: </span><code>0.23</code></li><li class="json-node" data-depth="2"><span class="json-key">counts</span><ul><li class="json-leaf" data-depth="3"><span class="json-key">total</span><span aria-hidden="true">: </span><code>6</code></li><li class="json-leaf" data-depth="3"><span class="json-key">passed</span><span aria-hidden="true">: </span><code>6</code></li><li class="json-leaf" data-depth="3"><span class="json-key">failed</span><span aria-hidden="true">: </span><code>0</code></li></ul></li><li class="json-leaf" data-depth="2"><span class="json-key">pass_rate</span><span aria-hidden="true">: </span><code>1</code></li><li class="json-leaf" data-depth="2"><span class="json-key">scorer</span><span aria-hidden="true">: </span><code>&quot;deterministic_rule_scorer&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">llm_judge</span><span aria-hidden="true">: </span><code>false</code></li><li class="json-leaf" data-depth="2"><span class="json-key">duration_source</span><span aria-hidden="true">: </span><code>&quot;/usr/bin/time -p real&quot;</code></li></ul></li></ol></li></ul></section>
+<section class="json-section" aria-labelledby="machine-formalbrowserevidence"><h2 id="machine-formalbrowserevidence">formal_browser_evidence</h2><ul class="json-tree"><li class="json-node" data-depth="0"><ul><li class="json-leaf" data-depth="1"><span class="json-key">capture_command</span><span aria-hidden="true">: </span><code>&quot;CAPTURE_CHAT_FIRST_EVIDENCE=1 pnpm test:e2e&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">capture_source</span><span aria-hidden="true">: </span><code>&quot;Task 11 formal production capture run exactly once after the accepted second full release gate on the same clean final source tree.&quot;</code></li><li class="json-node" data-depth="1"><span class="json-key">counts</span><ul><li class="json-leaf" data-depth="2"><span class="json-key">collected</span><span aria-hidden="true">: </span><code>70</code></li><li class="json-leaf" data-depth="2"><span class="json-key">passed</span><span aria-hidden="true">: </span><code>42</code></li><li class="json-leaf" data-depth="2"><span class="json-key">failed</span><span aria-hidden="true">: </span><code>0</code></li><li class="json-leaf" data-depth="2"><span class="json-key">skipped</span><span aria-hidden="true">: </span><code>28</code></li><li class="json-leaf" data-depth="2"><span class="json-key">capture_tests_enabled</span><span aria-hidden="true">: </span><code>3</code></li></ul></li><li class="json-leaf" data-depth="1"><span class="json-key">duration_seconds</span><span aria-hidden="true">: </span><code>33.13</code></li><li class="json-leaf" data-depth="1"><span class="json-key">duration_source</span><span aria-hidden="true">: </span><code>&quot;/usr/bin/time -p real&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">web_mode</span><span aria-hidden="true">: </span><code>&quot;next build &amp;&amp; next start&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">api_mode</span><span aria-hidden="true">: </span><code>&quot;uvicorn --no-access-log --workers 1&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">browser</span><span aria-hidden="true">: </span><code>&quot;Chromium&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">workers</span><span aria-hidden="true">: </span><code>1</code></li><li class="json-leaf" data-depth="1"><span class="json-key">fully_parallel</span><span aria-hidden="true">: </span><code>false</code></li><li class="json-leaf" data-depth="1"><span class="json-key">reuse_existing_server</span><span aria-hidden="true">: </span><code>false</code></li><li class="json-leaf" data-depth="1"><span class="json-key">trace</span><span aria-hidden="true">: </span><code>&quot;off&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">fixed_browser_time</span><span aria-hidden="true">: </span><code>&quot;2026-08-10T12:00:00Z&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">font_ready_wait</span><span aria-hidden="true">: </span><code>true</code></li><li class="json-leaf" data-depth="1"><span class="json-key">videos_paused_and_seeked</span><span aria-hidden="true">: </span><code>true</code></li><li class="json-leaf" data-depth="1"><span class="json-key">motion_and_caret_disabled</span><span aria-hidden="true">: </span><code>true</code></li><li class="json-node" data-depth="1"><span class="json-key">viewports</span><ol><li class="json-node" data-depth="2"><span class="json-key">0</span><ul><li class="json-leaf" data-depth="3"><span class="json-key">project</span><span aria-hidden="true">: </span><code>&quot;mobile-chromium&quot;</code></li><li class="json-leaf" data-depth="3"><span class="json-key">width</span><span aria-hidden="true">: </span><code>390</code></li><li class="json-leaf" data-depth="3"><span class="json-key">height</span><span aria-hidden="true">: </span><code>844</code></li></ul></li><li class="json-node" data-depth="2"><span class="json-key">1</span><ul><li class="json-leaf" data-depth="3"><span class="json-key">project</span><span aria-hidden="true">: </span><code>&quot;desktop-interview&quot;</code></li><li class="json-leaf" data-depth="3"><span class="json-key">width</span><span aria-hidden="true">: </span><code>1440</code></li><li class="json-leaf" data-depth="3"><span class="json-key">height</span><span aria-hidden="true">: </span><code>1000</code></li></ul></li></ol></li></ul></li></ul></section>
+<section class="json-section" aria-labelledby="machine-inputsha256"><h2 id="machine-inputsha256">input_sha256</h2><ul class="json-tree"><li class="json-node" data-depth="0"><ul><li class="json-leaf" data-depth="1"><span class="json-key">data/fixtures/products.json</span><span aria-hidden="true">: </span><code>&quot;32bddb748791e78f17c04ae6106ecd059b47ed6289e02762c45a665c10424361&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">data/fixtures/content-contexts.json</span><span aria-hidden="true">: </span><code>&quot;756fb06bf7d9172c7a45db19be324c5f8782167c2e9b5fd53ab5988111b7b548&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">data/fixtures/evidence.json</span><span aria-hidden="true">: </span><code>&quot;520990ebabca72a5818fa21ceb1d45fe95f33a748b3c0da69fe291aed5a961e6&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">evals/cases/foundation-cases.jsonl</span><span aria-hidden="true">: </span><code>&quot;e4ce5c660dd584c967491ccb291258634b539ce0abd93705a6e585148a6bc087&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">evals/run_foundation.py</span><span aria-hidden="true">: </span><code>&quot;8654fc8142c72cd4756e72a885fb0830d791351d13fc1abf5cd79889a15d24c4&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">packages/contracts/openapi.json</span><span aria-hidden="true">: </span><code>&quot;84c6c3513f6d288ec47fed16de1b5130a8aa9a9c840436e742d0d5860deeccdf&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">packages/contracts/src/api.ts</span><span aria-hidden="true">: </span><code>&quot;955a875d894a5a0b22891455783d47852987778385c33ece893df835616c6e39&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">apps/api/tests/component/test_trace_coverage.py</span><span aria-hidden="true">: </span><code>&quot;26612a6e58eb9a7732bbc874eda26e76dad1b487633f00c71c734b82baa37e78&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">apps/web/e2e/chat-first.spec.ts</span><span aria-hidden="true">: </span><code>&quot;a3b2c6a481e886a37d259c33c662bdfbd498b5640bb5e8773be52ad0545a6ce9&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">apps/web/e2e/tiktok-demo.spec.ts</span><span aria-hidden="true">: </span><code>&quot;486f3f39a672c0d18ac67cee25811a979f47301717d2567a2b4bbba5e5d07c77&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">apps/web/e2e/tiktok-responsive.spec.ts</span><span aria-hidden="true">: </span><code>&quot;13a4c2219fb9917a94d710d7b74d1701d03fce75df447c50ac9896c88ae17dbe&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">apps/web/playwright.config.ts</span><span aria-hidden="true">: </span><code>&quot;4a5c2e7c2bada25314eeacb1575d6cbab6989b55ab46acf12b96597db351b307&quot;</code></li></ul></li></ul></section>
+<section class="json-section" aria-labelledby="machine-fixturesummary"><h2 id="machine-fixturesummary">fixture_summary</h2><ul class="json-tree"><li class="json-node" data-depth="0"><ul><li class="json-leaf" data-depth="1"><span class="json-key">spu</span><span aria-hidden="true">: </span><code>3</code></li><li class="json-leaf" data-depth="1"><span class="json-key">sku</span><span aria-hidden="true">: </span><code>6</code></li><li class="json-leaf" data-depth="1"><span class="json-key">content_contexts</span><span aria-hidden="true">: </span><code>1</code></li><li class="json-leaf" data-depth="1"><span class="json-key">evidence_documents</span><span aria-hidden="true">: </span><code>3</code></li><li class="json-leaf" data-depth="1"><span class="json-key">foundation_cases</span><span aria-hidden="true">: </span><code>6</code></li><li class="json-leaf" data-depth="1"><span class="json-key">synthetic_product_content_and_comment_data</span><span aria-hidden="true">: </span><code>true</code></li></ul></li></ul></section>
+<section class="json-section" aria-labelledby="machine-screenshots"><h2 id="machine-screenshots">screenshots</h2><ul class="json-tree"><li class="json-node" data-depth="0"><ol><li class="json-node" data-depth="1"><span class="json-key">0</span><ul><li class="json-leaf" data-depth="2"><span class="json-key">path</span><span aria-hidden="true">: </span><code>&quot;artifacts/screenshots/chat-first-opening-mobile.png&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">width</span><span aria-hidden="true">: </span><code>390</code></li><li class="json-leaf" data-depth="2"><span class="json-key">height</span><span aria-hidden="true">: </span><code>844</code></li><li class="json-leaf" data-depth="2"><span class="json-key">bytes</span><span aria-hidden="true">: </span><code>223333</code></li><li class="json-leaf" data-depth="2"><span class="json-key">sha256</span><span aria-hidden="true">: </span><code>&quot;670297d95460415b75c60761b437934f179cc5b5b383f26e1936b4a3fbabc17a&quot;</code></li></ul></li><li class="json-node" data-depth="1"><span class="json-key">1</span><ul><li class="json-leaf" data-depth="2"><span class="json-key">path</span><span aria-hidden="true">: </span><code>&quot;artifacts/screenshots/chat-first-decision-mobile.png&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">width</span><span aria-hidden="true">: </span><code>390</code></li><li class="json-leaf" data-depth="2"><span class="json-key">height</span><span aria-hidden="true">: </span><code>844</code></li><li class="json-leaf" data-depth="2"><span class="json-key">bytes</span><span aria-hidden="true">: </span><code>242594</code></li><li class="json-leaf" data-depth="2"><span class="json-key">sha256</span><span aria-hidden="true">: </span><code>&quot;bcfd411c0e3d47629f02eb975d1d701b6aeed7f4247af9c01b11371977cd97ae&quot;</code></li></ul></li><li class="json-node" data-depth="1"><span class="json-key">2</span><ul><li class="json-leaf" data-depth="2"><span class="json-key">path</span><span aria-hidden="true">: </span><code>&quot;artifacts/screenshots/chat-first-desktop.png&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">width</span><span aria-hidden="true">: </span><code>1440</code></li><li class="json-leaf" data-depth="2"><span class="json-key">height</span><span aria-hidden="true">: </span><code>1000</code></li><li class="json-leaf" data-depth="2"><span class="json-key">bytes</span><span aria-hidden="true">: </span><code>719968</code></li><li class="json-leaf" data-depth="2"><span class="json-key">sha256</span><span aria-hidden="true">: </span><code>&quot;1dec9a3819a408c1c89bf26cfac146d8e062f52bb1d13ae786faa65e13902abd&quot;</code></li></ul></li></ol></li></ul></section>
+<section class="json-section" aria-labelledby="machine-screenshotdeltafromprereviewcanonical"><h2 id="machine-screenshotdeltafromprereviewcanonical">screenshot_delta_from_pre_review_canonical</h2><ul class="json-tree"><li class="json-node" data-depth="0"><ol><li class="json-node" data-depth="1"><span class="json-key">0</span><ul><li class="json-leaf" data-depth="2"><span class="json-key">path</span><span aria-hidden="true">: </span><code>&quot;artifacts/screenshots/chat-first-opening-mobile.png&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">changed_pixels</span><span aria-hidden="true">: </span><code>1022</code></li><li class="json-leaf" data-depth="2"><span class="json-key">total_pixels</span><span aria-hidden="true">: </span><code>329160</code></li><li class="json-leaf" data-depth="2"><span class="json-key">changed_ratio</span><span aria-hidden="true">: </span><code>0.0031</code></li><li class="json-node" data-depth="2"><span class="json-key">bounding_box_xyxy</span><ol><li class="json-leaf" data-depth="3"><span class="json-key">0</span><span aria-hidden="true">: </span><code>10</code></li><li class="json-leaf" data-depth="3"><span class="json-key">1</span><span aria-hidden="true">: </span><code>26</code></li><li class="json-leaf" data-depth="3"><span class="json-key">2</span><span aria-hidden="true">: </span><code>62</code></li><li class="json-leaf" data-depth="3"><span class="json-key">3</span><span aria-hidden="true">: </span><code>47</code></li></ol></li><li class="json-leaf" data-depth="2"><span class="json-key">observation</span><span aria-hidden="true">: </span><code>&quot;Only the status-clock rasterization region changed; the opening composition is otherwise stable.&quot;</code></li></ul></li><li class="json-node" data-depth="1"><span class="json-key">1</span><ul><li class="json-leaf" data-depth="2"><span class="json-key">path</span><span aria-hidden="true">: </span><code>&quot;artifacts/screenshots/chat-first-decision-mobile.png&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">changed_pixels</span><span aria-hidden="true">: </span><code>52999</code></li><li class="json-leaf" data-depth="2"><span class="json-key">total_pixels</span><span aria-hidden="true">: </span><code>329160</code></li><li class="json-leaf" data-depth="2"><span class="json-key">changed_ratio</span><span aria-hidden="true">: </span><code>0.161</code></li><li class="json-node" data-depth="2"><span class="json-key">bounding_box_xyxy</span><ol><li class="json-leaf" data-depth="3"><span class="json-key">0</span><span aria-hidden="true">: </span><code>2</code></li><li class="json-leaf" data-depth="3"><span class="json-key">1</span><span aria-hidden="true">: </span><code>26</code></li><li class="json-leaf" data-depth="3"><span class="json-key">2</span><span aria-hidden="true">: </span><code>388</code></li><li class="json-leaf" data-depth="3"><span class="json-key">3</span><span aria-hidden="true">: </span><code>734</code></li></ol></li><li class="json-leaf" data-depth="2"><span class="json-key">observation</span><span aria-hidden="true">: </span><code>&quot;Expected hierarchy, localized card copy, and duplicate-disclosure removal changes; the conclusion is fully visible before the card.&quot;</code></li></ul></li><li class="json-node" data-depth="1"><span class="json-key">2</span><ul><li class="json-leaf" data-depth="2"><span class="json-key">path</span><span aria-hidden="true">: </span><code>&quot;artifacts/screenshots/chat-first-desktop.png&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">changed_pixels</span><span aria-hidden="true">: </span><code>316540</code></li><li class="json-leaf" data-depth="2"><span class="json-key">total_pixels</span><span aria-hidden="true">: </span><code>1440000</code></li><li class="json-leaf" data-depth="2"><span class="json-key">changed_ratio</span><span aria-hidden="true">: </span><code>0.2198</code></li><li class="json-node" data-depth="2"><span class="json-key">bounding_box_xyxy</span><ol><li class="json-leaf" data-depth="3"><span class="json-key">0</span><span aria-hidden="true">: </span><code>311</code></li><li class="json-leaf" data-depth="3"><span class="json-key">1</span><span aria-hidden="true">: </span><code>105</code></li><li class="json-leaf" data-depth="3"><span class="json-key">2</span><span aria-hidden="true">: </span><code>1189</code></li><li class="json-leaf" data-depth="3"><span class="json-key">3</span><span aria-hidden="true">: </span><code>937</code></li></ol></li><li class="json-leaf" data-depth="2"><span class="json-key">observation</span><span aria-hidden="true">: </span><code>&quot;Expected phone decision hierarchy and simplified walkthrough-panel changes; the live phone remains primary.&quot;</code></li></ul></li></ol></li></ul></section>
+<section class="json-section" aria-labelledby="machine-artifactandprivacychecks"><h2 id="machine-artifactandprivacychecks">artifact_and_privacy_checks</h2><ul class="json-tree"><li class="json-node" data-depth="0"><ul><li class="json-leaf" data-depth="1"><span class="json-key">new_screenshots_nonempty</span><span aria-hidden="true">: </span><code>true</code></li><li class="json-leaf" data-depth="1"><span class="json-key">screenshot_dimensions_match_contract</span><span aria-hidden="true">: </span><code>true</code></li><li class="json-leaf" data-depth="1"><span class="json-key">tracked_unlabeled_credential_shaped_assignments_found</span><span aria-hidden="true">: </span><code>0</code></li><li class="json-leaf" data-depth="1"><span class="json-key">retained_artifact_unlabeled_runtime_generated_value_matches</span><span aria-hidden="true">: </span><code>0</code></li><li class="json-leaf" data-depth="1"><span class="json-key">retained_artifact_raw_health_matches</span><span aria-hidden="true">: </span><code>0</code></li><li class="json-leaf" data-depth="1"><span class="json-key">retained_artifact_client_message_id_value_matches</span><span aria-hidden="true">: </span><code>0</code></li><li class="json-leaf" data-depth="1"><span class="json-key">retained_artifact_chain_of_thought_value_matches</span><span aria-hidden="true">: </span><code>0</code></li><li class="json-node" data-depth="1"><span class="json-key">explicit_synthetic_constants</span><ol><li class="json-node" data-depth="2"><span class="json-key">0</span><ul><li class="json-leaf" data-depth="3"><span class="json-key">location</span><span aria-hidden="true">: </span><code>&quot;apps/web/e2e/tiktok-responsive.spec.ts&quot;</code></li><li class="json-leaf" data-depth="3"><span class="json-key">example</span><span aria-hidden="true">: </span><code>&quot;cft_e2e_text_resize&quot;</code></li><li class="json-leaf" data-depth="3"><span class="json-key">label</span><span aria-hidden="true">: </span><code>&quot;synthetic E2E confirmation-token fixture; not a runtime credential&quot;</code></li></ul></li><li class="json-node" data-depth="2"><span class="json-key">1</span><ul><li class="json-leaf" data-depth="3"><span class="json-key">location</span><span aria-hidden="true">: </span><code>&quot;apps/api/tests/api/test_commerce_api.py and apps/api/tests/component/test_commerce_service.py&quot;</code></li><li class="json-leaf" data-depth="3"><span class="json-key">example</span><span aria-hidden="true">: </span><code>&quot;idem_*&quot;</code></li><li class="json-leaf" data-depth="3"><span class="json-key">label</span><span aria-hidden="true">: </span><code>&quot;synthetic idempotency test constants; not captured runtime operation identifiers&quot;</code></li></ul></li><li class="json-node" data-depth="2"><span class="json-key">2</span><ul><li class="json-leaf" data-depth="3"><span class="json-key">location</span><span aria-hidden="true">: </span><code>&quot;apps/web/src/test/api-client.test.ts&quot;</code></li><li class="json-leaf" data-depth="3"><span class="json-key">example</span><span aria-hidden="true">: </span><code>&quot;syntheticConfirmation&quot;</code></li><li class="json-leaf" data-depth="3"><span class="json-key">label</span><span aria-hidden="true">: </span><code>&quot;explicitly named synthetic unit-test value; not a runtime credential&quot;</code></li></ul></li><li class="json-node" data-depth="2"><span class="json-key">3</span><ul><li class="json-leaf" data-depth="3"><span class="json-key">location</span><span aria-hidden="true">: </span><code>&quot;apps/api/tests/component/test_trace_coverage.py&quot;</code></li><li class="json-leaf" data-depth="3"><span class="json-key">example</span><span aria-hidden="true">: </span><code>&quot;secret=customer@example.com and secret=do-not-persist-this&quot;</code></li><li class="json-leaf" data-depth="3"><span class="json-key">label</span><span aria-hidden="true">: </span><code>&quot;explicit synthetic privacy-rejection fixtures that assert caller-controlled and exception text is not retained; not credentials&quot;</code></li></ul></li></ol></li><li class="json-leaf" data-depth="1"><span class="json-key">limitation</span><span aria-hidden="true">: </span><code>&quot;Field names and explicit synthetic urgent-health/privacy-rejection fixtures remain in test source by design. The zero raw-health-text claim applies only to retained runtime artifacts, not those source fixtures; other zero-match claims apply to retained artifacts and credential-shaped value assignments, not schema identifiers or labeled synthetic constants.&quot;</code></li></ul></li></ul></section>
+<section class="json-section" aria-labelledby="machine-evidenceartifacts"><h2 id="machine-evidenceartifacts">evidence_artifacts</h2><ul class="json-tree"><li class="json-node" data-depth="0"><ul><li class="json-leaf" data-depth="1"><span class="json-key">artifacts/evidence/chat-first-verification.md</span><span aria-hidden="true">: </span><code>&quot;a8fc9fcda4a21c3997dd82c6e86378948b47827ec4737dfdb4080cfcb2ad60ec&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">.superpowers/sdd/2026-08-10-chat-first-lightweight-guide/task-11-report.md</span><span aria-hidden="true">: </span><code>&quot;b3914a2f198bf3cecd6adba488d01e20eda694dc67b1a69c249705822d48480a&quot;</code></li></ul></li></ul></section>
+<section class="json-section" aria-labelledby="machine-verificationhistory"><h2 id="machine-verificationhistory">verification_history</h2><ul class="json-tree"><li class="json-node" data-depth="0"><ol><li class="json-node" data-depth="1"><span class="json-key">0</span><ul><li class="json-leaf" data-depth="2"><span class="json-key">stage</span><span aria-hidden="true">: </span><code>&quot;initial_task_9_release&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">source_commit</span><span aria-hidden="true">: </span><code>&quot;add3f885fd0f70a979507c3de795bdc2f6bd1e3c&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">result</span><span aria-hidden="true">: </span><code>&quot;39 passed, 31 routed skips, 0 failed&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">note</span><span aria-hidden="true">: </span><code>&quot;The first full release run was green, but a later finishing rerun exposed a readiness race, so this result was not accepted as final stability evidence.&quot;</code></li></ul></li><li class="json-node" data-depth="1"><span class="json-key">1</span><ul><li class="json-leaf" data-depth="2"><span class="json-key">stage</span><span aria-hidden="true">: </span><code>&quot;finishing_rerun_1&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">source_commit</span><span aria-hidden="true">: </span><code>&quot;c13b38b&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">result</span><span aria-hidden="true">: </span><code>&quot;38 passed, 31 routed skips, 1 failed&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">failure</span><span aria-hidden="true">: </span><code>&quot;Reduced-motion focus test dispatched Shift+Tab or Escape while the loading close button was being replaced by the final GuideChatView button; an immediate focused rerun also failed.&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">disposition</span><span aria-hidden="true">: </span><code>&quot;Task 9 stopped and routed the non-owned E2E readiness race to Task 8.&quot;</code></li></ul></li><li class="json-node" data-depth="1"><span class="json-key">2</span><ul><li class="json-leaf" data-depth="2"><span class="json-key">stage</span><span aria-hidden="true">: </span><code>&quot;task_8_fix_round_2&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">source_commit</span><span aria-hidden="true">: </span><code>&quot;c5d28aec26246e83eea96c987e4d359f82fe2e0a&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">red_repeat_50</span><span aria-hidden="true">: </span><code>&quot;46 passed, 4 failed&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">green_repeat_50</span><span aria-hidden="true">: </span><code>&quot;50 passed, 0 failed&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">result</span><span aria-hidden="true">: </span><code>&quot;Independent scoped review CLEAN&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">note</span><span aria-hidden="true">: </span><code>&quot;The reduced-motion test began waiting for authoritative 201 / OPENING_CONTEXT and the final opening UI before keyboard assertions.&quot;</code></li></ul></li><li class="json-node" data-depth="1"><span class="json-key">3</span><ul><li class="json-leaf" data-depth="2"><span class="json-key">stage</span><span aria-hidden="true">: </span><code>&quot;task_9_refresh_attempt_1&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">source_commit</span><span aria-hidden="true">: </span><code>&quot;c5d28aec26246e83eea96c987e4d359f82fe2e0a&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">result</span><span aria-hidden="true">: </span><code>&quot;37 passed, 31 routed skips, 2 failed&quot;</code></li><li class="json-node" data-depth="2"><span class="json-key">failures</span><ol><li class="json-leaf" data-depth="3"><span class="json-key">0</span><span aria-hidden="true">: </span><code>&quot;320x700 at 200 percent: composer bounding box was null during loading-to-final replacement.&quot;</code></li><li class="json-leaf" data-depth="3"><span class="json-key">1</span><span aria-hidden="true">: </span><code>&quot;Responsive desktop-frame path: Escape was dispatched before the final Guide dialog was authoritative.&quot;</code></li></ol></li><li class="json-leaf" data-depth="2"><span class="json-key">disposition</span><span aria-hidden="true">: </span><code>&quot;Task 9 stopped without retrying for green and routed both non-owned readiness races to Task 8.&quot;</code></li></ul></li><li class="json-node" data-depth="1"><span class="json-key">4</span><ul><li class="json-leaf" data-depth="2"><span class="json-key">stage</span><span aria-hidden="true">: </span><code>&quot;task_8_fix_round_3&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">source_commit</span><span aria-hidden="true">: </span><code>&quot;46606d36ae1a046f1e0edd601ae0ccbcbd6ce7b9&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">interleaved_stability</span><span aria-hidden="true">: </span><code>&quot;150 passed, 0 failed across the two newly exposed scenarios and reduced-motion focus path&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">full_non_capture</span><span aria-hidden="true">: </span><code>&quot;39 passed, 31 routed skips, 0 failed&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">production_capture</span><span aria-hidden="true">: </span><code>&quot;42 passed, 28 routed skips, 0 failed&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">result</span><span aria-hidden="true">: </span><code>&quot;Independent scoped review CLEAN&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">note</span><span aria-hidden="true">: </span><code>&quot;Shared helpers now wait for authoritative session readiness and final UI/focus commit. Product behavior did not change.&quot;</code></li></ul></li><li class="json-node" data-depth="1"><span class="json-key">5</span><ul><li class="json-leaf" data-depth="2"><span class="json-key">stage</span><span aria-hidden="true">: </span><code>&quot;final_task_9_release&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">source_commit</span><span aria-hidden="true">: </span><code>&quot;46606d36ae1a046f1e0edd601ae0ccbcbd6ce7b9&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">result</span><span aria-hidden="true">: </span><code>&quot;All 11 release gates exited 0; full E2E 39 passed, 31 routed skips, 0 failed&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">accepted_as_final_at_stage</span><span aria-hidden="true">: </span><code>true</code></li><li class="json-leaf" data-depth="2"><span class="json-key">superseded_by</span><span aria-hidden="true">: </span><code>&quot;task_11_final_release&quot;</code></li></ul></li><li class="json-node" data-depth="1"><span class="json-key">6</span><ul><li class="json-leaf" data-depth="2"><span class="json-key">stage</span><span aria-hidden="true">: </span><code>&quot;task_11_first_full_gate_attempt&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">source_commit</span><span aria-hidden="true">: </span><code>&quot;0228819d6180846ba9a8c29b8f25c1fd83d454c2&quot;</code></li><li class="json-node" data-depth="2"><span class="json-key">passed_before_failure</span><ol><li class="json-leaf" data-depth="3"><span class="json-key">0</span><span aria-hidden="true">: </span><code>&quot;contracts&quot;</code></li><li class="json-leaf" data-depth="3"><span class="json-key">1</span><span aria-hidden="true">: </span><code>&quot;ruff&quot;</code></li><li class="json-leaf" data-depth="3"><span class="json-key">2</span><span aria-hidden="true">: </span><code>&quot;web_lint&quot;</code></li><li class="json-leaf" data-depth="3"><span class="json-key">3</span><span aria-hidden="true">: </span><code>&quot;layout_foundation&quot;</code></li><li class="json-leaf" data-depth="3"><span class="json-key">4</span><span aria-hidden="true">: </span><code>&quot;web_build&quot;</code></li><li class="json-leaf" data-depth="3"><span class="json-key">5</span><span aria-hidden="true">: </span><code>&quot;generated_contract_integrity&quot;</code></li></ol></li><li class="json-leaf" data-depth="2"><span class="json-key">result</span><span aria-hidden="true">: </span><code>&quot;Full API stopped at 323 passed, 1 failed; no Web, E2E, eval, or capture gate followed.&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">failure</span><span aria-hidden="true">: </span><code>&quot;The golden trace test bypassed GuideService and therefore never committed latest_response, so current-snapshot legacy cart authorization correctly rejected preview.&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">disposition</span><span aria-hidden="true">: </span><code>&quot;Retained as a legitimate oracle-harness finding, not hidden as a retry-to-green.&quot;</code></li></ul></li><li class="json-node" data-depth="1"><span class="json-key">7</span><ul><li class="json-leaf" data-depth="2"><span class="json-key">stage</span><span aria-hidden="true">: </span><code>&quot;task_11_trace_harness_correction&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">source_commit</span><span aria-hidden="true">: </span><code>&quot;659596537efe7bd7a879aeb3b49bee17b01f5e73&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">focused_result</span><span aria-hidden="true">: </span><code>&quot;Golden trace 1/1; affected trace plus legacy cart 61/61.&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">note</span><span aria-hidden="true">: </span><code>&quot;Only the test harness moved to public GuideService.create/message; engine, repository, cart, events, trace ordering, and privacy assertions remained real, with no mock or manual snapshot assignment.&quot;</code></li></ul></li><li class="json-node" data-depth="1"><span class="json-key">8</span><ul><li class="json-leaf" data-depth="2"><span class="json-key">stage</span><span aria-hidden="true">: </span><code>&quot;task_11_final_release&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">source_commit</span><span aria-hidden="true">: </span><code>&quot;659596537efe7bd7a879aeb3b49bee17b01f5e73&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">result</span><span aria-hidden="true">: </span><code>&quot;All 11 release gates exited 0; API 324/324; Web 281/281; full E2E 39 passed, 31 routed skips, 0 failed; production capture 42/28/0.&quot;</code></li><li class="json-leaf" data-depth="2"><span class="json-key">accepted_as_final</span><span aria-hidden="true">: </span><code>true</code></li></ul></li></ol></li></ul></section>
+<section class="json-section" aria-labelledby="machine-knownlimitations"><h2 id="machine-knownlimitations">known_limitations</h2><ul class="json-tree"><li class="json-node" data-depth="0"><ol><li class="json-leaf" data-depth="1"><span class="json-key">0</span><span aria-hidden="true">: </span><code>&quot;The product, brand, creator, content, comment, price, inventory, and cart data are frozen synthetic fixtures.&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">1</span><span aria-hidden="true">: </span><code>&quot;No real LLM, embedding model, vector index, Hybrid RAG, reranker, or LLM judge is used.&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">2</span><span aria-hidden="true">: </span><code>&quot;The 6/6 evaluation result applies only to six frozen deterministic cases and is not a real recommendation-quality score.&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">3</span><span aria-hidden="true">: </span><code>&quot;Browser evidence is local Chromium only. It is not cross-browser certification, a user study, or production reliability evidence.&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">4</span><span aria-hidden="true">: </span><code>&quot;CSS safe-area variables and nominal containment are covered, but no real iOS device with nonzero notch or home-indicator insets was exercised.&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">5</span><span aria-hidden="true">: </span><code>&quot;The Sheet has no drag interaction or drag affordance; no fake handle is shown.&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">6</span><span aria-hidden="true">: </span><code>&quot;The opening retains a noticeable whitespace gap between the assistant prompt and quick replies.&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">7</span><span aria-hidden="true">: </span><code>&quot;The in-memory Guide session does not survive an API process restart and provides no production authentication or durable persistence model.&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">8</span><span aria-hidden="true">: </span><code>&quot;No conversion, trust, task-completion, latency, cost, uptime, business-impact, payment, order, or fulfillment claim is supported.&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">9</span><span aria-hidden="true">: </span><code>&quot;The idempotency key remains in the reconciliation URL; local evidence disables access logs, but productionization must prevent proxy or access-log retention.&quot;</code></li><li class="json-leaf" data-depth="1"><span class="json-key">10</span><span aria-hidden="true">: </span><code>&quot;Next.js still emits the known multiple-lockfile workspace-root warning, and dev E2E still emits the known one-dimension image warning.&quot;</code></li></ol></li></ul></section>
+<details class="json-raw"><summary>查看格式化 JSON 原文</summary><pre><code class="language-json">{
+  &quot;schema_version&quot;: 1,
+  &quot;evidence_id&quot;: &quot;chat-first-lightweight-guide-local-release-2026-08-10&quot;,
+  &quot;captured_at_utc&quot;: &quot;2026-08-10T18:32:29Z&quot;,
+  &quot;source&quot;: {
+    &quot;commit&quot;: &quot;659596537efe7bd7a879aeb3b49bee17b01f5e73&quot;,
+    &quot;branch&quot;: &quot;codex/chat-first-lightweight-guide&quot;,
+    &quot;dirty_before_release_gates&quot;: false,
+    &quot;declaration&quot;: &quot;The accepted second Task 9 release gate and the sole production capture began from a clean worktree at this source commit. Retained-artifact scans ran after capture outputs existed and before the evidence commit. This manifest, the human report, screenshots, README/PLAN/TASKS, and Task 11 report are evidence outputs and are not part of the source commit under test.&quot;
+  },
+  &quot;environment&quot;: {
+    &quot;host&quot;: &quot;Darwin 25.5.0 arm64&quot;,
+    &quot;node&quot;: &quot;v24.14.0&quot;,
+    &quot;pnpm&quot;: &quot;11.20.0&quot;,
+    &quot;python&quot;: &quot;3.14.5&quot;,
+    &quot;uv&quot;: &quot;0.11.14&quot;,
+    &quot;playwright&quot;: &quot;1.62.1&quot;,
+    &quot;chromium&quot;: &quot;151.0.7922.34&quot;
+  },
+  &quot;release_gates&quot;: [
+    {
+      &quot;command&quot;: &quot;pnpm --dir packages/contracts check&quot;,
+      &quot;exit_code&quot;: 0,
+      &quot;duration_seconds&quot;: 0.95,
+      &quot;counts&quot;: {
+        &quot;generated_diffs&quot;: 0
+      }
+    },
+    {
+      &quot;command&quot;: &quot;uv --directory apps/api run ruff check app tests ../../evals&quot;,
+      &quot;exit_code&quot;: 0,
+      &quot;duration_seconds&quot;: 0.02,
+      &quot;duration_source&quot;: &quot;/usr/bin/time -p real&quot;,
+      &quot;raw_timing&quot;: {
+        &quot;real_seconds&quot;: 0.02,
+        &quot;user_seconds&quot;: 0.01,
+        &quot;sys_seconds&quot;: 0.01,
+        &quot;resolution_seconds&quot;: 0.01
+      },
+      &quot;counts&quot;: {
+        &quot;errors&quot;: 0
+      }
+    },
+    {
+      &quot;command&quot;: &quot;pnpm lint:web&quot;,
+      &quot;exit_code&quot;: 0,
+      &quot;duration_seconds&quot;: 2.84,
+      &quot;counts&quot;: {
+        &quot;errors&quot;: 0,
+        &quot;warnings&quot;: 0
+      }
+    },
+    {
+      &quot;command&quot;: &quot;pnpm check:layout&quot;,
+      &quot;exit_code&quot;: 0,
+      &quot;duration_seconds&quot;: 0.2,
+      &quot;result&quot;: &quot;Foundation layout is valid&quot;,
+      &quot;claim_boundary&quot;: &quot;Asset and layout-foundation gate only; not visual proof.&quot;
+    },
+    {
+      &quot;command&quot;: &quot;pnpm --dir apps/web build&quot;,
+      &quot;exit_code&quot;: 0,
+      &quot;duration_seconds&quot;: 4.04,
+      &quot;counts&quot;: {
+        &quot;static_routes&quot;: 2,
+        &quot;build_errors&quot;: 0
+      },
+      &quot;warnings&quot;: [
+        &quot;Next.js emitted the existing multiple-lockfile workspace-root inference warning.&quot;
+      ]
+    },
+    {
+      &quot;command&quot;: &quot;git diff --exit-code -- packages/contracts/openapi.json packages/contracts/src/api.ts&quot;,
+      &quot;exit_code&quot;: 0,
+      &quot;duration_seconds&quot;: 0.01,
+      &quot;duration_source&quot;: &quot;/usr/bin/time -p real&quot;,
+      &quot;raw_timing&quot;: {
+        &quot;real_seconds&quot;: 0.01,
+        &quot;user_seconds&quot;: 0,
+        &quot;sys_seconds&quot;: 0,
+        &quot;resolution_seconds&quot;: 0.01
+      },
+      &quot;counts&quot;: {
+        &quot;changed_generated_contract_files&quot;: 0
+      }
+    },
+    {
+      &quot;command&quot;: &quot;uv --directory apps/api run pytest tests -q&quot;,
+      &quot;exit_code&quot;: 0,
+      &quot;duration_seconds&quot;: 3.19,
+      &quot;counts&quot;: {
+        &quot;collected&quot;: 324,
+        &quot;passed&quot;: 324,
+        &quot;failed&quot;: 0,
+        &quot;skipped&quot;: 0,
+        &quot;warnings&quot;: 1
+      },
+      &quot;duration_source&quot;: &quot;/usr/bin/time -p real&quot;
+    },
+    {
+      &quot;command&quot;: &quot;pnpm test:web&quot;,
+      &quot;exit_code&quot;: 0,
+      &quot;duration_seconds&quot;: 5.34,
+      &quot;counts&quot;: {
+        &quot;test_files&quot;: 11,
+        &quot;tests&quot;: 281,
+        &quot;passed&quot;: 281,
+        &quot;failed&quot;: 0,
+        &quot;skipped&quot;: 0
+      },
+      &quot;duration_source&quot;: &quot;/usr/bin/time -p real&quot;
+    },
+    {
+      &quot;command&quot;: &quot;pnpm test:e2e&quot;,
+      &quot;exit_code&quot;: 0,
+      &quot;duration_seconds&quot;: 31.41,
+      &quot;counts&quot;: {
+        &quot;collected&quot;: 70,
+        &quot;passed&quot;: 39,
+        &quot;failed&quot;: 0,
+        &quot;skipped&quot;: 31,
+        &quot;chat_first_passed&quot;: 13,
+        &quot;foundation_guide_passed&quot;: 4,
+        &quot;pdp_focus_passed&quot;: 6,
+        &quot;commerce_journeys_passed&quot;: 8,
+        &quot;responsive_passed&quot;: 8
+      },
+      &quot;skip_policy&quot;: &quot;All 31 skips are explicit project or opt-in-capture routing; no failure was converted to a skip.&quot;,
+      &quot;duration_source&quot;: &quot;/usr/bin/time -p real&quot;
+    },
+    {
+      &quot;command&quot;: &quot;uv --directory apps/api run pytest tests/eval/test_foundation_eval.py -q&quot;,
+      &quot;exit_code&quot;: 0,
+      &quot;duration_seconds&quot;: 0.46,
+      &quot;counts&quot;: {
+        &quot;collected&quot;: 15,
+        &quot;passed&quot;: 15,
+        &quot;failed&quot;: 0,
+        &quot;skipped&quot;: 0,
+        &quot;warnings&quot;: 1
+      },
+      &quot;duration_source&quot;: &quot;/usr/bin/time -p real&quot;
+    },
+    {
+      &quot;command&quot;: &quot;uv --directory apps/api run python ../../evals/run_foundation.py&quot;,
+      &quot;exit_code&quot;: 0,
+      &quot;duration_seconds&quot;: 0.23,
+      &quot;counts&quot;: {
+        &quot;total&quot;: 6,
+        &quot;passed&quot;: 6,
+        &quot;failed&quot;: 0
+      },
+      &quot;pass_rate&quot;: 1,
+      &quot;scorer&quot;: &quot;deterministic_rule_scorer&quot;,
+      &quot;llm_judge&quot;: false,
+      &quot;duration_source&quot;: &quot;/usr/bin/time -p real&quot;
+    }
+  ],
+  &quot;formal_browser_evidence&quot;: {
+    &quot;capture_command&quot;: &quot;CAPTURE_CHAT_FIRST_EVIDENCE=1 pnpm test:e2e&quot;,
+    &quot;capture_source&quot;: &quot;Task 11 formal production capture run exactly once after the accepted second full release gate on the same clean final source tree.&quot;,
+    &quot;counts&quot;: {
+      &quot;collected&quot;: 70,
+      &quot;passed&quot;: 42,
+      &quot;failed&quot;: 0,
+      &quot;skipped&quot;: 28,
+      &quot;capture_tests_enabled&quot;: 3
+    },
+    &quot;duration_seconds&quot;: 33.13,
+    &quot;duration_source&quot;: &quot;/usr/bin/time -p real&quot;,
+    &quot;web_mode&quot;: &quot;next build &amp;&amp; next start&quot;,
+    &quot;api_mode&quot;: &quot;uvicorn --no-access-log --workers 1&quot;,
+    &quot;browser&quot;: &quot;Chromium&quot;,
+    &quot;workers&quot;: 1,
+    &quot;fully_parallel&quot;: false,
+    &quot;reuse_existing_server&quot;: false,
+    &quot;trace&quot;: &quot;off&quot;,
+    &quot;fixed_browser_time&quot;: &quot;2026-08-10T12:00:00Z&quot;,
+    &quot;font_ready_wait&quot;: true,
+    &quot;videos_paused_and_seeked&quot;: true,
+    &quot;motion_and_caret_disabled&quot;: true,
+    &quot;viewports&quot;: [
+      {
+        &quot;project&quot;: &quot;mobile-chromium&quot;,
+        &quot;width&quot;: 390,
+        &quot;height&quot;: 844
+      },
+      {
+        &quot;project&quot;: &quot;desktop-interview&quot;,
+        &quot;width&quot;: 1440,
+        &quot;height&quot;: 1000
+      }
+    ]
+  },
+  &quot;input_sha256&quot;: {
+    &quot;data/fixtures/products.json&quot;: &quot;32bddb748791e78f17c04ae6106ecd059b47ed6289e02762c45a665c10424361&quot;,
+    &quot;data/fixtures/content-contexts.json&quot;: &quot;756fb06bf7d9172c7a45db19be324c5f8782167c2e9b5fd53ab5988111b7b548&quot;,
+    &quot;data/fixtures/evidence.json&quot;: &quot;520990ebabca72a5818fa21ceb1d45fe95f33a748b3c0da69fe291aed5a961e6&quot;,
+    &quot;evals/cases/foundation-cases.jsonl&quot;: &quot;e4ce5c660dd584c967491ccb291258634b539ce0abd93705a6e585148a6bc087&quot;,
+    &quot;evals/run_foundation.py&quot;: &quot;8654fc8142c72cd4756e72a885fb0830d791351d13fc1abf5cd79889a15d24c4&quot;,
+    &quot;packages/contracts/openapi.json&quot;: &quot;84c6c3513f6d288ec47fed16de1b5130a8aa9a9c840436e742d0d5860deeccdf&quot;,
+    &quot;packages/contracts/src/api.ts&quot;: &quot;955a875d894a5a0b22891455783d47852987778385c33ece893df835616c6e39&quot;,
+    &quot;apps/api/tests/component/test_trace_coverage.py&quot;: &quot;26612a6e58eb9a7732bbc874eda26e76dad1b487633f00c71c734b82baa37e78&quot;,
+    &quot;apps/web/e2e/chat-first.spec.ts&quot;: &quot;a3b2c6a481e886a37d259c33c662bdfbd498b5640bb5e8773be52ad0545a6ce9&quot;,
+    &quot;apps/web/e2e/tiktok-demo.spec.ts&quot;: &quot;486f3f39a672c0d18ac67cee25811a979f47301717d2567a2b4bbba5e5d07c77&quot;,
+    &quot;apps/web/e2e/tiktok-responsive.spec.ts&quot;: &quot;13a4c2219fb9917a94d710d7b74d1701d03fce75df447c50ac9896c88ae17dbe&quot;,
+    &quot;apps/web/playwright.config.ts&quot;: &quot;4a5c2e7c2bada25314eeacb1575d6cbab6989b55ab46acf12b96597db351b307&quot;
+  },
+  &quot;fixture_summary&quot;: {
+    &quot;spu&quot;: 3,
+    &quot;sku&quot;: 6,
+    &quot;content_contexts&quot;: 1,
+    &quot;evidence_documents&quot;: 3,
+    &quot;foundation_cases&quot;: 6,
+    &quot;synthetic_product_content_and_comment_data&quot;: true
+  },
+  &quot;screenshots&quot;: [
+    {
+      &quot;path&quot;: &quot;artifacts/screenshots/chat-first-opening-mobile.png&quot;,
+      &quot;width&quot;: 390,
+      &quot;height&quot;: 844,
+      &quot;bytes&quot;: 223333,
+      &quot;sha256&quot;: &quot;670297d95460415b75c60761b437934f179cc5b5b383f26e1936b4a3fbabc17a&quot;
+    },
+    {
+      &quot;path&quot;: &quot;artifacts/screenshots/chat-first-decision-mobile.png&quot;,
+      &quot;width&quot;: 390,
+      &quot;height&quot;: 844,
+      &quot;bytes&quot;: 242594,
+      &quot;sha256&quot;: &quot;bcfd411c0e3d47629f02eb975d1d701b6aeed7f4247af9c01b11371977cd97ae&quot;
+    },
+    {
+      &quot;path&quot;: &quot;artifacts/screenshots/chat-first-desktop.png&quot;,
+      &quot;width&quot;: 1440,
+      &quot;height&quot;: 1000,
+      &quot;bytes&quot;: 719968,
+      &quot;sha256&quot;: &quot;1dec9a3819a408c1c89bf26cfac146d8e062f52bb1d13ae786faa65e13902abd&quot;
+    }
+  ],
+  &quot;screenshot_delta_from_pre_review_canonical&quot;: [
+    {
+      &quot;path&quot;: &quot;artifacts/screenshots/chat-first-opening-mobile.png&quot;,
+      &quot;changed_pixels&quot;: 1022,
+      &quot;total_pixels&quot;: 329160,
+      &quot;changed_ratio&quot;: 0.0031,
+      &quot;bounding_box_xyxy&quot;: [
+        10,
+        26,
+        62,
+        47
+      ],
+      &quot;observation&quot;: &quot;Only the status-clock rasterization region changed; the opening composition is otherwise stable.&quot;
+    },
+    {
+      &quot;path&quot;: &quot;artifacts/screenshots/chat-first-decision-mobile.png&quot;,
+      &quot;changed_pixels&quot;: 52999,
+      &quot;total_pixels&quot;: 329160,
+      &quot;changed_ratio&quot;: 0.161,
+      &quot;bounding_box_xyxy&quot;: [
+        2,
+        26,
+        388,
+        734
+      ],
+      &quot;observation&quot;: &quot;Expected hierarchy, localized card copy, and duplicate-disclosure removal changes; the conclusion is fully visible before the card.&quot;
+    },
+    {
+      &quot;path&quot;: &quot;artifacts/screenshots/chat-first-desktop.png&quot;,
+      &quot;changed_pixels&quot;: 316540,
+      &quot;total_pixels&quot;: 1440000,
+      &quot;changed_ratio&quot;: 0.2198,
+      &quot;bounding_box_xyxy&quot;: [
+        311,
+        105,
+        1189,
+        937
+      ],
+      &quot;observation&quot;: &quot;Expected phone decision hierarchy and simplified walkthrough-panel changes; the live phone remains primary.&quot;
+    }
+  ],
+  &quot;artifact_and_privacy_checks&quot;: {
+    &quot;new_screenshots_nonempty&quot;: true,
+    &quot;screenshot_dimensions_match_contract&quot;: true,
+    &quot;tracked_unlabeled_credential_shaped_assignments_found&quot;: 0,
+    &quot;retained_artifact_unlabeled_runtime_generated_value_matches&quot;: 0,
+    &quot;retained_artifact_raw_health_matches&quot;: 0,
+    &quot;retained_artifact_client_message_id_value_matches&quot;: 0,
+    &quot;retained_artifact_chain_of_thought_value_matches&quot;: 0,
+    &quot;explicit_synthetic_constants&quot;: [
+      {
+        &quot;location&quot;: &quot;apps/web/e2e/tiktok-responsive.spec.ts&quot;,
+        &quot;example&quot;: &quot;cft_e2e_text_resize&quot;,
+        &quot;label&quot;: &quot;synthetic E2E confirmation-token fixture; not a runtime credential&quot;
+      },
+      {
+        &quot;location&quot;: &quot;apps/api/tests/api/test_commerce_api.py and apps/api/tests/component/test_commerce_service.py&quot;,
+        &quot;example&quot;: &quot;idem_*&quot;,
+        &quot;label&quot;: &quot;synthetic idempotency test constants; not captured runtime operation identifiers&quot;
+      },
+      {
+        &quot;location&quot;: &quot;apps/web/src/test/api-client.test.ts&quot;,
+        &quot;example&quot;: &quot;syntheticConfirmation&quot;,
+        &quot;label&quot;: &quot;explicitly named synthetic unit-test value; not a runtime credential&quot;
+      },
+      {
+        &quot;location&quot;: &quot;apps/api/tests/component/test_trace_coverage.py&quot;,
+        &quot;example&quot;: &quot;secret=customer@example.com and secret=do-not-persist-this&quot;,
+        &quot;label&quot;: &quot;explicit synthetic privacy-rejection fixtures that assert caller-controlled and exception text is not retained; not credentials&quot;
+      }
+    ],
+    &quot;limitation&quot;: &quot;Field names and explicit synthetic urgent-health/privacy-rejection fixtures remain in test source by design. The zero raw-health-text claim applies only to retained runtime artifacts, not those source fixtures; other zero-match claims apply to retained artifacts and credential-shaped value assignments, not schema identifiers or labeled synthetic constants.&quot;
+  },
+  &quot;evidence_artifacts&quot;: {
+    &quot;artifacts/evidence/chat-first-verification.md&quot;: &quot;a8fc9fcda4a21c3997dd82c6e86378948b47827ec4737dfdb4080cfcb2ad60ec&quot;,
+    &quot;.superpowers/sdd/2026-08-10-chat-first-lightweight-guide/task-11-report.md&quot;: &quot;b3914a2f198bf3cecd6adba488d01e20eda694dc67b1a69c249705822d48480a&quot;
+  },
+  &quot;verification_history&quot;: [
+    {
+      &quot;stage&quot;: &quot;initial_task_9_release&quot;,
+      &quot;source_commit&quot;: &quot;add3f885fd0f70a979507c3de795bdc2f6bd1e3c&quot;,
+      &quot;result&quot;: &quot;39 passed, 31 routed skips, 0 failed&quot;,
+      &quot;note&quot;: &quot;The first full release run was green, but a later finishing rerun exposed a readiness race, so this result was not accepted as final stability evidence.&quot;
+    },
+    {
+      &quot;stage&quot;: &quot;finishing_rerun_1&quot;,
+      &quot;source_commit&quot;: &quot;c13b38b&quot;,
+      &quot;result&quot;: &quot;38 passed, 31 routed skips, 1 failed&quot;,
+      &quot;failure&quot;: &quot;Reduced-motion focus test dispatched Shift+Tab or Escape while the loading close button was being replaced by the final GuideChatView button; an immediate focused rerun also failed.&quot;,
+      &quot;disposition&quot;: &quot;Task 9 stopped and routed the non-owned E2E readiness race to Task 8.&quot;
+    },
+    {
+      &quot;stage&quot;: &quot;task_8_fix_round_2&quot;,
+      &quot;source_commit&quot;: &quot;c5d28aec26246e83eea96c987e4d359f82fe2e0a&quot;,
+      &quot;red_repeat_50&quot;: &quot;46 passed, 4 failed&quot;,
+      &quot;green_repeat_50&quot;: &quot;50 passed, 0 failed&quot;,
+      &quot;result&quot;: &quot;Independent scoped review CLEAN&quot;,
+      &quot;note&quot;: &quot;The reduced-motion test began waiting for authoritative 201 / OPENING_CONTEXT and the final opening UI before keyboard assertions.&quot;
+    },
+    {
+      &quot;stage&quot;: &quot;task_9_refresh_attempt_1&quot;,
+      &quot;source_commit&quot;: &quot;c5d28aec26246e83eea96c987e4d359f82fe2e0a&quot;,
+      &quot;result&quot;: &quot;37 passed, 31 routed skips, 2 failed&quot;,
+      &quot;failures&quot;: [
+        &quot;320x700 at 200 percent: composer bounding box was null during loading-to-final replacement.&quot;,
+        &quot;Responsive desktop-frame path: Escape was dispatched before the final Guide dialog was authoritative.&quot;
+      ],
+      &quot;disposition&quot;: &quot;Task 9 stopped without retrying for green and routed both non-owned readiness races to Task 8.&quot;
+    },
+    {
+      &quot;stage&quot;: &quot;task_8_fix_round_3&quot;,
+      &quot;source_commit&quot;: &quot;46606d36ae1a046f1e0edd601ae0ccbcbd6ce7b9&quot;,
+      &quot;interleaved_stability&quot;: &quot;150 passed, 0 failed across the two newly exposed scenarios and reduced-motion focus path&quot;,
+      &quot;full_non_capture&quot;: &quot;39 passed, 31 routed skips, 0 failed&quot;,
+      &quot;production_capture&quot;: &quot;42 passed, 28 routed skips, 0 failed&quot;,
+      &quot;result&quot;: &quot;Independent scoped review CLEAN&quot;,
+      &quot;note&quot;: &quot;Shared helpers now wait for authoritative session readiness and final UI/focus commit. Product behavior did not change.&quot;
+    },
+    {
+      &quot;stage&quot;: &quot;final_task_9_release&quot;,
+      &quot;source_commit&quot;: &quot;46606d36ae1a046f1e0edd601ae0ccbcbd6ce7b9&quot;,
+      &quot;result&quot;: &quot;All 11 release gates exited 0; full E2E 39 passed, 31 routed skips, 0 failed&quot;,
+      &quot;accepted_as_final_at_stage&quot;: true,
+      &quot;superseded_by&quot;: &quot;task_11_final_release&quot;
+    },
+    {
+      &quot;stage&quot;: &quot;task_11_first_full_gate_attempt&quot;,
+      &quot;source_commit&quot;: &quot;0228819d6180846ba9a8c29b8f25c1fd83d454c2&quot;,
+      &quot;passed_before_failure&quot;: [
+        &quot;contracts&quot;,
+        &quot;ruff&quot;,
+        &quot;web_lint&quot;,
+        &quot;layout_foundation&quot;,
+        &quot;web_build&quot;,
+        &quot;generated_contract_integrity&quot;
+      ],
+      &quot;result&quot;: &quot;Full API stopped at 323 passed, 1 failed; no Web, E2E, eval, or capture gate followed.&quot;,
+      &quot;failure&quot;: &quot;The golden trace test bypassed GuideService and therefore never committed latest_response, so current-snapshot legacy cart authorization correctly rejected preview.&quot;,
+      &quot;disposition&quot;: &quot;Retained as a legitimate oracle-harness finding, not hidden as a retry-to-green.&quot;
+    },
+    {
+      &quot;stage&quot;: &quot;task_11_trace_harness_correction&quot;,
+      &quot;source_commit&quot;: &quot;659596537efe7bd7a879aeb3b49bee17b01f5e73&quot;,
+      &quot;focused_result&quot;: &quot;Golden trace 1/1; affected trace plus legacy cart 61/61.&quot;,
+      &quot;note&quot;: &quot;Only the test harness moved to public GuideService.create/message; engine, repository, cart, events, trace ordering, and privacy assertions remained real, with no mock or manual snapshot assignment.&quot;
+    },
+    {
+      &quot;stage&quot;: &quot;task_11_final_release&quot;,
+      &quot;source_commit&quot;: &quot;659596537efe7bd7a879aeb3b49bee17b01f5e73&quot;,
+      &quot;result&quot;: &quot;All 11 release gates exited 0; API 324/324; Web 281/281; full E2E 39 passed, 31 routed skips, 0 failed; production capture 42/28/0.&quot;,
+      &quot;accepted_as_final&quot;: true
+    }
+  ],
+  &quot;known_limitations&quot;: [
+    &quot;The product, brand, creator, content, comment, price, inventory, and cart data are frozen synthetic fixtures.&quot;,
+    &quot;No real LLM, embedding model, vector index, Hybrid RAG, reranker, or LLM judge is used.&quot;,
+    &quot;The 6/6 evaluation result applies only to six frozen deterministic cases and is not a real recommendation-quality score.&quot;,
+    &quot;Browser evidence is local Chromium only. It is not cross-browser certification, a user study, or production reliability evidence.&quot;,
+    &quot;CSS safe-area variables and nominal containment are covered, but no real iOS device with nonzero notch or home-indicator insets was exercised.&quot;,
+    &quot;The Sheet has no drag interaction or drag affordance; no fake handle is shown.&quot;,
+    &quot;The opening retains a noticeable whitespace gap between the assistant prompt and quick replies.&quot;,
+    &quot;The in-memory Guide session does not survive an API process restart and provides no production authentication or durable persistence model.&quot;,
+    &quot;No conversion, trust, task-completion, latency, cost, uptime, business-impact, payment, order, or fulfillment claim is supported.&quot;,
+    &quot;The idempotency key remains in the reconciliation URL; local evidence disables access logs, but productionization must prevent proxy or access-log retention.&quot;,
+    &quot;Next.js still emits the known multiple-lockfile workspace-root warning, and dev E2E still emits the known one-dimension image warning.&quot;
+  ]
+}</code></pre></details></article>
+      </section>
+    </template>
+    <template id="evidence-document-roadmap">
+      <section class="embedded-evidence" data-evidence-key="roadmap" data-source="PLAN.md" data-sha256="714bd97101422638be303464cc8badce8cba9abd14eb9338c97863d736fa7ebe" data-title="阶段计划" data-kicker="Roadmap">
+        <p class="evidence-document-summary">当前可运行原型与真实模型、Hybrid Retrieval、用户研究等后续能力的边界。</p>
+        <nav class="evidence-document-toc" aria-label="阶段计划目录"><ol><li data-level="2"><a href="#roadmap-1-项目目标与成功定义">1. 项目目标与成功定义</a></li><li data-level="2"><a href="#roadmap-2-阶段总览">2. 阶段总览</a></li><li data-level="2"><a href="#roadmap-3-phase-0-planning-foundation">3. Phase 0 — Planning / Foundation</a></li><li data-level="3"><a href="#roadmap-目标">目标</a></li><li data-level="3"><a href="#roadmap-工件">工件</a></li><li data-level="3"><a href="#roadmap-出口条件">出口条件</a></li><li data-level="2"><a href="#roadmap-4-phase-1-vertical-slice">4. Phase 1 — Vertical Slice</a></li><li data-level="3"><a href="#roadmap-2026-08-05-已验证的-foundation-子切片">2026-08-05 已验证的 Foundation 子切片</a></li><li data-level="3"><a href="#roadmap-2026-08-07-已验证的-tiktok-体验纠偏切片">2026-08-07 已验证的 TikTok 体验纠偏切片</a></li><li data-level="3"><a href="#roadmap-2026-08-10-已验证的-chat-first-轻量导购切片">2026-08-10 已验证的 Chat-first 轻量导购切片</a></li><li data-level="3"><a href="#roadmap-要验证的产品假设">要验证的产品假设</a></li><li data-level="3"><a href="#roadmap-最小范围">最小范围</a></li><li data-level="3"><a href="#roadmap-关键出口门槛">关键出口门槛</a></li><li data-level="2"><a href="#roadmap-5-phase-2-complete-mvp">5. Phase 2 — Complete MVP</a></li><li data-level="3"><a href="#roadmap-扩展范围">扩展范围</a></li><li data-level="3"><a href="#roadmap-设计目标-需经首轮基线校准">设计目标（需经首轮基线校准）</a></li><li data-level="2"><a href="#roadmap-6-phase-3-evaluation-optimization">6. Phase 3 — Evaluation &amp; Optimization</a></li><li data-level="3"><a href="#roadmap-实验主线">实验主线</a></li><li data-level="3"><a href="#roadmap-评测纪律">评测纪律</a></li><li data-level="3"><a href="#roadmap-出口条件-2">出口条件</a></li><li data-level="2"><a href="#roadmap-7-phase-4-portfolio-delivery">7. Phase 4 — Portfolio Delivery</a></li><li data-level="3"><a href="#roadmap-当前已完成的作品集切片">当前已完成的作品集切片</a></li><li data-level="3"><a href="#roadmap-交付包">交付包</a></li><li data-level="3"><a href="#roadmap-出口条件-3">出口条件</a></li><li data-level="2"><a href="#roadmap-8-搜索后续路线">8. 搜索后续路线</a></li><li data-level="2"><a href="#roadmap-9-跨阶段风险与缓解">9. 跨阶段风险与缓解</a></li><li data-level="2"><a href="#roadmap-10-关键依赖与决策点">10. 关键依赖与决策点</a></li><li data-level="2"><a href="#roadmap-11-文档与事实源边界">11. 文档与事实源边界</a></li></ol></nav>
+        <article class="evidence-document-content"><h1 id="roadmap-ai-shopping-agent-总路线图">AI Shopping Agent 总路线图</h1>
+<blockquote><p>状态：Foundation Baseline、TikTok 真实体验重设计与 Chat-first 轻量导购切片均已验证，Phase 1 的真实 LLM、Hybrid Retrieval 与数据扩展仍未完成。本文管理“先验证什么、每阶段交付什么、何时可以进入下一阶段”，不代替实施级任务拆解和测试步骤。</p></blockquote>
+<h2 id="roadmap-1-项目目标与成功定义">1. 项目目标与成功定义</h2>
+<p>项目要证明的不是“可以调用一个大模型”，而是三件事：</p>
+<ol><li>AI 能在内容电商上下文中缩短从种草到可信购买决定的路径；</li><li>Agent 的开放决策可以被 Workflow、Tools、Verifier、评测与产品界面约束；</li><li>所有关键判断都能留下工程证据与产品叙事，支持 AI 产品经理岗位面试。</li></ol>
+<p>北极星指标为<strong>质量门槛通过后的有效导购完成率</strong>：只有当会话满足事实、硬约束、引用、安全和体验质量门槛，且用户完成比较、收藏或模拟加购等有效动作，才算一次有效完成。原始加购率不是北极星，避免系统靠迎合用户或强推商品获得虚假提升。</p>
+<p>初始指标值都是设计门槛，不是已取得的结果；第一轮基线跑通后需要依据数据难度、模型价格和体验研究校准。</p>
+<h2 id="roadmap-2-阶段总览">2. 阶段总览</h2>
+<div class="table-scroll"><table><thead><tr><th>阶段</th><th>核心问题</th><th>主要工件</th><th>进入下一阶段的出口条件</th></tr></thead><tbody><tr><td>Phase 0 — Planning / Foundation</td><td>产品、技术、评测和留证据方式是否可执行</td><td>双层文档、ADR、详细计划、仓库与任务台</td><td>边界无冲突；事实源明确；首个纵向切片有可测试计划；未完成项均如实标记</td></tr><tr><td>Phase 1 — Vertical Slice</td><td>一条内容导购路径能否端到端可信运行</td><td>12 SPU / 36 SKU 数据、内容上下文、受控 Agent、Workflow、核心工具、模拟加购、首批评测</td><td>一条黄金路径和关键失败路径自动可复跑；硬约束、结构化事实和 trace 通过门槛</td></tr><tr><td>Phase 2 — Complete MVP</td><td>能否覆盖代表性的用户与商品差异</td><td>扩展数据、混合检索、比较、偏好记忆、高保真 UI、完整回归集</td><td>主要任务族覆盖；P0 风险为零；质量、延迟和成本达到经基线校准后的发布门槛</td></tr><tr><td>Phase 3 — Evaluation &amp; Optimization</td><td>哪种模型、检索、路由和交互组合最有效</td><td>实验矩阵、坏例聚类、Pareto 分析、迭代报告、用户研究</td><td>关键优化有对照证据；回归未恶化；产品结论能区分事实、推断与局限</td></tr><tr><td>Phase 4 — Portfolio Delivery</td><td>如何把真实过程转成可验证的求职作品</td><td>部署演示、案例视频、架构图、评测报告、面试证据索引</td><td>第三方可独立体验；所有对外数字可追溯；演示失败时有降级方案</td></tr></tbody></table></div>
+<h2 id="roadmap-3-phase-0-planning-foundation">3. Phase 0 — Planning / Foundation</h2>
+<h3 id="roadmap-目标">目标</h3>
+<p>把需求共识转成可执行契约，先锁定事实源、安全边界、证据路径和阶段出口，防止开发过程中为了“像 Agent”而无边界扩张。</p>
+<h3 id="roadmap-工件">工件</h3>
+<ul><li>工程层 README、总路线、任务台、项目级 Agent 规则和实施级计划；</li><li>知识层项目总控、机会判断、产品定义、AI 方案、概念证据矩阵、评测策略和面试索引；</li><li>项目范围 ADR，以及后续产品决策、实验和评测报告模板；</li><li>独立 Git 仓库与项目状态登记。</li></ul>
+<h3 id="roadmap-出口条件">出口条件</h3>
+<ul><li>主入口、用户、首品类、交易终点、非目标和搜索后续范围均无歧义；</li><li>Agent、Workflow、Tools、Verifier 的责任边界和失败降级已定义；</li><li>价格、库存、SKU、规则、评论与创作者主张各自的事实等级已定义；</li><li>Phase 1 的代码、数据、测试与 trace 可以按实施计划逐项验收；</li><li>所有“planned / implemented / evaluated”状态可以被文档和文件路径核对。</li></ul>
+<h2 id="roadmap-4-phase-1-vertical-slice">4. Phase 1 — Vertical Slice</h2>
+<h3 id="roadmap-2026-08-05-已验证的-foundation-子切片">2026-08-05 已验证的 Foundation 子切片</h3>
+<p>这不是整个 Phase 1 完成标记。它只冻结了一条小而可复跑的确定性基线，用来让后续真实 LLM、Hybrid Retrieval 和数据扩展有同一对照物。</p>
+<div class="table-scroll"><table><thead><tr><th>已验证子范围</th><th>证据</th><th>尚未覆盖的 Phase 1 目标</th></tr></thead><tbody><tr><td>3 SPU / 6 SKU、1 个 <code>ContentContext</code>、3 份证据文档</td><td><a href="./data/fixtures">fixtures</a> · <a href="./artifacts/evidence/foundation-verification.md">验证记录</a></td><td>约 12 SPU / 36 SKU、12 个内容上下文和更丰富异常数据</td></tr><tr><td>确定性 Workflow、白名单 Tools、词法证据检索、硬过滤后排序</td><td><a href="./evals/cases/foundation-cases.jsonl">六案例评测</a> · <a href="./artifacts/traces/samples/foundation-golden.jsonl">1 条黄金 Trace / 11 条脱敏事件</a></td><td>真实 LLM Shopping Agent、生成式 Verifier、Hybrid/RRF/Reranker</td></tr><tr><td>内容入口 → 约束 → 推荐 → 2 款比较 → SKU 预览 → 用户确认 → 模拟加购</td><td><a href="./artifacts/screenshots/foundation-mobile.png">移动截图</a> · <a href="./apps/web/e2e/guide.spec.ts">E2E</a></td><td>更广失败/超时旅程、搜索 UI、多模态实时输入、长期偏好</td></tr><tr><td>119 个 API 测试、68 个 Web 单元测试；6 个规则评分案例 6/6；2 条旅程 × 2 个 Chromium viewport = 4/4</td><td><a href="./artifacts/evidence/foundation-verification.md">Foundation verification</a></td><td>正式大样本 Benchmark、真实模型质量/延迟/成本、用户研究与业务结果</td></tr></tbody></table></div>
+<p>因此当前可以声称“Foundation 子切片已实现并在冻结合成集上评测”，不能声称 Phase 1 的 12 SPU / 36 SKU 纵向切片、Agent 模型能力或整体 MVP 已完成。</p>
+<h3 id="roadmap-2026-08-07-已验证的-tiktok-体验纠偏切片">2026-08-07 已验证的 TikTok 体验纠偏切片</h3>
+<p>这次切片不是扩大业务范围，而是纠正 Foundation “链路能跑、产品不像真实内容电商”的体验缺口。它保留 3 SPU / 6 SKU 的确定性事实底座，把页面和交易边界重构为可购物 Feed、AI Commerce Sheet、PDP 与模拟加购，并以生产构建的 Chromium 回归验证。</p>
+<div class="table-scroll"><table><thead><tr><th>已验证子范围</th><th>产品结论</th><th>证据</th></tr></thead><tbody><tr><td>普通 / 可购物 Feed 与轻量双入口</td><td>商业和 AI 是条件式能力；没有可信商品上下文时不展示商品或“问 AI”</td><td><a href="./artifacts/screenshots/tiktok-redesign-mobile.png">可购物 Feed</a> · <a href="./artifacts/screenshots/tiktok-redesign-normal-feed.png">普通 Feed</a></td></tr><tr><td><code>NavigationState</code> / 可选 <code>GuideSession</code> / <code>CommerceOperation</code></td><td>页面返回、AI 决策、交易写入必须是三个独立控制面；Feed 直达 PDP 不依赖 AI</td><td><a href="./../../AI产品经理/项目实战/AI导购Agent/07-TikTok真实体验重设计规格.md">产品规格</a> · <a href="./apps/web/e2e/tiktok-demo.spec.ts">E2E</a></td></tr><tr><td>AI → 推荐 / 替代 PDP → 返回 AI</td><td>AI 负责决策支持，PDP 负责 SKU 与当前交易事实；返回不丢已验证决策</td><td><a href="./artifacts/screenshots/tiktok-redesign-desktop.png">桌面 AI Sheet</a> · <a href="./artifacts/evidence/tiktok-redesign-verification.md">验证记录</a></td></tr><tr><td>价格变化与未知提交结果</td><td>旧事实必须失效并重新确认；写结果未知时按同一幂等键对账，禁止盲重试</td><td><a href="./apps/web/e2e/tiktok-demo.spec.ts">八条旅程</a> · <a href="./artifacts/evidence/tiktok-redesign-verification.md#eight-required-journeys">逐旅程网络证据</a></td></tr><tr><td>生产态响应式 Demo</td><td>8/8 必需旅程；production E2E 28 passed / 10 intentional skips / 0 failed；PDP focus 双 project 6/6；正式图为 390×844、1440×1000、390×844</td><td><a href="./artifacts/evidence/tiktok-redesign-verification.md">重设计验证记录</a></td></tr></tbody></table></div>
+<p>成熟度只升级为“冻结合成 fixture 上已实现并完成浏览器评测”。浏览器脚本和视觉检查不等于真人可用性研究；入口发现率、理解度、决策负担、转化增量与真实业务价值仍待验证。真实 LLM Shopping Agent、Hybrid RAG、TikTok API、支付和生产可观测也不因 UI 完成而提前升级。</p>
+<h3 id="roadmap-2026-08-10-已验证的-chat-first-轻量导购切片">2026-08-10 已验证的 Chat-first 轻量导购切片</h3>
+<p>这次切片不扩大品类、数据或交易终点，而是把默认 65%–75% 的重型决策 Sheet 改为保留视频上下文的渐进式会话。它继续使用 <code>NavigationState</code>、可选 <code>GuideSession</code> 与 <code>CommerceOperation</code> 三控制面，不让 transcript 或历史推荐获得交易权限。</p>
+<div class="table-scroll"><table><thead><tr><th>已验证子范围</th><th>产品结论</th><th>证据</th></tr></thead><tbody><tr><td>约 40% 高度开场、3 个具体问题、自由输入</td><td>用户先处理一个当前商品问题；短答与澄清不为了展示能力而提前铺开推荐、比较或证据台账</td><td><a href="./artifacts/screenshots/chat-first-opening-mobile.png">开场截图</a> · <a href="./apps/web/e2e/chat-first.spec.ts">Chat-first E2E</a></td></tr><tr><td>单问题澄清、默认一款首选、显式比较后展开</td><td>信息量与界面重量随任务增加，比较仍可继续对话，不把一次结果做成终态报告</td><td><a href="./artifacts/screenshots/chat-first-decision-mobile.png">结论截图</a> · <a href="./artifacts/evidence/chat-first-verification.md#chat-first-browser-journeys">验证记录</a></td></tr><tr><td>服务端有界 transcript 与双 revision</td><td><code>conversation_revision</code> 约束消息顺序/恢复；<code>guide_revision</code> 只表达偏好、约束或推荐授权语义变化；历史消息只读</td><td><a href="./artifacts/evidence/chat-first-run-manifest.json">machine manifest</a> · API/Web 回归</td></tr><tr><td>关闭重开、AI → PDP → AI、比较恢复</td><td>浏览器只保存不透明 session id，UI 从服务端权威 snapshot 恢复，不在客户端伪造聊天历史</td><td><a href="./apps/web/e2e/chat-first.spec.ts">Chat-first E2E</a></td></tr><tr><td>安全与原交易链不因减重而弱化</td><td>安全态移除商业动作；PDP 继续重查 SKU/价格/库存并要求显式确认；价格变化与未知提交仍走 revision/幂等闭环</td><td><a href="./artifacts/evidence/chat-first-verification.md#existing-commerce-journeys-preserved">8 条保留交易旅程</a></td></tr><tr><td>当前 release gate</td><td>source <code>65959653…</code>：API 324、Web 281、Foundation eval pytest 15/15、规则 runner 6/6；普通 E2E 39 passed / 31 routed skips / 0 failed，production capture 42 / 28 / 0；Task 11 已关闭 Safety composer、legacy cart 旧授权、revision 语义、结论层级、本地化、重复披露与真实 200% 字体问题；首轮 API 323/1 的无 snapshot 测试 harness 失败仍保留在验证历史</td><td><a href="./artifacts/evidence/chat-first-verification.md">验证记录</a></td></tr></tbody></table></div>
+<p>成熟度仍是“冻结合成 fixture 上已实现并在本地 Chromium 评测”。API 进程重启后的持久化、认证、真实 LLM/Hybrid、跨浏览器、真人理解、延迟成本、转化与生产可靠性没有因本切片完成而升级。真实 iOS 非零 safe-area inset 尚未验证；Sheet 没有拖拽交互/提示，开场留白仍是已知 polish 限制。</p>
+<h3 id="roadmap-要验证的产品假设">要验证的产品假设</h3>
+<p>当系统继承短视频与商品上下文，并只追问一个最能改变决策的问题时，用户可以更快理解当前商品是否适合自己；当不适合时，系统能够在不违反硬约束的前提下给出有证据的替代方案并完成模拟加购。</p>
+<h3 id="roadmap-最小范围">最小范围</h3>
+<ul><li>约 12 个 SPU、36 个 SKU、12 个内容上下文和约 60 个代表性场景；</li><li>一个移动端内容流页面、一个 AI 底部抽屉、决策卡、比较卡和模拟购物车；</li><li>离线生成的 <code>ContentContext</code>，包括时间戳字幕、关键帧 OCR、商品识别与创作者主张；</li><li>一套受控 Shopping Agent、确定性状态机、工具白名单和输出 Verifier；</li><li>结构化商品事实、最小证据库、混合检索、硬过滤与有解释的排序；</li><li>session 级偏好、完整 trace、组件测试和首批端到端回归。</li><li>搜索扩展契约：API 接受 <code>entry_point = content | search</code> 和 <code>search_query</code>，会话状态可保留派生的 <code>query_intent = exploratory | exact</code>；本阶段只做契约与测试，不做搜索 UI、查询改写或搜索排序。</li></ul>
+<h3 id="roadmap-关键出口门槛">关键出口门槛</h3>
+<ul><li>冻结测试集内的价格、库存与 SKU 必须 100% 来自结构化事实，无法确认时拒绝编造；</li><li>严重安全违规、未授权工具调用和严重硬约束违规为 0；</li><li>内容进入到模拟加购的黄金路径可一键复跑，信息不足、无候选、库存失效和工具超时有确定性降级；</li><li>每个会话可以还原状态迁移、工具参数、候选排除、证据引用、Verifier 与用户操作；</li><li>内容与搜索入口契约测试通过，且搜索请求不会误走内容上下文或被当作已实现的搜索体验；</li><li>UI 在移动端完成核心路径，桌面演示模式不破坏交互和可读性。</li></ul>
+<h2 id="roadmap-5-phase-2-complete-mvp">5. Phase 2 — Complete MVP</h2>
+<h3 id="roadmap-扩展范围">扩展范围</h3>
+<ul><li>目标规模约 60 SPU、180 SKU、12 个虚构品牌、60 个内容上下文和 600 条带标签的合成评论；</li><li>300–400 条单轮任务、约 160 条多轮任务、约 120 条安全 / 注入 / 陈旧事实 / 异常任务；</li><li>约束修改、引用回指、候选比较、用户主动追问、偏好查看 / 修改 / 删除；</li><li>词法 + 向量 + RRF 的混合检索，可选 reranker、证据充分度与候选多样性；</li><li>复用已验证的高保真内容电商容器，补齐更大数据集、真实模型下的完整空态、加载态、错误态与降级态；</li><li>可替换的模型适配层、缓存、并行安全工具和成本 / 延迟预算。</li></ul>
+<h3 id="roadmap-设计目标-需经首轮基线校准">设计目标（需经首轮基线校准）</h3>
+<ul><li>总体结构化事实正确率不低于 98%，P0 事实保持 100% 或拒答；</li><li>严重安全、未授权工具与严重硬约束违规为 0；</li><li>引用准确率 / 覆盖率目标不低于 97% / 95%；</li><li><code>Recall@10</code> 目标不低于 0.95，<code>NDCG@5</code> 目标不低于 0.80；</li><li>端到端任务通过率目标不低于 85%，应澄清 / 不应澄清判断目标不低于 90%；</li><li>首个可感知状态目标不高于 0.5 秒，完整答复 P95 目标不高于 5 秒；</li><li>单次有效导购平均模型成本初始目标不高于 0.05 美元、P95 不高于 0.15 美元，待模型选型和价格实测后调整。</li></ul>
+<h2 id="roadmap-6-phase-3-evaluation-optimization">6. Phase 3 — Evaluation &amp; Optimization</h2>
+<h3 id="roadmap-实验主线">实验主线</h3>
+<ol><li><strong>编排选择</strong>：自定义循环、OpenAI Agents SDK、LangGraph 在相同场景上的可控性、可观测性、开发成本与延迟；</li><li><strong>模型路由</strong>：单一大模型、小模型 + 大模型路由、置信度升级三种策略的质量 / 成本 / 延迟前沿；</li><li><strong>检索策略</strong>：结构化过滤、BM25、向量、RRF、reranker 与上下文长度的消融；</li><li><strong>澄清策略</strong>：固定问题、信息增益问题和用户可跳过设计对完成质量与流失的影响；</li><li><strong>界面表达</strong>：长对话、结构化决策卡、证据折叠层与降级模板的可理解性。</li></ol>
+<h3 id="roadmap-评测纪律">评测纪律</h3>
+<ul><li>数据按商品、品牌和场景切分，不随机切消息，减少答案泄漏；</li><li>确定性事实和工具行为用规则评分，主观解释再使用经人类校准的 LLM Judge；</li><li>P0/P1 坏例先定性归因，再进入版本化回归集；</li><li>每项优化保存基线、变量、样本、结果、置信范围、失败例和产品结论；</li><li>没有真实流量时只称为离线评测或可用性研究，不包装成线上 A/B 实验。</li></ul>
+<h3 id="roadmap-出口条件-2">出口条件</h3>
+<ul><li>至少完成 Agent 编排、检索和模型路由三类有对照实验；</li><li>可以解释最终方案相对于替代方案的收益、代价和不确定性；</li><li>质量提升没有通过放宽硬约束、隐藏拒答或增加不可接受延迟取得；</li><li>评测报告与面试证据索引可以追溯到版本化数据、配置和原始结果。</li></ul>
+<h2 id="roadmap-7-phase-4-portfolio-delivery">7. Phase 4 — Portfolio Delivery</h2>
+<h3 id="roadmap-当前已完成的作品集切片">当前已完成的作品集切片</h3>
+<ul><li>已交付一份可独立打开的 <a href="./vibe-coding-case-study.html">AI 导购产品案例页</a>，从用户问题出发串联产品定义、PRD、关键设计、原型评测和 Vibe Coding 构建方式，并提供本地 Demo 一键入口；</li><li>页面复用当前正式截图和可追溯证据，不把冻结合成 fixture、本地 Chromium 回归或规则案例包装成真实用户、模型或业务结果；</li><li>公网部署、讲解录屏与真实任务型用户研究仍未开始，因此 Phase 4 尚未整体完成。</li></ul>
+<h3 id="roadmap-交付包">交付包</h3>
+<ul><li>可公开访问的响应式演示与稳定的本地备用演示；</li><li>2–3 条黄金路径、2 条失败 / 降级路径和一条搜索未来态的讲解脚本；</li><li>产品故事、用户问题、北极星、架构边界、核心取舍、评测方法、坏例迭代和结果局限；</li><li>去敏后的合成数据说明、系统卡、评测摘要和可复现命令；</li><li>面试问题到 ADR、实验、trace、截图与指标的证据索引。</li></ul>
+<h3 id="roadmap-出口条件-3">出口条件</h3>
+<ul><li>新用户无需开发者陪同即可完成一次内容导购；</li><li>所有演示中的事实、数字和“提升”均能跳转到证据；</li><li>页面明确标识概念原型、合成商品与非官方关系；</li><li>断网、模型失败或部署异常时仍有可讲解的录屏 / 固定回放，不伪装成实时结果。</li></ul>
+<h2 id="roadmap-8-搜索后续路线">8. 搜索后续路线</h2>
+<p>搜索从第一天在数据契约和 Workflow 入口层预留，但在内容纵向切片稳定后才实现：</p>
+<ol><li><strong>Exploratory Search</strong>：用户表达模糊目标，例如“适合深肤色、妆前不搓泥、40 美元以内的防晒”，从 <code>UNDERSTAND</code> 状态进入同一受控导购链路；</li><li><strong>Exact Search</strong>：品牌名或 SKU 精确查询优先使用传统搜索，AI 只在需要解释、比较或约束判断时介入；</li><li><strong>Cross-entry Continuity</strong>：搜索结果可进入内容页，内容页也可带上下文继续搜索，并共用用户授权偏好；</li><li><strong>未来探索</strong>：图片 / 包装识别、完整 routine 组合和直播辅助均需单独定义风险与评测，不能直接扩大 MVP。</li></ol>
+<p>搜索发布前需要新增入口识别、检索查询改写、零结果恢复、搜索与推荐公平性、入口增量价值等评测，不能只复用内容入口通过率。</p>
+<h2 id="roadmap-9-跨阶段风险与缓解">9. 跨阶段风险与缓解</h2>
+<div class="table-scroll"><table><thead><tr><th>风险</th><th>影响</th><th>计划中的缓解</th></tr></thead><tbody><tr><td>合成数据过于干净</td><td>指标虚高，无法代表真实场景</td><td>注入别名、口语、OCR / ASR 噪声、冲突评论、缺失字段与陈旧事实；按场景切分</td></tr><tr><td>护肤建议越过医疗边界</td><td>用户安全和合规风险</td><td>明确非诊断边界、风险词路由、规则拒答、公开规则证据与安全回归集</td></tr><tr><td>LLM 编造价格或库存</td><td>直接损害交易信任</td><td>结构化事实唯一源、schema 校验、Verifier、超时拒答和加购前二次确认</td></tr><tr><td>Agent 自由度过高</td><td>难复现、难评测、延迟失控</td><td>单 Agent + 状态机 + 白名单工具 + 调用预算 + 结构化 trace</td></tr><tr><td>UI 只像聊天机器人或 AI 报告板</td><td>无法体现内容现场，或用信息密度压垮短视频注意力</td><td>已完成真实体验纠偏、8 条交易旅程与 Chat-first 渐进披露浏览器契约；下一步用真人任务验证入口发现、理解和摩擦</td></tr><tr><td>过度模仿 TikTok</td><td>品牌混淆或资产侵权</td><td>只借鉴交互范式，使用自有视觉资产与概念原型声明</td></tr><tr><td>只追求离线分数</td><td>产品价值与体验脱节</td><td>质量门槛后的有效完成率、任务漏斗和可用性研究共同判断</td></tr><tr><td>评测 Judge 偏差</td><td>错误优化方向</td><td>规则评分优先；LLM Judge 先与人工标注校准并持续抽检</td></tr><tr><td>成本或延迟超预算</td><td>演示不稳定，方案不可规模化</td><td>缓存、并行工具、上下文裁剪、模型路由、固定降级模板和 Pareto 评估</td></tr></tbody></table></div>
+<h2 id="roadmap-10-关键依赖与决策点">10. 关键依赖与决策点</h2>
+<div class="table-scroll"><table><thead><tr><th>依赖 / 决策</th><th>最晚锁定阶段</th><th>决策证据</th></tr></thead><tbody><tr><td>商品、SKU、内容和规则 schema</td><td>Phase 1 开发前</td><td>schema 测试 + 数据样例 + ADR</td></tr><tr><td>Agent 编排方式</td><td>Phase 1 最小 spike 后</td><td>同场景实现与质量 / 延迟 / 可观测性对比</td></tr><tr><td>基础模型与 embedding</td><td>Phase 1 基线前</td><td>冻结样本上的质量 / 成本 / 延迟基线</td></tr><tr><td>公开美国规则来源与版本策略</td><td>Phase 1 数据构建前</td><td>来源清单、抓取日期、版本与引用校验</td></tr><tr><td>评测数据切分与严重度规则</td><td>Phase 1 基线前</td><td>数据卡、标注指南与抽样复核</td></tr><tr><td>部署平台与可观测服务</td><td>Phase 2 尾段</td><td>免费额度、隐私、冷启动、日志保留与演示稳定性对比</td></tr><tr><td>用户研究对象与脚本</td><td>Phase 3 前</td><td>招募标准、场景任务、观察表与同意说明</td></tr></tbody></table></div>
+<h2 id="roadmap-11-文档与事实源边界">11. 文档与事实源边界</h2>
+<ul><li>“为什么、为谁、取舍、指标与面试表达”由 <a href="./../../AI产品经理/项目实战/AI导购Agent/00-项目总控.md">知识控制室</a> 维护；</li><li>“代码实际行为、schema、合成数据、prompt、trace 与原始评测结果”由本仓库和 Git 历史维护；</li><li>当前执行状态由 <a href="./TASKS.md">TASKS.md</a> 维护；</li><li>Chat-first 当前运行事实以 <a href="./artifacts/evidence/chat-first-verification.md">Chat-first 验证记录</a> 与 <a href="./artifacts/evidence/chat-first-run-manifest.json">machine manifest</a> 为准；TikTok 体验纠偏历史事实仍以 <a href="./artifacts/evidence/tiktok-redesign-verification.md">重设计验证记录</a> 为准；Foundation 历史基线仍以 <a href="./artifacts/evidence/foundation-verification.md">Foundation verification</a> 与 source commit <code>cd18147f7eb1e309aa6043a1262a28f0c4349b4d</code> 为准，三者不互相覆盖；</li><li>大体积原始运行产物可留在本地或外部制品存储，但仓库必须提交可复现 manifest、版本/配置指针、校验和、汇总结果和脱敏代表样本；</li><li>任何决策只有在实现、测试或评测证据存在后，才可以从“已设计”升级为“已实现”或“已评测”。</li></ul></article>
+      </section>
+    </template>
+    <template id="evidence-document-delivery">
+      <section class="embedded-evidence" data-evidence-key="delivery" data-source="TASKS.md" data-sha256="4d977e9a2407c3c6e0f7d66259d880efed3b4eff8c3ffc44d0187227739f7821" data-title="交付状态" data-kicker="Delivery ledger">
+        <p class="evidence-document-summary">每项能力对应的交付证据、当前成熟度、未完成假设与已知限制。</p>
+        <nav class="evidence-document-toc" aria-label="交付状态目录"><ol><li data-level="2"><a href="#delivery-状态图例">状态图例</a></li><li data-level="2"><a href="#delivery-已完成-phase-0-控制面">已完成 — Phase 0 控制面</a></li><li data-level="2"><a href="#delivery-已验证-foundation-子切片">已验证 — Foundation 子切片</a></li><li data-level="2"><a href="#delivery-已验证-tiktok-真实体验重设计-demo">已验证 — TikTok 真实体验重设计 Demo</a></li><li data-level="2"><a href="#delivery-已验证-chat-first-轻量导购迭代">已验证 — Chat-first 轻量导购迭代</a></li><li data-level="2"><a href="#delivery-已交付-ai-导购产品案例页">已交付 — AI 导购产品案例页</a></li><li data-level="2"><a href="#delivery-next-phase-1-扩展-均未开始">Next — Phase 1 扩展（均未开始）</a></li><li data-level="2"><a href="#delivery-later">Later</a></li><li data-level="2"><a href="#delivery-definition-of-done">Definition of Done</a></li><li data-level="2"><a href="#delivery-证据地图">证据地图</a></li><li data-level="2"><a href="#delivery-更新规则">更新规则</a></li></ol></nav>
+        <article class="evidence-document-content"><h1 id="delivery-ai-shopping-agent-任务台">AI Shopping Agent 任务台</h1>
+<blockquote><p>当前阶段：Phase 1 — Chat-first 轻量 AI 导购工程切片已验证；Vibe Coding 作品集案例页已交付；真实 LLM / Hybrid / 数据扩展未完成<br /><br />最后更新：2026-08-11<br />本文件只反映可核验的真实状态；规划目标不等于已实现结果。</p></blockquote>
+<h2 id="delivery-状态图例">状态图例</h2>
+<ul><li>✅ <code>DONE</code>：工件存在且完成当前阶段要求，可通过对应路径核验</li><li>🚧 <code>IN PROGRESS</code>：正在产出，尚未满足出口条件</li><li>⏭️ <code>NEXT</code>：已定义且是下一批工作，但尚未开始</li><li>🧊 <code>LATER</code>：确认保留，当前阶段不实施</li><li>⛔ <code>BLOCKED</code>：存在明确外部依赖；必须同时写明解除条件</li></ul>
+<h2 id="delivery-已完成-phase-0-控制面">已完成 — Phase 0 控制面</h2>
+<div class="table-scroll"><table><thead><tr><th>状态</th><th>任务</th><th>完成定义</th><th>证据</th></tr></thead><tbody><tr><td>✅ DONE</td><td>锁定 MVP 产品范围</td><td>市场、品类、入口、用户、交易终点、非目标与搜索后续无歧义</td><td><a href="./README.md#mvp-定义">README — MVP 定义</a></td></tr><tr><td>✅ DONE</td><td>建立工程控制文档</td><td>README、总路线、任务台、项目 Agent 契约、gitignore 均存在且互相一致</td><td><a href="./README.md">README</a> · <a href="./PLAN.md">PLAN</a> · <a href="./TASKS.md">TASKS</a> · <a href="./AGENTS.md">AGENTS</a> · <a href="./.gitignore">.gitignore</a></td></tr><tr><td>✅ DONE</td><td>完成知识控制室与双向索引</td><td>产品、AI 方案、概念证据、评测和面试索引齐全；两层链接可达</td><td><a href="./../../AI产品经理/项目实战/AI导购Agent/00-项目总控.md">知识控制室</a></td></tr><tr><td>✅ DONE</td><td>完成首个实施级计划</td><td>文件、接口、测试、命令、预期结果和提交边界可逐项执行，无占位符</td><td><a href="./docs/superpowers/plans/2026-08-04-mvp-foundation.md">Foundation 实施计划</a></td></tr><tr><td>✅ DONE</td><td>初始化独立 Git 仓库</td><td>当前目录已具备独立 <code>.git</code>、<code>main</code> 分支和可核验的初始文档提交</td><td><code>.git/</code>、<code>git branch --show-current</code> 与 <code>git log --oneline</code></td></tr><tr><td>⏭️ NEXT</td><td>建立真实 Agent 编排 ADR / spike</td><td>自定义循环、OpenAI Agents SDK、LangGraph 使用同一最小场景与同一评分表</td><td>尚未开始；不能用当前确定性 Workflow 代替该证据</td></tr></tbody></table></div>
+<h2 id="delivery-已验证-foundation-子切片">已验证 — Foundation 子切片</h2>
+<p>以下条目只关闭有代码、自动化测试与发布证据支持的窄范围，不等于整个 Phase 1 完成。</p>
+<div class="table-scroll"><table><thead><tr><th>状态</th><th>工作包</th><th>必须产生的可验证证据</th></tr></thead><tbody><tr><td>✅ DONE</td><td>工程骨架与本地启动/测试链路</td><td><a href="./artifacts/evidence/foundation-verification.md">Foundation verification</a></td></tr><tr><td>✅ DONE</td><td>领域 schema 与小型 fixture baseline</td><td>3 SPU / 6 SKU、1 <code>ContentContext</code>、3 份证据；<a href="./data/fixtures">fixtures</a> 与 API/组件测试</td></tr><tr><td>✅ DONE</td><td>搜索扩展契约（只预留）</td><td><code>entry_point = content | search</code> 与保留错误 <code>SEARCH_EXECUTION_NOT_AVAILABLE</code>；不含搜索执行/UI</td></tr><tr><td>✅ DONE</td><td>确定性 Workflow 与白名单 Tools 基线</td><td>状态迁移、<code>retrieve_evidence</code> / <code>search_eligible_products</code> Tool trace、固定安全边界</td></tr><tr><td>✅ DONE</td><td>词法证据检索、硬过滤后排序与零候选</td><td><a href="./evals/cases/foundation-cases.jsonl">六案例规则评测</a>；Hybrid/Vector/Reranker 不在此完成项内</td></tr><tr><td>✅ DONE</td><td>内容电商移动端纵向切片</td><td><a href="./artifacts/screenshots/foundation-mobile.png">移动截图</a>；2 条旅程 × 2 个 Chromium viewport = 4/4</td></tr><tr><td>✅ DONE</td><td>SKU 预览、显式确认与模拟加购</td><td>价格/库存二次确认、单次 token、终态 decision receipt 与 API/UI/E2E 回归</td></tr><tr><td>✅ DONE</td><td>脱敏 Trace 与 Foundation eval</td><td><a href="./artifacts/traces/samples/foundation-golden.jsonl">1 条黄金 Trace，共 11 条脱敏事件记录</a>；6 个冻结案例规则评分 6/6</td></tr></tbody></table></div>
+<h2 id="delivery-已验证-tiktok-真实体验重设计-demo">已验证 — TikTok 真实体验重设计 Demo</h2>
+<div class="table-scroll"><table><thead><tr><th>状态</th><th>工作包</th><th>用户结果</th><th>已验证证据</th></tr></thead><tbody><tr><td>✅ DONE</td><td>中文 TikTok Shop-inspired Feed、AI Commerce Sheet、PDP 与模拟加购重设计</td><td>普通内容不出现商业/AI 入口；可购物内容可直接看商品或问 AI；AI 推荐可进入 PDP 并返回原决策；价格变化和未知提交均有可恢复闭环</td><td><a href="./docs/superpowers/plans/2026-08-05-tiktok-experience-redesign.md">实施计划</a> · <a href="./artifacts/evidence/tiktok-redesign-verification.md">重设计验证记录</a> · <a href="./apps/web/e2e/tiktok-demo.spec.ts">8 条 E2E</a> · <a href="./artifacts/screenshots/tiktok-redesign-mobile.png">移动截图</a> · <a href="./artifacts/screenshots/tiktok-redesign-desktop.png">桌面截图</a> · <a href="./artifacts/screenshots/tiktok-redesign-normal-feed.png">普通 Feed</a></td></tr></tbody></table></div>
+<p>本工作包是 Foundation 的高保真纠偏切片，不等于 Phase 2 完整 MVP。当前结论是“冻结合成 fixture 上已实现并在 production Chromium 验证”：8/8 必需旅程通过，production E2E 为 28 passed / 10 intentional skips / 0 failed，PDP focus 双 project 6/6，API 234、Web 193、Foundation eval pytest 14/14、规则 runner 6/6。搜索、LIVE、真实 LLM、Hybrid RAG、TikTok API、真实支付、店铺/客服/完整购物车页面仍不在当前范围；浏览器自动化也不是用户研究或业务效果。</p>
+<h2 id="delivery-已验证-chat-first-轻量导购迭代">已验证 — Chat-first 轻量导购迭代</h2>
+<div class="table-scroll"><table><thead><tr><th>状态</th><th>工作包</th><th>用户结果</th><th>已验证证据</th></tr></thead><tbody><tr><td>✅ DONE</td><td>把重型 AI 决策 Sheet 改为保留视频上下文的渐进式会话</td><td>点击“问问这款”后先看到约 40% 高度的轻量对话层；系统以一句商品相关开场、3 个具体问题和自由输入承接，每轮最多一个澄清问题；结论、商品、比较与依据按需出现；关闭重开和 PDP 往返从服务端恢复同一会话</td><td><a href="./docs/superpowers/specs/2026-08-10-chat-first-lightweight-guide-design.md">设计规格</a> · <a href="./docs/superpowers/plans/2026-08-10-chat-first-lightweight-guide.md">实施计划</a> · <a href="./artifacts/evidence/chat-first-verification.md">验证记录</a> · <a href="./artifacts/evidence/chat-first-run-manifest.json">machine manifest</a> · <a href="./apps/web/e2e/chat-first.spec.ts">Chat-first E2E</a> · <a href="./artifacts/screenshots/chat-first-opening-mobile.png">移动开场</a> · <a href="./artifacts/screenshots/chat-first-decision-mobile.png">移动结论</a> · <a href="./artifacts/screenshots/chat-first-desktop.png">桌面面试态</a></td></tr></tbody></table></div>
+<p>本切片在 source commit <code>659596537efe7bd7a879aeb3b49bee17b01f5e73</code> 的冻结合成 fixture 上验证：API 324、Web 281、Foundation eval pytest 15/15、规则 runner 6/6；普通 E2E 39 passed / 31 intentional routed skips / 0 failed，production capture 42 passed / 28 routed skips / 0 failed。Task 11 已关闭 Safety 输入框、legacy cart 旧授权、推荐授权 revision、结论先于卡片、中文适合点/取舍、重复原型披露与真实 200% Guide 字体问题。首轮全量 API 在 <code>0228819…</code> 因旧 trace 测试绕过 <code>GuideService</code>、没有保存当前 snapshot 而停于 323/1；测试改走真实公开编排后的第二轮完整 gate 才是最终证据，失败历史未被抹去。<code>NavigationState</code> / <code>GuideSession</code> / <code>CommerceOperation</code> 三控制面、硬约束先过滤、证据不足降级、安全退出、交易事实复核、显式确认和幂等对账均保留。真实 iOS 非零 safe-area、拖拽交互与开场留白仍未关闭；这里的 <code>DONE</code> 不代表真实 LLM、Hybrid RAG、持久化、用户研究或业务结果完成。</p>
+<h2 id="delivery-已交付-ai-导购产品案例页">已交付 — AI 导购产品案例页</h2>
+<div class="table-scroll"><table><thead><tr><th>状态</th><th>工作包</th><th>用户结果</th><th>已验证证据</th></tr></thead><tbody><tr><td>✅ DONE</td><td>交付 AI 导购产品案例页</td><td>读者可在一个响应式 HTML 页面中理解用户问题、产品定义、PRD、关键设计、原型评测与 Vibe Coding 构建方式，并可一键进入本地 Demo；页面明确区分工程回归与尚未开展的真人/业务验证</td><td><a href="./vibe-coding-case-study.html">AI 导购产品案例页</a> · <a href="./artifacts/evidence/chat-first-verification.md">Chat-first 验证记录</a></td></tr><tr><td>🚧 IN PROGRESS</td><td>为关键证据增加离线完整文档阅读器</td><td>读者点击证据卡后，可在带遮罩的居中 Document Reader Modal 中阅读完整富文本文件；直接双击 HTML 的 <code>file://</code> 场景同样可用</td><td><a href="./docs/superpowers/specs/2026-08-11-offline-evidence-document-reader-design.md">阅读器设计规格</a> · 待补：同步检查、file/http 浏览器验收</td></tr></tbody></table></div>
+<p>该完成项只代表静态案例页与本地演示入口已交付，不代表公网部署、讲解录屏、真实 LLM、用户研究或业务效果已经完成。</p>
+<h2 id="delivery-next-phase-1-扩展-均未开始">Next — Phase 1 扩展（均未开始）</h2>
+<div class="table-scroll"><table><thead><tr><th>状态</th><th>工作包</th><th>当前缺口 / 进入条件</th></tr></thead><tbody><tr><td>⏭️ NEXT</td><td>真实 LLM Shopping Agent 与生成式 Verifier</td><td>先做模型/编排 ADR，在同一回归上证明相对确定性基线的新增价值</td></tr><tr><td>⏭️ NEXT</td><td>扩展到约 12 SPU / 36 SKU 与 12 个 <code>ContentContext</code></td><td>当前仅 3 / 6 / 1；需补别名、缺失、冲突、过期与低置信样例</td></tr><tr><td>⏭️ NEXT</td><td>Hybrid Retrieval</td><td>BM25 + Vector + RRF、可选 Reranker、索引版本与 Recall/NDCG/引用消融</td></tr><tr><td>⏭️ NEXT</td><td>搜索 UI 与搜索执行</td><td>当前只保留请求契约和 501；需独立搜索任务与专项评测</td></tr><tr><td>⏭️ NEXT</td><td>实时/准实时多模态输入</td><td>当前 <code>ContentContext</code> 为离线 fixture，不含真实 ASR/OCR/视频模型调用</td></tr><tr><td>⏭️ NEXT</td><td>授权偏好 Memory</td><td>当前只有 session 状态；需查看/修改/删除与敏感信息禁止持久化</td></tr><tr><td>⏭️ NEXT</td><td>模型质量、延迟与成本基线</td><td>当前 <code>duration_ms</code> 只是本地 trace 字段；未测 Token、P50/P95、缓存或单位成本</td></tr><tr><td>⏭️ NEXT</td><td>场景化用户研究</td><td>浏览器自动化不是用户研究；需经单独批准的招募、任务、观察和结论</td></tr></tbody></table></div>
+<h2 id="delivery-later">Later</h2>
+<div class="table-scroll"><table><thead><tr><th>状态</th><th>阶段</th><th>范围</th></tr></thead><tbody><tr><td>🧊 LATER</td><td>Phase 2</td><td>约 60 SPU / 180 SKU、扩展场景、混合检索、长期授权偏好、高保真完整 MVP</td></tr><tr><td>🧊 LATER</td><td>Phase 3</td><td>编排、检索、模型路由和澄清策略的对照实验；坏例聚类与用户研究</td></tr><tr><td>🧊 LATER</td><td>Phase 4</td><td>公网演示、作品集叙事、演示录屏、架构与评测报告、面试证据包</td></tr><tr><td>🧊 LATER</td><td>Search expansion</td><td>自然语言探索式搜索、精确搜索分流、跨入口连续性和专项评测</td></tr><tr><td>🧊 LATER</td><td>Beyond MVP</td><td>图片 / 包装识别、完整护肤 routine、直播辅助和更多品类；每项需重新立项</td></tr></tbody></table></div>
+<h2 id="delivery-definition-of-done">Definition of Done</h2>
+<p>任何代码或产品能力只有同时满足以下条件，才可以在本任务台标记为 <code>DONE</code>：</p>
+<ol><li><strong>用户结果成立</strong>：完成定义描述的是用户可感知结果，而不是“写了一个函数”；</li><li><strong>实现可运行</strong>：相关代码、配置、schema 或页面确实存在，没有隐藏占位符；</li><li><strong>测试可复跑</strong>：包含正常路径、边界条件与关键失败路径，并记录实际通过的命令；</li><li><strong>事实可追溯</strong>：价格、库存、SKU、规则与证据能回到版本化来源；</li><li><strong>Agent 可审计</strong>：状态迁移、工具参数、候选排除、Verifier 和降级可以通过 trace 还原；</li><li><strong>产品文档同步</strong>：产品取舍、指标或能力边界变化已更新知识层或 ADR；</li><li><strong>结果不夸大</strong>：离线、合成、人工研究和线上指标被明确区分，规划门槛不写成实测结果；</li><li><strong>证据可点击</strong>：任务条目指向对应测试、报告、截图、trace 或提交，而不是只写“已完成”。</li></ol>
+<h2 id="delivery-证据地图">证据地图</h2>
+<div class="table-scroll"><table><thead><tr><th>要核验什么</th><th>当前权威入口</th><th>当前成熟度</th></tr></thead><tbody><tr><td>产品范围与对外说明</td><td><a href="./README.md">README.md</a></td><td>已设计</td></tr><tr><td>阶段与出口条件</td><td><a href="./PLAN.md">PLAN.md</a></td><td>已设计</td></tr><tr><td>当前执行状态</td><td><a href="./TASKS.md">TASKS.md</a></td><td>已建立，持续更新</td></tr><tr><td>产品判断与面试叙事</td><td><a href="./../../AI产品经理/项目实战/AI导购Agent/00-项目总控.md">知识控制室</a></td><td>已设计，持续更新</td></tr><tr><td>实施级代码 / 测试计划</td><td><a href="./docs/superpowers/plans/2026-08-04-mvp-foundation.md">Foundation 实施计划</a></td><td>Foundation 子切片已执行；后续阶段未执行</td></tr><tr><td>代码、schema、数据、trace</td><td><a href="./README.md">README</a> · <a href="./artifacts/traces/samples/foundation-golden.jsonl">脱敏 Trace</a></td><td>Foundation 子切片已评测</td></tr><tr><td>自动评测结果</td><td><a href="./artifacts/evidence/foundation-verification.md">Foundation verification</a> · <a href="./evals/cases/foundation-cases.jsonl">六案例</a></td><td>6 个确定性 fixture 案例已评测</td></tr><tr><td>TikTok 体验纠偏与三控制面</td><td><a href="./artifacts/evidence/tiktok-redesign-verification.md">重设计验证记录</a> · <a href="./apps/web/e2e/tiktok-demo.spec.ts">产品 E2E</a></td><td>8 条必需旅程在冻结合成 fixture 上已评测；真实 LLM / 用户价值未评测</td></tr><tr><td>Chat-first 轻量会话与渐进披露</td><td><a href="./artifacts/evidence/chat-first-verification.md">Chat-first 验证记录</a> · <a href="./artifacts/evidence/chat-first-run-manifest.json">machine manifest</a> · <a href="./apps/web/e2e/chat-first.spec.ts">Chat-first E2E</a></td><td>13 条会话/响应式契约与 8 条原交易旅程在本地 Chromium 通过；真人理解/转化/生产可靠性未评测</td></tr><tr><td>正式浏览器画面</td><td><a href="./artifacts/screenshots/chat-first-opening-mobile.png">Chat-first 移动开场</a> · <a href="./artifacts/screenshots/chat-first-decision-mobile.png">移动结论</a> · <a href="./artifacts/screenshots/chat-first-desktop.png">桌面面试态</a> · <a href="./artifacts/screenshots/tiktok-redesign-mobile.png">历史重设计 Feed</a></td><td>Production Chromium 已视觉检查；历史图片未覆盖；不是跨浏览器认证或真人研究</td></tr><tr><td>部署与用户研究</td><td>尚无</td><td>未开始</td></tr></tbody></table></div>
+<h2 id="delivery-更新规则">更新规则</h2>
+<ul><li>开始任务：把状态从 <code>NEXT</code> 改为 <code>IN PROGRESS</code>，补负责人 / 会话和预期证据；</li><li>完成任务：先运行验证，再补证据链接，最后改为 <code>DONE</code>；</li><li>发现坏例：先记录严重度、复现输入和归因，再决定进入当前修复或回归集；</li><li>变更范围：同步更新 <a href="./PLAN.md">PLAN.md</a> 和知识层决策记录，不在任务台偷偷改变产品目标；</li><li>阶段切换：检查该阶段全部出口条件，未满足的条目不能靠文字解释跳过。</li></ul></article>
+      </section>
+    </template>
+<!-- EVIDENCE_DOCUMENTS_END -->
         </div>
       </section>
 
@@ -2046,75 +3259,87 @@
 
         document.querySelectorAll("[data-reveal]").forEach((item) => revealObserver.observe(item));
 
-        const evidenceContent = {
-          overview: {
-            kicker: "Project overview",
-            title: "产品概览与边界",
-            copy: "这份概览集中说明产品面向谁、从哪里进入、完成什么任务，以及 AI 建议如何衔接到模拟交易。",
-            detail: "覆盖目标用户、内容入口、核心路径，以及 NavigationState、GuideSession、CommerceOperation 三个控制面的职责。",
-            source: "Key evidence · README"
-          },
-          interaction: {
-            kicker: "Interaction spec",
-            title: "Chat-first 交互规格",
-            copy: "导购默认保持轻量：先承接当前商品，再通过一个高信息量问题补齐约束，最后逐步展示结论、商品与比较。",
-            detail: "覆盖轻量开场、单问题澄清、先结论后商品，以及比较与依据按需展开的状态设计。",
-            source: "Key evidence · Product spec"
-          },
-          evaluation: {
-            kicker: "Evaluation",
-            title: "原型评测",
-            copy: "评测分别观察任务完整性、体验契约、系统边界和仍待真人验证的产品假设。",
-            detail: "包含 13 类 Chat-first 体验契约、8 条交易旅程，以及安全、幂等、焦点和响应式边界。",
-            source: "Key evidence · Verification report"
-          },
-          machine: {
-            kicker: "Machine evidence",
-            title: "运行证据",
-            copy: "运行记录把页面结论绑定到一个明确版本，避免把不同轮次的测试数字和截图混在一起。",
-            detail: "记录被测提交、测试数量、浏览器环境、输入数据哈希与正式截图哈希。",
-            source: "Key evidence · Run manifest"
-          },
-          roadmap: {
-            kicker: "Roadmap",
-            title: "阶段计划",
-            copy: "路线图把当前可运行原型与后续能力分开，说明哪些已经实现，哪些仍属于下一阶段。",
-            detail: "后续包括真实模型接入、Hybrid Retrieval、用户研究与公网演示。",
-            source: "Key evidence · Product plan"
-          },
-          delivery: {
-            kicker: "Delivery ledger",
-            title: "交付状态",
-            copy: "交付记录把每项能力与对应证据放在一起，同时保留尚未完成的假设和已知限制。",
-            detail: "用于区分已完成的原型能力、可复现证据，以及仍需进一步验证的内容。",
-            source: "Key evidence · Task ledger"
-          }
+        const evidenceSourcePaths = {
+          overview: "README.md",
+          interaction: "docs/superpowers/specs/2026-08-10-chat-first-lightweight-guide-design.md",
+          evaluation: "artifacts/evidence/chat-first-verification.md",
+          machine: "artifacts/evidence/chat-first-run-manifest.json",
+          roadmap: "PLAN.md",
+          delivery: "TASKS.md"
         };
 
         const evidenceCards = [...document.querySelectorAll(".evidence-card")];
         const evidenceModal = document.querySelector("#evidence-modal");
         const modalKicker = document.querySelector("#evidence-modal-kicker");
         const modalTitle = document.querySelector("#evidence-modal-title");
-        const modalCopy = document.querySelector("#evidence-modal-copy");
-        const modalDetail = document.querySelector("#evidence-modal-detail");
-        const modalSource = document.querySelector("#evidence-modal-source");
+        const readerSource = document.querySelector("#evidence-reader-source");
+        const readerHash = document.querySelector("#evidence-reader-hash");
+        const readerTocPanel = evidenceModal.querySelector(".evidence-reader-toc-panel");
+        const readerToc = document.querySelector("#evidence-reader-toc");
+        const readerBody = document.querySelector("#evidence-reader-body");
+        const readerContent = document.querySelector("#evidence-reader-content");
+        const readerMissing = evidenceModal.querySelector('[data-reader-state="missing"]');
         const modalClose = evidenceModal.querySelector(".evidence-modal-close");
         let activeEvidenceCard = null;
 
+        const showEvidenceDocument = (key) => {
+          const template = document.querySelector(`#evidence-document-${key}`);
+          const sourcePath = evidenceSourcePaths[key];
+          readerContent.replaceChildren();
+          readerToc.replaceChildren();
+          readerSource.href = sourcePath ? `./${sourcePath}` : "#";
+          readerSource.textContent = sourcePath ? `查看原始文件 · ${sourcePath}` : "查看原始文件";
+          readerSource.target = "_blank";
+          readerSource.rel = "noreferrer";
+
+          if (!template) {
+            modalKicker.textContent = "Key evidence";
+            modalTitle.textContent = "文档尚未同步";
+            readerHash.textContent = "SYNC STATUS · MISSING";
+            readerMissing.hidden = false;
+            return;
+          }
+
+          const embedded = template.content.querySelector(".embedded-evidence");
+          const embeddedToc = embedded.querySelector(".evidence-document-toc");
+          const summary = embedded.querySelector(".evidence-document-summary");
+          const article = embedded.querySelector(".evidence-document-content");
+          modalKicker.textContent = embedded.dataset.kicker;
+          modalTitle.textContent = embedded.dataset.title;
+          readerHash.textContent = `SHA-256 · ${embedded.dataset.sha256}`;
+          readerHash.title = embedded.dataset.sha256;
+          readerMissing.hidden = true;
+          readerToc.append(...[...embeddedToc.childNodes].map((node) => node.cloneNode(true)));
+          readerContent.append(summary.cloneNode(true), ...[...article.childNodes].map((node) => node.cloneNode(true)));
+        };
+
         evidenceCards.forEach((card) => {
           card.addEventListener("click", () => {
-            const content = evidenceContent[card.dataset.evidence];
-            if (!content) return;
             activeEvidenceCard?.classList.remove("is-active");
             activeEvidenceCard = card;
             card.classList.add("is-active");
-            modalKicker.textContent = content.kicker;
-            modalTitle.textContent = content.title;
-            modalCopy.textContent = content.copy;
-            modalDetail.textContent = content.detail;
-            modalSource.textContent = content.source;
+            showEvidenceDocument(card.dataset.evidence);
+            readerTocPanel.open = window.matchMedia("(min-width: 701px)").matches;
             evidenceModal.showModal();
+            document.documentElement.classList.add("has-evidence-modal");
+            readerBody.scrollTop = 0;
+            modalClose.focus();
           });
+        });
+
+        readerToc.addEventListener("click", (event) => {
+          const link = event.target.closest('a[href^="#"]');
+          if (!link) return;
+          const target = readerContent.querySelector(link.getAttribute("href"));
+          if (!target) return;
+          event.preventDefault();
+          target.scrollIntoView({
+            behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+            block: "start"
+          });
+          if (window.matchMedia("(max-width: 700px)").matches) readerTocPanel.open = false;
+          target.setAttribute("tabindex", "-1");
+          target.focus({ preventScroll: true });
         });
 
         modalClose.addEventListener("click", () => evidenceModal.close());
@@ -2122,6 +3347,7 @@
           if (event.target === evidenceModal) evidenceModal.close();
         });
         evidenceModal.addEventListener("close", () => {
+          document.documentElement.classList.remove("has-evidence-modal");
           activeEvidenceCard?.classList.remove("is-active");
           activeEvidenceCard?.focus();
         });

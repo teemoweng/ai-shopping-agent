@@ -161,3 +161,19 @@ test("check mode reports a stale page without mutating it", async () => {
 test("module URL is local and requires no remote runtime", () => {
   assert.equal(pathToFileURL(path.resolve(new URL("..", import.meta.url).pathname, "scripts/build-case-study-evidence.mjs")).protocol, "file:");
 });
+
+test("case-study page exposes the complete document-reader shell without runtime fetch", async () => {
+  const projectRoot = path.resolve(new URL("..", import.meta.url).pathname);
+  const page = await readFile(path.join(projectRoot, "vibe-coding-case-study.html"), "utf8");
+
+  assert.match(page, /<!-- EVIDENCE_DOCUMENTS_START -->/);
+  assert.match(page, /<!-- EVIDENCE_DOCUMENTS_END -->/);
+  assert.match(page, /class="evidence-reader-layout"/);
+  assert.match(page, /id="evidence-reader-toc"/);
+  assert.match(page, /id="evidence-reader-content"/);
+  assert.match(page, /id="evidence-reader-source"/);
+  assert.match(page, /id="evidence-reader-hash"/);
+  assert.match(page, /data-reader-state="missing"/);
+  assert.equal((page.match(/<template id="evidence-document-/g) ?? []).length, 6);
+  assert.doesNotMatch(page, /\bfetch\s*\(/);
+});

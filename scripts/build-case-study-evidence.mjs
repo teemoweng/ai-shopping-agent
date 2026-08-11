@@ -210,10 +210,10 @@ export function renderMarkdown(markdown, context) {
       if (callout) {
         quote.shift();
         html.push(
-          `<aside class="markdown-callout" data-kind="${escapeHtml(callout[1].toLowerCase())}"><strong>${escapeHtml(callout[2] || callout[1])}</strong>${quote.length ? `<p>${renderInline(quote.join("<br />"), context)}</p>` : ""}</aside>`,
+          `<aside class="markdown-callout" data-kind="${escapeHtml(callout[1].toLowerCase())}"><strong>${escapeHtml(callout[2] || callout[1])}</strong>${quote.length ? `<p>${quote.map((item) => renderInline(item, context)).join("<br />")}</p>` : ""}</aside>`,
         );
       } else {
-        html.push(`<blockquote><p>${renderInline(quote.join("<br />"), context)}</p></blockquote>`);
+        html.push(`<blockquote><p>${quote.map((item) => renderInline(item, context)).join("<br />")}</p></blockquote>`);
       }
       continue;
     }
