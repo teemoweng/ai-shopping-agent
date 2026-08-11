@@ -190,7 +190,7 @@ pnpm test:case-study-evidence
 pnpm verify:case-study-evidence
 ```
 
-最后一条命令会同时验证直接 `file://` 打开与临时 HTTP 服务下的 6/6 全文阅读，并覆盖 1440×1000、390×844、320×700 三种视口。详细结果见 [案例页证据阅读器验证记录](./artifacts/evidence/case-study-evidence-reader-verification.md)。
+最后一条命令会同时验证直接 `file://` 打开与临时 HTTP 服务下的 6/6 全文阅读，并覆盖 1440×1000、390×844、320×700 三种视口，但不会改写已提交截图；需要更新正式截图时使用 `pnpm capture:case-study-evidence`。详细结果见 [案例页证据阅读器验证记录](./artifacts/evidence/case-study-evidence-reader-verification.md)。
 
 ```bash
 pnpm install --frozen-lockfile

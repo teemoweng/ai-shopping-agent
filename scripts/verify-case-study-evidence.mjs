@@ -12,6 +12,7 @@ const projectRoot = path.resolve(path.dirname(scriptPath), "..");
 const pagePath = path.join(projectRoot, "vibe-coding-case-study.html");
 const requireFromWeb = createRequire(path.join(projectRoot, "apps/web/package.json"));
 const { chromium } = requireFromWeb("@playwright/test");
+const updateScreenshots = process.argv.includes("--update-screenshots");
 
 const contentTypes = new Map([
   [".html", "text/html; charset=utf-8"],
@@ -139,10 +140,45 @@ async function verifyTocAndBackdrop(page, mode) {
   await page.locator("#evidence-modal").waitFor({ state: "hidden" });
 }
 
-async function verifyResponsiveReader(page, viewport, screenshotName) {
+async function prepareVisualPage(page, viewport, key) {
   await page.setViewportSize(viewport);
   await page.reload({ waitUntil: "load" });
-  await openEvidence(page, "machine");
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    const images = [...document.images];
+    images.forEach((image) => {
+      image.loading = "eager";
+    });
+    await Promise.all(
+      images.map(async (image) => {
+        if (!image.complete) {
+          await new Promise((resolve) => {
+            image.addEventListener("load", resolve, { once: true });
+            image.addEventListener("error", resolve, { once: true });
+          });
+        }
+        await image.decode().catch(() => undefined);
+      }),
+    );
+  });
+  await page.addStyleTag({
+    content:
+      "*, *::before, *::after { animation: none !important; transition: none !important; caret-color: transparent !important; } [data-reveal] { opacity: 1 !important; transform: none !important; }",
+  });
+  await page.locator(`.evidence-card[data-evidence="${key}"]`).evaluate((element) => {
+    element.scrollIntoView({ block: "center", inline: "center", behavior: "instant" });
+  });
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await openEvidence(page, key);
+}
+
+async function captureScreenshot(page, outputPath) {
+  await page.screenshot({ path: updateScreenshots ? outputPath : undefined, fullPage: false });
+}
+
+async function verifyResponsiveReader(page, viewport, screenshotName) {
+  const prepare = () => prepareVisualPage(page, viewport, "machine");
+  await prepare();
   const geometry = await page.evaluate(() => {
     const modal = document.querySelector("#evidence-modal").getBoundingClientRect();
     const close = document.querySelector(".evidence-modal-close").getBoundingClientRect();
@@ -163,14 +199,14 @@ async function verifyResponsiveReader(page, viewport, screenshotName) {
   assert.equal(geometry.tocSummaryVisible, true, `${screenshotName}: mobile TOC summary`);
   assert.equal(geometry.columns.split(" ").length, 1, `${screenshotName}: expected one-column reader`);
   await expectNoPageOverflow(page, screenshotName);
-  await page.screenshot({ path: path.join(projectRoot, "artifacts/screenshots", screenshotName), fullPage: false });
+  await captureScreenshot(page, path.join(projectRoot, "artifacts/screenshots", screenshotName));
   await page.keyboard.press("Escape");
 }
 
 async function verifyDesktopReader(page) {
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.reload({ waitUntil: "load" });
-  await openEvidence(page, "evaluation");
+  const viewport = { width: 1440, height: 1000 };
+  const prepare = () => prepareVisualPage(page, viewport, "evaluation");
+  await prepare();
   const geometry = await page.evaluate(() => {
     const modal = document.querySelector("#evidence-modal").getBoundingClientRect();
     const layout = getComputedStyle(document.querySelector(".evidence-reader-layout"));
@@ -187,10 +223,7 @@ async function verifyDesktopReader(page) {
   assert.ok(geometry.columns.split(" ").length >= 2, "desktop: TOC and article columns");
   assert.equal(geometry.bodyScrollable, true, "desktop: complete document should scroll");
   await expectNoPageOverflow(page, "desktop");
-  await page.screenshot({
-    path: path.join(projectRoot, "artifacts/screenshots/case-study-evidence-desktop.png"),
-    fullPage: false,
-  });
+  await captureScreenshot(page, path.join(projectRoot, "artifacts/screenshots/case-study-evidence-desktop.png"));
   await page.keyboard.press("Escape");
 }
 
@@ -219,7 +252,9 @@ async function run() {
     await browser.close();
     await staticServer.close();
   }
-  console.log("Case-study evidence reader verified: file + HTTP, 6/6 documents, desktop + 2 mobile viewports.");
+  console.log(
+    `Case-study evidence reader verified: file + HTTP, 6/6 documents, desktop + 2 mobile viewports${updateScreenshots ? "; screenshots updated" : "; screenshots unchanged"}.`,
+  );
 }
 
 await run();

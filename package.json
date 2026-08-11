@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "build:case-study-evidence": "node scripts/build-case-study-evidence.mjs",
+    "capture:case-study-evidence": "node scripts/verify-case-study-evidence.mjs --update-screenshots",
     "check:layout": "node scripts/verify-foundation.mjs",
     "check:case-study-evidence": "node scripts/build-case-study-evidence.mjs --check",
     "dev:web": "pnpm --dir apps/web dev",

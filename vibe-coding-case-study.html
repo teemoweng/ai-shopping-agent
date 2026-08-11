@@ -2428,7 +2428,7 @@
 
           <!-- EVIDENCE_DOCUMENTS_START -->
     <template id="evidence-document-overview">
-      <section class="embedded-evidence" data-evidence-key="overview" data-source="README.md" data-sha256="84ef332cea6a1ef7d5dd98f5e9a1d1faf13f337fa8ba8d48cd6dc59d4e2f1161" data-title="产品概览与边界" data-kicker="Project overview">
+      <section class="embedded-evidence" data-evidence-key="overview" data-source="README.md" data-sha256="fb5fcd1b3cdc71bdac3bd8233dcfa8f9eef0958a0b3dec0597d555ce2b84233e" data-title="产品概览与边界" data-kicker="Project overview">
         <p class="evidence-document-summary">产品面向谁、从哪里进入、完成什么任务，以及 AI 建议如何衔接到模拟交易。</p>
         <nav class="evidence-document-toc" aria-label="产品概览与边界目录"><ol><li data-level="2"><a href="#overview-为什么做这个产品">为什么做这个产品</a></li><li data-level="2"><a href="#overview-mvp-定义">MVP 定义</a></li><li data-level="2"><a href="#overview-体验主路径">体验主路径</a></li><li data-level="2"><a href="#overview-产品架构与真实能力边界">产品架构与真实能力边界</a></li><li data-level="2"><a href="#overview-数据与评测承诺">数据与评测承诺</a></li><li data-level="2"><a href="#overview-foundation-证据快照">Foundation 证据快照</a></li><li data-level="2"><a href="#overview-tiktok-重设计证据快照">TikTok 重设计证据快照</a></li><li data-level="2"><a href="#overview-chat-first-轻量导购证据快照">Chat-first 轻量导购证据快照</a></li><li data-level="2"><a href="#overview-本地安装-启动与验证">本地安装、启动与验证</a></li><li data-level="2"><a href="#overview-当前状态">当前状态</a></li><li data-level="2"><a href="#overview-双层项目索引">双层项目索引</a></li><li data-level="2"><a href="#overview-文档入口">文档入口</a></li></ol></nav>
         <article class="evidence-document-content"><h1 id="overview-ai-shopping-agent-us-k-beauty-sunscreen-guide">AI Shopping Agent — US K-Beauty Sunscreen Guide</h1>
@@ -2509,7 +2509,7 @@
 pnpm check:case-study-evidence
 pnpm test:case-study-evidence
 pnpm verify:case-study-evidence</code></pre>
-<p>最后一条命令会同时验证直接 <code>file://</code> 打开与临时 HTTP 服务下的 6/6 全文阅读，并覆盖 1440×1000、390×844、320×700 三种视口。详细结果见 <a href="./artifacts/evidence/case-study-evidence-reader-verification.md">案例页证据阅读器验证记录</a>。</p>
+<p>最后一条命令会同时验证直接 <code>file://</code> 打开与临时 HTTP 服务下的 6/6 全文阅读，并覆盖 1440×1000、390×844、320×700 三种视口，但不会改写已提交截图；需要更新正式截图时使用 <code>pnpm capture:case-study-evidence</code>。详细结果见 <a href="./artifacts/evidence/case-study-evidence-reader-verification.md">案例页证据阅读器验证记录</a>。</p>
 <pre><code class="language-bash">pnpm install --frozen-lockfile
 uv --directory apps/api sync --frozen
 pnpm --dir apps/web exec playwright install chromium</code></pre>
