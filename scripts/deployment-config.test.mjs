@@ -16,8 +16,13 @@ test("Vercel builds the monorepo Web app from the repository root", async () => 
 
 test("Vercel can discover the FastAPI app from the API project root", async () => {
   const pyproject = await readFile(path.join(projectRoot, "apps/api/pyproject.toml"), "utf8");
+  const config = JSON.parse(await readFile(path.join(projectRoot, "apps/api/vercel.json"), "utf8"));
   assert.match(pyproject, /\[tool\.vercel\]/);
   assert.match(pyproject, /^entrypoint\s*=\s*"app\.main:app"$/m);
+  assert.equal(config.$schema, "https://openapi.vercel.sh/vercel.json");
+  assert.equal(config.framework, "fastapi");
+  assert.equal(Object.hasOwn(config, "installCommand"), false);
+  assert.equal(Object.hasOwn(config, "buildCommand"), false);
 });
 
 test("the environment example contains only public configuration placeholders", async () => {
