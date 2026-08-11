@@ -6,7 +6,7 @@
 > 当前仓库已交付一个可运行的 **Chat-first 轻量导购 Demo**：可购物 Feed 的“问问这款”先打开保留视频上下文的约 40% 高度会话层，以一条商品相关开场、3 个具体问题和自由输入承接；短答、单一澄清、首选商品、比较、依据和交易动作按需渐进出现。会话恢复、双 revision、消息/比较幂等、安全退出、独立 PDP、事实复核、显式确认和模拟加购均已在本地生产构建的 Chromium 中验证。它仍是小型合成 fixture 上的确定性原型，不是 TikTok 官方产品，也没有接入真实 LLM、Hybrid RAG、真实用户、支付或业务流量。
 
 > [!TIP]
-> 产品概览优先从 [AI 导购产品案例页](./vibe-coding-case-study.html) 开始。它从用户问题出发，串起产品定义、PRD、Chat-first 设计、原型评测与 Vibe Coding 构建方式，并提供本地 Demo 一键入口；工程事实与边界仍以本 README 和验证报告为准。
+> 产品概览优先从 [AI 导购产品案例页](./vibe-coding-case-study.html) 开始。它从用户问题出发，串起产品定义、PRD、Chat-first 设计、原型评测与 Vibe Coding 构建方式，并提供本地 Demo 一键入口；“关键证据”可在页面内阅读六份完整富文本文件，直接双击 HTML 的 `file://` 场景也可用。工程事实与边界仍以本 README 和验证报告为准。
 
 > [!NOTE] Foundation 历史基线不被重设计覆盖
 > 2026-08-05 的冻结基线仍独立保留：source commit `cd18147f7eb1e309aa6043a1262a28f0c4349b4d`，3 SPU / 6 SKU、1 个 `ContentContext`、3 份证据、6 个规则案例 6/6、119 个 API 测试、68 个 Web 测试、2 条旅程 × 2 个 Chromium viewport = 4/4、1 条 Trace / 11 条脱敏事件。其固定 SKU 价格为 `$14/$19`、`$17/$24`、`$16/$22`，历史截图与 manifest 均未被当前正式截图替换。该基线是 deterministic workflow + lexical retrieval，不含真实 LLM、Hybrid RAG、用户研究或业务结果。
@@ -180,6 +180,17 @@ flowchart TB
 ## 本地安装、启动与验证
 
 要求：Node.js、pnpm 11、Python 3.12+、uv，以及 Playwright Chromium。以下命令已在 Node.js 24.14.0、pnpm 11.20.0、Python 3.14.5、uv 0.11.14、Playwright 1.62.1 与 Chromium 151.0.7922.34 的本地 Chat-first release gate 实际运行；这些是本次验证环境，不代表全部可兼容版本。
+
+案例页本身是单文件 HTML，不需要启动 API 或 Web。证据阅读版由六份权威源文件确定性生成；修改这些文件后，先同步并检查：
+
+```bash
+pnpm build:case-study-evidence
+pnpm check:case-study-evidence
+pnpm test:case-study-evidence
+pnpm verify:case-study-evidence
+```
+
+最后一条命令会同时验证直接 `file://` 打开与临时 HTTP 服务下的 6/6 全文阅读，并覆盖 1440×1000、390×844、320×700 三种视口。详细结果见 [案例页证据阅读器验证记录](./artifacts/evidence/case-study-evidence-reader-verification.md)。
 
 ```bash
 pnpm install --frozen-lockfile

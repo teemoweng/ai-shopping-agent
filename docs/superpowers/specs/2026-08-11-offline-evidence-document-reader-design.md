@@ -136,3 +136,13 @@ Manifest JSON 使用结构化阅读视图展示全部字段，并保留可展开
 ## 9. 交付边界
 
 本次只改产品案例页的证据阅读体验及其生成、检查工具，不修改 AI 导购 Demo、API、评测结果或源证据内容。
+
+## 10. 实施状态
+
+本设计已于 2026-08-11 实施完成：
+
+- 六份权威源文件已预渲染进案例页，运行时不使用 `fetch()`、CDN 或远程 Markdown 服务；
+- `pnpm build:case-study-evidence` 只更新标记内的 Evidence Templates，`pnpm check:case-study-evidence` 校验源文件哈希与嵌入内容；
+- Node 单元测试覆盖受控 Markdown / JSON、转义、链接重写、完整内容与漂移检测；
+- Playwright 已在 `file://` 和临时 HTTP 两种入口验证 6/6 全文，以及桌面、390×844、320×700 三种阅读布局；
+- 最终命令、截图哈希和限制见 [案例页证据阅读器验证记录](../../../artifacts/evidence/case-study-evidence-reader-verification.md)。
