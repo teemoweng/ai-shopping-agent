@@ -3,16 +3,6 @@
   "source": "vibe-coding-case-study.html",
   "files": [
     {
-      "path": ".gitignore",
-      "bytes": 1573,
-      "sha256": "add5fcf24e5270415e086c91562c5e4e7720191a4444e2c5a9bcd4e24cdf451e"
-    },
-    {
-      "path": "AGENTS.md",
-      "bytes": 7771,
-      "sha256": "cae53757c5eda7527ff357cad7e8a097dd32e06bd52f6b81590851877ec27014"
-    },
-    {
       "path": "apps/web/e2e/chat-first.spec.ts",
       "bytes": 27539,
       "sha256": "a3b2c6a481e886a37d259c33c662bdfbd498b5640bb5e8773be52ad0545a6ce9"
@@ -179,8 +169,8 @@
     },
     {
       "path": "vibe-coding-case-study.html",
-      "bytes": 277206,
-      "sha256": "4812a349d0bc1acbf099474a87e8c1a98564171adb3f9cd64f88e72019f71699"
+      "bytes": 277466,
+      "sha256": "ac5e9e3200a3ce4104a3b90bde6b7fabcb67d8d2d0eb55c41b61c4c149e384ce"
     }
   ]
 }

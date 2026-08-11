@@ -28,6 +28,7 @@ test("publishes the case study with protocol-aware Demo links", async () => {
   assert.doesNotMatch(output, /href="http:\/\/127\.0\.0\.1:3000"/);
   assert.doesNotMatch(output, /href="\.\/\.\.\/\.\.\/AI产品经理\//);
   assert.doesNotMatch(output, /href="\.\/\.env/);
+  assert.doesNotMatch(output, /href="\.\/(?:AGENTS\.md|\.gitignore)"/);
 });
 
 test("builds a deterministic public bundle with complete local references", async () => {

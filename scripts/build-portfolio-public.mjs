@@ -39,6 +39,14 @@ export function renderPublicCaseStudy(source) {
       'href="./.env.example"',
       'href="#artifacts" data-config-reference="true" title="环境变量示例请在公开源码仓库查看"',
     )
+    .replaceAll(
+      'href="./AGENTS.md"',
+      'href="#artifacts" data-repository-reference="true" title="工程协作规则请在公开源码仓库查看"',
+    )
+    .replaceAll(
+      'href="./.gitignore"',
+      'href="#artifacts" data-repository-reference="true" title="仓库配置请在公开源码仓库查看"',
+    )
     .replace(
       /href="\.\/\.\.\/\.\.\/AI产品经理\/[^"]+"/gu,
       'href="#artifacts" data-local-knowledge-reference="true" title="本地知识库引用未公开"',
